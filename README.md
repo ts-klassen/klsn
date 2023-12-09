@@ -3,6 +3,13 @@ klsn
 
 An OTP library
 
+Erlang library for ts-klassen projects.
+
+Used by
+- [ts-klassen/jobpq](https://github.com/ts-klassen/jobpq) job priority queue
+- [ts-klassen/ghwhk](https://github.com/ts-klassen/ghwhk) Github app webhook for erlang
+- [ts-klassen/gpte](https://github.com/ts-klassen/gpte) Openai ChatGPT for Erlang
+
 Build
 -----
 
