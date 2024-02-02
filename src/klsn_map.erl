@@ -2,6 +2,8 @@
 
 -export([
         lookup/2
+      , get/2
+      , get/3
       , upsert/3
     ]).
 
@@ -10,6 +12,20 @@
     ]).
 
 -type key() :: [term()].
+
+
+-spec get(key(), map()) -> term().
+get(Key, Map) ->
+    case lookup(Key, Map) of
+        {value, Value} ->
+            Value;
+        none ->
+            erlang:error(not_found, [Key, Map])
+    end.
+
+-spec get(key(), map(), term()) -> term().
+get(Key, Map, Default) ->
+    klsn_maybe:get_value(lookup(Key, Map), Default).
 
 -spec lookup(key(), map()) -> klsn:maybe(term()).
 lookup([], Value) ->
