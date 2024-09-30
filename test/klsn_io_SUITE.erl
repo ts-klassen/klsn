@@ -2,14 +2,14 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Export the suite callback and test cases
--export([all/0,
+-export([suite/0,
          test_format_1/1,
          test_format_2/1,
          test_get_line_0/1,
          test_get_line_1/1]).
 
-%% Define the test suite with all/0
-all() ->
+%% Define the test suite with suite/0
+suite() ->
     [
         {setup, setup_io, teardown_io},
         test_format_1,
@@ -18,30 +18,37 @@ all() ->
         test_get_line_1
     ].
 
-%% Setup function to spawn the IO server
+%% Setup function to spawn the IO server and set group leader
 setup_io(_) ->
     %% Spawn a new process to act as the IO server
     Pid = spawn(fun io_server/0),
-    %% Return the PID in the state map
-    {ok, #{io_pid => Pid}}.
+    %% Get current group leader
+    OldGL = erlang:group_leader(),
+    %% Set the group leader to the IO server
+    erlang:group_leader(Pid, self()),
+    %% Return the IO server PID and old group leader in the state map
+    {ok, #{io_pid => Pid, old_gl => OldGL}}.
 
-%% Teardown function to terminate the IO server
+%% Teardown function to restore group leader and stop IO server
 teardown_io(State) ->
-    %% Extract the IO server PID from the state map
+    %% Restore the old group leader
+    OldGL = maps:get(old_gl, State),
+    erlang:group_leader(OldGL, self()),
+    %% Send stop message to IO server
     Pid = maps:get(io_pid, State),
-    %% Send a stop message to terminate the IO server
     Pid ! stop,
-    %% No need to close Device as it's not used separately
+    %% Allow some time for the process to terminate gracefully
+    timer:sleep(100),
     ok.
 
 %% IO server process to capture and relay output
 io_server() ->
     receive
-        {io_request, From, Ref, {put_chars, Device, Chars}} ->
+        {io_request, From, Ref, {put_chars, _Device, Chars}} ->
             %% Send the received characters back to the test process
             From ! {io_reply, Ref, Chars},
             io_server();
-        {io_request, From, Ref, {get_line, Prompt}} ->
+        {io_request, From, Ref, {get_line, _Prompt}} ->
             %% Simulate user input by sending a predefined response
             From ! {io_reply, Ref, "Simulated input\n"},
             io_server();
