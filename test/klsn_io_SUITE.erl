@@ -17,23 +17,20 @@ suite() ->
      test_get_line_0,
      test_get_line_1].
 
-%% Setup function to configure a dedicated IO device for testing
+%% Setup function to configure a dedicated IO process for testing
 setup_io(_) ->
-    %% Create a new IO device using a spawned process
+    %% Spawn a new process to act as the IO server
     Pid = spawn(fun io_server/0),
-    %% Redirect the device to the spawned process
-    Device = io:format("~p~n", [self()]),
-    io:setopts(Device, [{redirect, Pid}, {encoding, utf8}, {binary, true}]),
-    {ok, #{device => Device, pid => Pid}}.
+    %% Return the PID in the state map
+    {ok, #{io_pid => Pid}}.
 
-%% Teardown function to clean up the IO device after tests
+%% Teardown function to clean up the IO process after tests
 teardown_io(State) ->
-    %% Send a stop message to the IO server process
-    State#{
-        pid := Pid} ! stop,
-    %% Close the redirected IO device
-    io:close(State#{
-        device := Device}),
+    %% Extract the IO server PID from the state map
+    Pid = maps:get(io_pid, State),
+    %% Send a stop message to terminate the IO server
+    Pid ! stop,
+    %% Allow some time for the process to terminate gracefully
     ok.
 
 %% IO server process to capture and relay output
@@ -49,6 +46,7 @@ io_server() ->
             From ! {io_reply, Ref, "Simulated input\n"},
             io_server();
         stop ->
+            %% Terminate the IO server gracefully
             ok
     after 5000 ->
             ok
@@ -62,7 +60,7 @@ test_format_1(_Context) ->
     klsn_io:format(Format),
     %% Receive the output from the IO server
     receive
-        Output when Output =:= Format ->
+        Output when Output =:= <<"Hello, Common Test!\n">> ->
             ok;
         _ ->
             ct:fail("format/1 did not output the expected string")
@@ -76,7 +74,7 @@ test_format_2(_Context) ->
     Format = "Number: ~p, String: ~s~n",
     Data = [42, "Erlang"],
     %% Expected output after formatting
-    ExpectedOutput = "Number: 42, String: Erlang\n",
+    ExpectedOutput = <<"Number: 42, String: Erlang\n">>,
     %% Call the format/2 function
     klsn_io:format(Format, Data),
     %% Receive the output from the IO server
@@ -94,7 +92,7 @@ test_get_line_0(_Context) ->
     %% Call the get_line/0 function
     Line = klsn_io:get_line(),
     %% Define the expected simulated input
-    ExpectedLine = "Simulated input\n",
+    ExpectedLine = <<"Simulated input\n">>,
     %% Verify the retrieved line using pattern matching
     case Line of
         ExpectedLine ->
@@ -106,11 +104,11 @@ test_get_line_0(_Context) ->
 %% Test case for get_line/1
 test_get_line_1(_Context) ->
     %% Define the prompt
-    Prompt = "Enter something: ",
+    Prompt = <<"Enter something: ">>,
     %% Call the get_line/1 function with the prompt
     Line = klsn_io:get_line(Prompt),
     %% Define the expected simulated input
-    ExpectedLine = "Simulated input\n",
+    ExpectedLine = <<"Simulated input\n">>,
     %% Verify the retrieved line using pattern matching
     case Line of
         ExpectedLine ->
