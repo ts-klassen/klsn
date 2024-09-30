@@ -28,12 +28,13 @@ setup_io(_) ->
 
 %% Teardown function to clean up the IO device after tests
 teardown_io(State) ->
-    %% Close the IO device
+    %% Send a stop message to the IO server process
+    State#{
+        pid := Pid} ! stop,
+    %% Close the redirected IO device
     io:close(State#{
-        device => Device}),
-    %% Terminate the spawned IO server process
-    exit(State#{
-        pid => Pid}, normal).
+        device := Device}),
+    ok.
 
 %% IO server process to capture and relay output
 io_server() ->
@@ -96,7 +97,7 @@ test_get_line_0(_Context) ->
     ExpectedLine = "Simulated input\n",
     %% Verify the retrieved line using pattern matching
     case Line of
-        ^ExpectedLine ->
+        ExpectedLine ->
             ok;
         _ ->
             ct:fail("get_line/0 did not return the expected input")
@@ -112,7 +113,7 @@ test_get_line_1(_Context) ->
     ExpectedLine = "Simulated input\n",
     %% Verify the retrieved line using pattern matching
     case Line of
-        ^ExpectedLine ->
+        ExpectedLine ->
             ok;
         _ ->
             ct:fail("get_line/1 did not return the expected input")
