@@ -19,7 +19,13 @@ lookup_test() ->
     ?assertEqual(none, klsn_map:lookup([e], Map)),
 
     %% Test with a nested non-existing key
-    ?assertEqual(none, klsn_map:lookup([c, e], ComplexMap)).
+    ?assertEqual(none, klsn_map:lookup([c, e], ComplexMap)),
+
+    %% Test lookup with a non-map value (should return none)
+    ?assertEqual(none, klsn_map:lookup([a], not_a_map)),
+
+    %% Test lookup with a nested key leading to a non-map value (should return none)
+    ?assertEqual(none, klsn_map:lookup([a, b], #{a => not_a_map})).
 
 %% Tests for get/2
 get_2_test() ->
