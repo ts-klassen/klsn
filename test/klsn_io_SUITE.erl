@@ -2,14 +2,14 @@
 -include_lib("common_test/include/ct.hrl").
 
 %% Export the suite callback and test cases
--export([suite/0,
+-export([all/0,
          test_format_1/1,
          test_format_2/1,
          test_get_line_0/1,
          test_get_line_1/1]).
 
-%% Define the test suite with suite/0
-suite() ->
+%% Define the test suite with all/0
+all() ->
     [
         {setup, setup_io, teardown_io},
         test_format_1,
