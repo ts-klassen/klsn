@@ -13,7 +13,7 @@ lookup_test() ->
     %% Test with a nested key
     NestedMap = #{c => #{d => 4}},
     ComplexMap = #{a => 1, b => 2, c => NestedMap},
-    ?assertEqual({value, 4}, klsn_map:lookup([c, c, d], ComplexMap)),
+    ?assertEqual({value, 4}, klsn_map:lookup([c, d], ComplexMap)),
 
     %% Test with a non-existing key
     ?assertEqual(none, klsn_map:lookup([e], Map)),
@@ -31,7 +31,7 @@ get_2_test() ->
     %% Test retrieving a nested existing key
     NestedMap = #{c => #{d => 4}},
     ComplexMap = #{a => 1, b => 2, c => NestedMap},
-    ?assertEqual(4, klsn_map:get([c, c, d], ComplexMap)),
+    ?assertEqual(4, klsn_map:get([c, d], ComplexMap)),
 
     %% Test retrieving a non-existing key should raise a not_found error
     ?assertError(not_found, klsn_map:get([e], Map)),
@@ -49,7 +49,7 @@ get_3_test() ->
     %% Test retrieving a nested existing key
     NestedMap = #{c => #{d => 4}},
     ComplexMap = #{a => 1, b => 2, c => NestedMap},
-    ?assertEqual(4, klsn_map:get([c, c, d], ComplexMap, 0)),
+    ?assertEqual(4, klsn_map:get([c, d], ComplexMap, 0)),
 
     %% Test retrieving a non-existing key returns the default value
     ?assertEqual(0, klsn_map:get([e], Map, 0)),
