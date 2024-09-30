@@ -86,4 +86,10 @@ upsert_test() ->
 
     %% Test upserting with an empty key should replace the entire map
     UpdatedMap5 = klsn_map:upsert([], #{x => 100}, UpdatedMap4),
-    ?assertEqual(#{x => 100}, UpdatedMap5).
+    ?assertEqual(#{x => 100}, UpdatedMap5),
+
+    %% Test upserting with a non-map as the base map (should handle gracefully)
+    ?assertError(badarg, klsn_map:upsert([a], 100, not_a_map)),
+
+    %% Test upserting with a nested key leading to a non-map value (should handle gracefully)
+    ?assertError(badarg, klsn_map:upsert([a, b], 100, #{a => not_a_map})).
