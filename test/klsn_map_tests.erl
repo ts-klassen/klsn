@@ -89,7 +89,7 @@ upsert_test() ->
     ?assertEqual(#{x => 100}, UpdatedMap5),
 
     %% Test upserting with a non-map as the base map (should handle gracefully)
-    ?assertError(badarg, klsn_map:upsert([a], 100, not_a_map)),
+    ?assertError({badmap,not_a_map}, klsn_map:upsert([a], 100, not_a_map)),
 
     %% Test upserting with a nested key leading to a non-map value (should handle gracefully)
-    ?assertError(badarg, klsn_map:upsert([a, b], 100, #{a => not_a_map})).
+    ?assertError({badmap,not_a_map}, klsn_map:upsert([a, b], 100, #{a => not_a_map})).
