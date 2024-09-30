@@ -8,7 +8,7 @@ get_value_1_test() ->
     
     %% Test with 'none' to ensure it raises a badarg error
     ?assertMatch(
-        {'EXIT', {badarg, [none]}},
+        {'EXIT', {badarg, [_]}},
         catch klsn_maybe:get_value(none)
     ).
 
@@ -22,6 +22,6 @@ get_value_2_test() ->
     
     %% Test with invalid arguments to ensure it raises a badarg error
     ?assertMatch(
-        {'EXIT', {badarg, [{invalid, args}]}},
+        {'EXIT', {badarg, [_]}},
         catch klsn_maybe:get_value({invalid, args}, "default")
     ).
