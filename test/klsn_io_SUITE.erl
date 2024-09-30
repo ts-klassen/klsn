@@ -29,12 +29,12 @@ setup_io(_) ->
     %% Return the IO server PID and old group leader in the state map
     {ok, #{io_pid => Pid, old_gl => OldGL}}.
 
-%% Teardown function to restore group leader and stop IO server
+%% Teardown function to restore group leader and stop the IO server
 teardown_io(State) ->
     %% Restore the old group leader
     OldGL = maps:get(old_gl, State),
     erlang:group_leader(OldGL, self()),
-    %% Send stop message to IO server
+    %% Send a stop message to terminate the IO server
     Pid = maps:get(io_pid, State),
     Pid ! stop,
     %% Allow some time for the process to terminate gracefully
@@ -44,11 +44,11 @@ teardown_io(State) ->
 %% IO server process to capture and relay output
 io_server() ->
     receive
-        {io_request, From, Ref, {put_chars, _Device, Chars}} ->
+        {io_request, From, Ref, {put_chars, Device, Chars}} ->
             %% Send the received characters back to the test process
             From ! {io_reply, Ref, Chars},
             io_server();
-        {io_request, From, Ref, {get_line, _Prompt}} ->
+        {io_request, From, Ref, {get_line, Prompt}} ->
             %% Simulate user input by sending a predefined response
             From ! {io_reply, Ref, "Simulated input\n"},
             io_server();
@@ -61,7 +61,7 @@ io_server() ->
 
 %% Test case for format/1
 test_format_1(_Context) ->
-    %% Define the format string
+    %% Define the format string as a binary
     Format = <<"Hello, Common Test!\n">>,
     %% Call the format/1 function
     klsn_io:format("Hello, Common Test!\n"),
@@ -69,8 +69,10 @@ test_format_1(_Context) ->
     receive
         {io_reply, _, Output} when Output =:= Format ->
             ok;
+        {io_reply, _, _Output} ->
+            ct:fail("format/1 did not output the expected string");
         _ ->
-            ct:fail("format/1 did not output the expected string")
+            ct:fail("Unexpected message received in test_format_1")
     after 1000 ->
             ct:fail("No output received from format/1")
     end.
@@ -88,8 +90,10 @@ test_format_2(_Context) ->
     receive
         {io_reply, _, Output} when Output =:= ExpectedOutput ->
             ok;
+        {io_reply, _, _Output} ->
+            ct:fail("format/2 did not output the expected formatted string");
         _ ->
-            ct:fail("format/2 did not output the expected formatted string")
+            ct:fail("Unexpected message received in test_format_2")
     after 1000 ->
             ct:fail("No output received from format/2")
     end.
@@ -98,7 +102,7 @@ test_format_2(_Context) ->
 test_get_line_0(_Context) ->
     %% Call the get_line/0 function
     Line = klsn_io:get_line(),
-    %% Define the expected simulated input
+    %% Define the expected simulated input as a binary
     ExpectedLine = <<"Simulated input\n">>,
     %% Verify the retrieved line using pattern matching
     case Line of
@@ -110,11 +114,11 @@ test_get_line_0(_Context) ->
 
 %% Test case for get_line/1
 test_get_line_1(_Context) ->
-    %% Define the prompt
+    %% Define the prompt as a binary
     Prompt = <<"Enter something: ">>,
     %% Call the get_line/1 function with the prompt
     Line = klsn_io:get_line(Prompt),
-    %% Define the expected simulated input
+    %% Define the expected simulated input as a binary
     ExpectedLine = <<"Simulated input\n">>,
     %% Verify the retrieved line using pattern matching
     case Line of
