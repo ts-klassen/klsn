@@ -5,17 +5,17 @@
 get_value_1_test() ->
     %% Test with a valid value
     ?assertEqual(42, klsn_maybe:get_value({value, 42})),
-
+    
     %% Test with 'none' to ensure it raises a badarg error
-    ?assertError({'EXIT', {badarg, [_]}}, klsn_maybe:get_value(none)).
+    ?assertError({error, badarg, _}, klsn_maybe:get_value(none)).
 
 %% Tests for get_value/2
 get_value_2_test() ->
     %% Test with a valid value and default
     ?assertEqual(42, klsn_maybe:get_value({value, 42}, "default")),
-
+    
     %% Test with 'none' and a default value
     ?assertEqual("default", klsn_maybe:get_value(none, "default")),
-
+    
     %% Test with invalid arguments to ensure it raises a badarg error
-    ?assertError({'EXIT', {badarg, [_]}}, klsn_maybe:get_value({invalid, args}, "default")).
+    ?assertError({error, badarg, _}, klsn_maybe:get_value({invalid, args}, "default")).
