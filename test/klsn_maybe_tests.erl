@@ -7,7 +7,7 @@ get_value_1_test() ->
     ?assertEqual(42, klsn_maybe:get_value({value, 42})),
     
     %% Test with 'none' to ensure it raises a badarg error
-    ?assertError({error, badarg, _}, klsn_maybe:get_value(none)).
+    ?assertError(badarg, klsn_maybe:get_value(none)).
 
 %% Tests for get_value/2
 get_value_2_test() ->
@@ -18,4 +18,4 @@ get_value_2_test() ->
     ?assertEqual("default", klsn_maybe:get_value(none, "default")),
     
     %% Test with invalid arguments to ensure it raises a badarg error
-    ?assertError({error, badarg, _}, klsn_maybe:get_value({invalid, args}, "default")).
+    ?assertError(badarg, klsn_maybe:get_value({invalid, args}, "default")).
