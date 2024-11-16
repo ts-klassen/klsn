@@ -93,6 +93,20 @@ lookup(Db, Key) ->
 -spec lookup(db(), key(), info()) -> klsn:maybe(payload()).
 lookup(Db, Key, Info) when is_atom(Db) ->
     lookup(atom_to_binary(Db), Key, Info);
+lookup(_, <<>>, _) ->
+    none;
+lookup(Db0, {raw, Key0}, #{url:=Url0}) -> % for _design view
+    Db1 = klsn_binstr:urlencode(Db0),
+    Db = <<"/", Db1/binary>>,
+    Key = <<"/", Key0/binary>>,
+    Url = <<Url0/binary, Db/binary, Key/binary>>,
+    Res = httpc:request(get, {Url, []}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, Data}} when 200=<Stat,Stat=<299->
+            {value, jsone:decode(Data)};
+        {ok, {{_, 404, _}, _, _}} ->
+            none
+    end;
 lookup(Db0, Key0, #{url:=Url0}) ->
     Db1 = klsn_binstr:urlencode(Db0),
     Db = <<"/", Db1/binary>>,
@@ -150,6 +164,8 @@ upsert(Db, Key, Fun) ->
 
 -spec upsert(db(), key(), upsert_function(), info()
     ) -> payload().
+upsert(_, <<>>, Fun, _) ->
+    Fun(none);
 upsert(Db, Key, Fun, Info) ->
     upsert_(Db, Key, Fun, Info, 1).
 
