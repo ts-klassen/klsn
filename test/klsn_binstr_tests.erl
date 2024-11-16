@@ -4,7 +4,7 @@
 %% Tests for urlencode/1
 urlencode_1_test() ->
     %% Test encoding of an empty string
-    ?assertEqual("", klsn_binstr:urlencode("")),
+    ?assertEqual(<<"">>, klsn_binstr:urlencode(<<"">>)),
 
     %% Test encoding of a string with only safe characters
     ?assertEqual("HelloWorld123-_~", klsn_binstr:urlencode("HelloWorld123-_~")),
