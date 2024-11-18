@@ -171,6 +171,8 @@ upsert(Db, Key, Fun, Info) ->
 
 upsert_(_Db, _Key, _Fun, _Info, ReTry) when ReTry >= 10 ->
     error(too_many_retry);
+upsert_(Db, {raw, Key}, Fun, Info, Retry) ->
+    upsert_(Db, Key, Fun, Info, Retry);
 upsert_(Db, Key, Fun, Info, Retry) ->
     MaybeData = lookup(Db, Key, Info),
     Data0 = Fun(MaybeData),

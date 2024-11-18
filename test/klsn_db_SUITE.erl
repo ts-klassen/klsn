@@ -42,9 +42,14 @@ main(_Config) ->
         fun(none) ->
             #{<<"test_val">> => <<"test789">>}
     end),
-    #{} = klsn_db:upsert(DB, <<"_design/index">>, fun(none) ->
+    #{} = klsn_db:upsert(DB, {raw, <<"_design/index">>}, fun(none) ->
         #{views => #{test => #{
             map => <<"function (doc) {emit(doc._id, 1);}">>
+        }}, language => javascript}
+    end),
+    #{} = klsn_db:upsert(DB, {raw, <<"_design/index">>}, fun({value, Doc}) ->
+        Doc#{views => #{test => #{
+            map => <<"function (doc) {emit(doc._id, 2);}">>
         }}, language => javascript}
     end),
     ok.
