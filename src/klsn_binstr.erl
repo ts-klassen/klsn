@@ -2,6 +2,8 @@
 
 -export([
         urlencode/1
+      , from_any/1
+      , replace/2
     ]).
 
 -export_type([
@@ -9,6 +11,22 @@
     ]).
 
 -type binstr() :: unicode:unicode_binary().
+
+-spec replace([{binstr(), binstr()}], binstr()) -> binstr().
+replace(Rule, Sub) ->
+    lists:foldl(fun({Before, After}, Acc) ->
+        binary:replace(Acc, Before, After, [global])
+    end, Sub, Rule).
+
+-spec from_any(any()) -> binstr().
+from_any(Integer) when is_integer(Integer) ->
+    integer_to_binary(Integer);
+from_any(Float) when is_float(Float) ->
+    float_to_binary(Float);
+from_any(Atom) when is_atom(Atom) ->
+    atom_to_binary(Atom);
+from_any(IOList) ->
+    iolist_to_binary(IOList).
 
 -spec urlencode(binstr()) -> binstr().
 urlencode(Bin) ->
