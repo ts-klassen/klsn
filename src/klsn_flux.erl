@@ -59,10 +59,10 @@ post(Request, #{uri_map:=UriMap, headers:=Headers}) ->
     case Res of
         {ok, {{_, Stat, _}, _, Data}} when 200=<Stat,Stat=<299 ->
             Data;
-        {ok, {{_, 404, _}, _, _}} ->
-            error(not_found);
-        {ok, {{_, 409, _}, _, _}} ->
-            error(conflict)
+        {ok, {{_, Stat, _}, _, _}} ->
+            error({klsn_flux_status_error, Stat});
+        {error, Error} ->
+            error({klsn_flux_httpc_error, Error})
     end.
 
 
@@ -100,10 +100,13 @@ write_(Org, Bucket, Body, Info, Retry) ->
         <<>> ->
             ok
     catch
+        error:{klsn_flux_status_error, 500} ->
+            sleep(Retry),
+            write_(Org, Bucket, Body, Info, Retry+1);
         Class:Error:Stack ->
             spawn(fun()-> erlang:raise(Class,Error,Stack) end),
             sleep(Retry),
-            write_(Org, Bucket, Body, Info, Retry+100)
+            write_(Org, Bucket, Body, Info, Retry+5)
     end.
 
 
