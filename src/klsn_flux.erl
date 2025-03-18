@@ -80,6 +80,8 @@ write(Org, Bucket, Points) ->
       , point() | [point()]
       , info()
     ) -> ok.
+write(_Org, _Bucket, [], _Info) ->
+    ok;
 write(Org, Bucket, Points, Info) ->
     write_(Org, Bucket, points_to_line_protocol(Points), Info, 1).
 
