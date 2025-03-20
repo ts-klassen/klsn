@@ -110,8 +110,6 @@ write(_Org, _Bucket, [], _Info) ->
 write(Org, Bucket, Points, Info) ->
     write_(Org, Bucket, points_to_line_protocol(Points), Info, 1).
 
-write_(_Org, _Bucket, _Body, _Info, ReTry) when ReTry >= 10 ->
-    error(too_many_retry);
 write_(Org, Bucket, Body, Info, Retry) ->
     try
         post(#{
@@ -127,13 +125,12 @@ write_(Org, Bucket, Body, Info, Retry) ->
         <<>> ->
             ok
     catch
-        error:{klsn_flux_status_error, 500, _} ->
-            sleep(Retry),
-            write_(Org, Bucket, Body, Info, Retry+1);
+        error:Error={klsn_flux_status_error, 400, _}:Stack ->
+            erlang:raise(error,Error,Stack);
         Class:Error:Stack ->
             spawn(fun()-> erlang:raise(Class,Error,Stack) end),
-            sleep(Retry),
-            write_(Org, Bucket, Body, Info, Retry+5)
+            sleep(Retry, 10, {Class,Error,Stack}),
+            write_(Org, Bucket, Body, Info, Retry+1)
     end.
 
 
@@ -198,8 +195,6 @@ flux_query(_Org, [], _Info) ->
 flux_query(Org, Query, Info) ->
     flux_query_(Org, Query, Info, 1).
 
-flux_query_(_Org, _Query, _Info, ReTry) when ReTry >= 10 ->
-    error(too_many_retry);
 flux_query_(Org, Query, Info, Retry) ->
     try
         post(#{
@@ -224,13 +219,12 @@ flux_query_(Org, Query, Info, Retry) ->
         Res ->
             Res
     catch
-        error:{klsn_flux_status_error, 500, _} ->
-            sleep(Retry),
-            flux_query_(Org, Query, Info, Retry+1);
+        error:Error={klsn_flux_status_error, 400, _}:Stack ->
+            erlang:raise(error,Error,Stack);
         Class:Error:Stack ->
             spawn(fun()-> erlang:raise(Class,Error,Stack) end),
-            sleep(Retry),
-            flux_query_(Org, Query, Info, Retry+5)
+            sleep(Retry, 10, {Class,Error,Stack}),
+            flux_query_(Org, Query, Info, Retry+1)
     end.
 
 
@@ -315,7 +309,9 @@ info() ->
     end,
     #{uri_map => uri_string:parse(Url), headers => Headers}.
 
-sleep(Stage) ->
+sleep(Stage, TooMany, {Class,Error,Stack}) when Stage >= TooMany ->
+    erlang:raise(Class,Error,Stack);
+sleep(Stage, _, _) ->
     timer:sleep(round(1000 * rand:uniform() + 100 * math:exp(Stage))).
 
 
