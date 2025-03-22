@@ -17,6 +17,8 @@
       , key/0
       , field_value/0
       , timestamp/0
+      , unixtime/0
+      , date_time/0
       , organization/0
       , bucket/0
     ]).
@@ -32,6 +34,8 @@
                      | boolean()
                      .
 -type timestamp() :: integer(). % nanosecond
+-type unixtime() :: integer(). % second
+-type date_time() :: klsn:binstr(). % rfc-3339
 -type point() :: #{
         measurement := key()
       , tag => maps:map(key(), key())
@@ -55,10 +59,10 @@
   | {uint, Float::float()} | Float::float()
   | {string, String::klsn:binstr()} | String::klsn:binstr()
   | {duration, [{Magnitude::integer(), unit()}]}
-  | {date_time, DateTime::klsn:binstr()}
-  | {timestamp, NanoSecond::integer()}
-  | {unixtime, Second::integer()}
-  | {regex, DateTime::klsn:binstr()}
+  | {date_time, DateTime::date_time()}
+  | {timestamp, NanoSecond::timestamp()}
+  | {unixtime, Second::unixtime()}
+  | {regex, Regex::klsn:binstr()}
   | {raw, #{}}
   .
 
