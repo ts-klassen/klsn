@@ -127,6 +127,8 @@ write_(Org, Bucket, Body, Info, Retry) ->
     catch
         error:Error={klsn_flux_status_error, 400, _}:Stack ->
             erlang:raise(error,Error,Stack);
+        error:Error={klsn_flux_status_error, 422, _}:Stack ->
+            erlang:raise(error,Error,Stack);
         Class:Error:Stack ->
             spawn(fun()-> erlang:raise(Class,Error,Stack) end),
             sleep(Retry, 10, {Class,Error,Stack}),
@@ -264,6 +266,8 @@ points_to_line_protocol(Points) ->
                                 <<"true">>;
                             false ->
                                 <<"false">>;
+                            null ->
+                                <<"null">>;
                             Int when is_integer(Int) ->
                                 [klsn_binstr:from_any(Val), $i];
                             Float when is_number(Float) ->
