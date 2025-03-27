@@ -5,6 +5,7 @@
       , get/2
       , get/3
       , upsert/3
+      , filter/1
     ]).
 
 -export_type([
@@ -54,3 +55,13 @@ upsert_([H|T], Value, none, Maps, Keys) ->
 upsert_([H|T], Value, {value, Map}, Maps, Keys) ->
     Elem = lookup([H], Map),
     upsert_(T, Value, Elem, [{value, Map}|Maps], [H|Keys]).
+
+
+-spec filter(maps:map(Key, klsn:maybe(Value))) -> maps:map(Key, Value).
+filter(Map) ->
+    maps:filtermap(fun
+        (_, {value, Value}) ->
+            {true, Value};
+        (_, none) ->
+            false
+    end, Map).

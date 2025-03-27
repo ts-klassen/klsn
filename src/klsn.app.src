@@ -1,6 +1,6 @@
 {application, klsn,
  [{description, "An OTP library"},
-  {vsn, "1.7.1"},
+  {vsn, "1.8.0"},
   {registered, []},
   {applications,
    [kernel,

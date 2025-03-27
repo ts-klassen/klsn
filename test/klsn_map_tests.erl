@@ -98,3 +98,15 @@ upsert_test() ->
     OriginalMap = #{a => 1, b => 2},
     UpdatedMap6 = klsn_map:upsert([c, d], 100, OriginalMap),
     ?assertEqual(#{a => 1, b => 2, c => #{d => 100}}, UpdatedMap6).
+
+%% Tests for filter/1
+filter_test() ->
+    ?assertEqual(#{}, klsn_map:filter(#{})),
+    ?assertEqual(#{}, klsn_map:filter(#{ a => none })),
+    ?assertEqual(#{}, klsn_map:filter(#{ a => none, b => none })),
+    ?assertEqual(#{ b => 2}, klsn_map:filter(#{ a => none, b => {value, 2} })),
+    ?assertEqual(#{ a => 1, b => 2}, klsn_map:filter(#{
+        a => {value, 1}
+      , b => {value, 2}
+    })).
+
