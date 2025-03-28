@@ -31,3 +31,19 @@ urlencode_1_test() ->
     ?assertEqual(Expect, klsn_binstr:urlencode(BinStr)),
     
     ok.
+
+%% Tests for hash/1
+hash_1_test() ->
+    ?assertEqual(
+        <<"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855">>
+      , klsn_binstr:hash(<<>>)
+    ),
+    ?assertEqual(
+        <<"64ec88ca00b268e5ba1a35678a1b5316d212f4f366b2477232534a8aeca37f3c">>
+      , klsn_binstr:hash(<<"Hello world">>)
+    ),
+    ?assertEqual(
+        <<"40aff2e9d2d8922e47afd4648e6967497158785fbd1da870e7110266bf944880">>
+      , klsn_binstr:hash(iolist_to_binary(lists:seq(0, 255)))
+    ),
+    ok.

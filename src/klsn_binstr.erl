@@ -4,6 +4,7 @@
         urlencode/1
       , from_any/1
       , replace/2
+      , hash/1
     ]).
 
 -export_type([
@@ -11,6 +12,19 @@
     ]).
 
 -type binstr() :: unicode:unicode_binary().
+
+
+-spec hash(binstr()) -> binstr().
+hash(Binary) ->
+    list_to_binary(
+        string:lowercase(
+            binary_to_list(
+                binary:encode_hex(
+                    crypto:hash(sha256, Binary)
+                )
+            )
+        )
+    ).
 
 -spec replace([{binstr(), binstr()}], binstr()) -> binstr().
 replace(Rule, Sub) ->
