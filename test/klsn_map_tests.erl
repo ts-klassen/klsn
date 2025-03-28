@@ -110,3 +110,11 @@ filter_test() ->
       , b => {value, 2}
     })).
 
+%% Tests for invert/1
+invert_test() ->
+    ?assertEqual(#{}, klsn_map:invert(#{})),
+    ?assertEqual(#{ 1 => a, 2 => b}, klsn_map:invert(#{
+        a => 1
+      , b => 2
+    })).
+

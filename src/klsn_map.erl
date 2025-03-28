@@ -6,6 +6,7 @@
       , get/3
       , upsert/3
       , filter/1
+      , invert/1
     ]).
 
 -export_type([
@@ -65,3 +66,9 @@ filter(Map) ->
         (_, none) ->
             false
     end, Map).
+
+-spec invert(maps:map(Key, Value)) -> maps:map(Value, Key).
+invert(Map) ->
+    maps:from_list(lists:map(fun({Key, Value})->
+        {Value, Key}
+    end, maps:to_list(Map))).
