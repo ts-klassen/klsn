@@ -79,3 +79,19 @@ replace_2_test() ->
 %% Error cases
 urlencode_error_test() ->
     ?assertError(badarg, klsn_binstr:urlencode(123)).
+
+%% Additional replace/2 edge-cases
+replace_edge_cases_test() ->
+    %% Overlapping pattern
+    ?assertEqual(<<"aa">>, klsn_binstr:replace([{<<"aa">>, <<"a">>}], <<"aaaa">>)),
+
+    %% Replacing a pattern with itself (no-op)
+    ?assertEqual(<<"foofoo">>, klsn_binstr:replace([{<<"foo">>, <<"foo">>}], <<"foofoo">>)),
+
+    %% Very large binary
+    N = 100000,
+    LargeA = binary:copy(<<"a">>, N),
+    LargeB = binary:copy(<<"b">>, N),
+    ?assertEqual(LargeB, klsn_binstr:replace([{<<"a">>, <<"b">>}], LargeA)),
+
+    ok.
