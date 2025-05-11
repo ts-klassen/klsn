@@ -47,3 +47,35 @@ hash_1_test() ->
       , klsn_binstr:hash(iolist_to_binary(lists:seq(0, 255)))
     ),
     ok.
+
+%% Tests for from_any/1
+from_any_1_test() ->
+    ?assertEqual(<<"42">>, klsn_binstr:from_any(42)),
+
+    FloatExpect = erlang:float_to_binary(3.14),
+    ?assertEqual(FloatExpect, klsn_binstr:from_any(3.14)),
+
+    ?assertEqual(<<"hello">>, klsn_binstr:from_any(hello)),
+
+    ?assertEqual(<<"foobar">>, klsn_binstr:from_any([<<"foo">>, <<"bar">>])),
+
+    ok.
+
+%% Tests for replace/2
+replace_2_test() ->
+    ?assertEqual(<<"barbar">>, klsn_binstr:replace([{<<"foo">>, <<"bar">>}], <<"foofoo">>)),
+
+    ?assertEqual(<<"baz baz">>, klsn_binstr:replace([
+        {<<"foo">>, <<"bar">>} ,
+        {<<"bar">>, <<"baz">>}
+    ], <<"foo bar">>)),
+
+    ?assertEqual(<<"abc">>, klsn_binstr:replace([{<<"x">>, <<"y">>}], <<"abc">>)),
+
+    ?assertEqual(<<>>, klsn_binstr:replace([{<<"a">>, <<>>}], <<"a">>)),
+
+    ok.
+
+%% Error cases
+urlencode_error_test() ->
+    ?assertError(badarg, klsn_binstr:urlencode(123)).
