@@ -106,6 +106,13 @@ jobs:
           name: coverage-otp-26
           path: public                       # GitHub Pages expects this dir
 
+      # Move coverage files to the site root (public/)
+      - name: Flatten coverage directory structure
+        run: |
+          if [ -d public/_build/test/cover ]; then
+            mv public/_build/test/cover/* public/
+          fi
+
       # Build HTML API docs and place them under public/edoc so that
       # the coverage report (index.html at the root) remains
       # the entry-point of the site.
