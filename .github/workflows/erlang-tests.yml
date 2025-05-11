@@ -141,10 +141,10 @@ jobs:
           <html lang="en">
           <head>
             <meta charset="utf-8">
-            <title>klsn reports</title>
+            <title>Documentation & reports</title>
           </head>
           <body>
-            <h1>klsn – Generated reports</h1>
+            <h1>Generated documentation and reports</h1>
             <ul>
               <li><a href="cover/index.html">Coverage report</a></li>
               <li><a href="edoc/index.html">API docs (EDoc)</a></li>
