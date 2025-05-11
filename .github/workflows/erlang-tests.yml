@@ -3,6 +3,9 @@ name: Erlang CI
 on:
   pull_request:
 
+env:
+  REBAR3_VERSION: '3.23.0'
+
 jobs:
   test:
     name: OTP ${{ matrix.otp }} – Ubuntu
@@ -38,6 +41,7 @@ jobs:
         uses: erlef/setup-beam@v1
         with:
           otp-version: ${{ matrix.otp }}
+          rebar3-version: ${{ env.REBAR3_VERSION }}
 
       - name: Cache rebar3 deps & build
         uses: actions/cache@v4
