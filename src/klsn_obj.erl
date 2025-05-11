@@ -4,6 +4,7 @@
         get/2
       , lookup/2
       , find/2
+      , crud/3
     ]).
 
 -export_type([
@@ -14,6 +15,7 @@
       , cmd/0
       , path/0
       , find_fun/0
+      , crud_fun/0
     ]).
 
 -type value() :: term().
@@ -39,6 +41,8 @@
 -type find_fun() :: fun((value())->boolean())
                   | fun((value(), short_path())->boolean())
                   .
+
+-type crud_fun() :: fun((klsn:maybe(value()))->klsn:maybe(value())).
 
 -spec lookup(path(), obj()) -> klsn:maybe(value()).
 lookup(Path, Obj) ->
@@ -148,6 +152,169 @@ find_dfs(FindFun, Obj, Path) ->
             end, Acc, IList);
         _ ->
             Acc
+    end.
+
+-spec crud(path(), crud_fun(), obj()) -> obj().
+crud(Path, CRUDFun, Obj) ->
+    {PathLeft, MaybeValue, History} = try crud_history(Path, Obj, []) catch
+        throw:{?MODULE, Args} ->
+            Args
+    end,
+    MaybeUpdatedValue = CRUDFun(MaybeValue),
+    case MaybeUpdatedValue of
+        {value, _} ->
+            ok;
+        none ->
+            ok;
+        Other ->
+            erlang:error({bad_return, #{type => {?MODULE, crud_fun, 0}, return => Other, msg => <<"Return of klsn_obj:crud_fun() must be `{value, klsn_obj:value()}` or `none`.">>}})
+    end,
+    crud_build(lists:reverse(PathLeft), MaybeUpdatedValue, History).
+
+
+-spec crud_history(
+        path(), obj(), [{short_path(), obj()}]
+    ) -> {path(), klsn:maybe(value()), [{short_path(), obj()}]}.
+crud_history([], Value, History) ->
+    {[], {value, Value}, History};
+crud_history([H|T], Map, History) when is_map(Map) ->
+    Key = case H of
+        {raw, Key0} -> Key0;
+        {map, Key0} -> Key0;
+        {m, Key0} -> Key0;
+        {list, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {l, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {tuple, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {t, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        Key0 -> Key0
+    end,
+    case maps:find(Key, Map) of
+        {ok, Value} ->
+            crud_history(T, Value, [{{m,Key},Map}|History]);
+        error ->
+            {T, none, [{{m,Key},Map}|History]}
+    end;
+crud_history([H|T], List, History) when is_list(List) ->
+    Nth = case H of
+        {raw, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
+        {map, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {m, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {list, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
+        {l, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
+        {tuple, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {t, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        Key0 when is_integer(Key0), (Key0 > 0) -> Key0;
+        _ -> erlang:throw({?MODULE, {[H|T], none, History}})
+    end,
+    try lists:nth(Nth, List) of
+        Value ->
+            crud_history(T, Value, [{{l,Nth},List}|History])
+    catch
+        error:function_clause ->
+            {T, none, [{{l,Nth},List}|History]}
+    end;
+crud_history([H|T], Tuple, History) when is_tuple(Tuple) ->
+    Nth = case H of
+        {raw, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
+        {map, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {m, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {list, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {l, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {tuple, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
+        {t, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
+        Key0 when is_integer(Key0), (Key0 > 0) -> Key0;
+        _ -> erlang:throw({?MODULE, {[H|T], none, History}})
+    end,
+    try element(Nth, Tuple) of
+        Value ->
+            crud_history(T, Value, [{{t,Nth},Tuple}|History])
+    catch
+        error:badarg ->
+            {T, none, [{{t,Nth},Tuple}|History]}
+    end;
+crud_history(Path, _Value, History) ->
+    {Path, none, History}.
+
+
+-spec crud_build(
+        klsn:maybe(obj())
+      , [{short_path(), obj()}]
+    ) -> obj().
+crud_build(none, []) ->
+    nil;
+crud_build({value, Obj}, []) ->
+    Obj;
+crud_build(none, [{{m,Key},Map}|Tail]) when is_map(Map) ->
+    crud_build({value, maps:remove(Key, Map)}, Tail);
+crud_build(none, [{{l,Nth},List}|Tail]) when is_list(List) ->
+    crud_build({value, delete_nth(Nth, List)}, Tail);
+crud_build(none, [{{t,Nth},Tuple}|Tail]) when is_tuple(Tuple) ->
+    crud_build({value, delete_nth(Nth, Tuple)}, Tail);
+crud_build({value, Value}, [{{m,Key},Map}|Tail]) when is_map(Map) ->
+    crud_build({value, Map#{ Key => Value }}, Tail);
+crud_build({value, Value}, [{{l,Nth},List}|Tail]) when is_list(List) ->
+    crud_build({value, replace_nth(Nth, Value, List)}, Tail);
+crud_build({value, Value}, [{{t,Nth},Tuple}|Tail]) when is_tuple(Tuple) ->
+    crud_build({value, replace_nth(Nth, Value, Tuple)}, Tail).
+
+-spec crud_build(
+        Reversed::path()
+      , klsn:maybe(value())
+      , [{short_path(), obj()}]
+    ) -> obj().
+crud_build(_, none, History) ->
+    crud_build(none, History);
+crud_build([], MaybeValue, History) ->
+    crud_build(MaybeValue, History);
+crud_build([Cmd|Tail], {value, Value}, History) ->
+    ShortCmd = case Cmd of
+        {raw, Key0} -> {m,Key0};
+        {map, Key0} -> {m,Key0};
+        {m, Key0} -> {m,Key0};
+        {list, Key0} when is_integer(Key0), (Key0 > 0) -> {l,Key0};
+        {l, Key0} when is_integer(Key0), (Key0 > 0) -> {l,Key0};
+        {tuple, Key0} when is_integer(Key0), (Key0 > 0) -> {t,Key0};
+        {t, Key0} when is_integer(Key0), (Key0 > 0) -> {t,Key0};
+        Key0 -> {m,Key0}
+    end,
+    UpdatedValue = case ShortCmd of
+        {m,Key} ->
+            #{ Key => Value };
+        {l,Nth} ->
+            replace_nth(Nth, Value, []);
+        {t,Nth} ->
+            replace_nth(Nth, Value, {})
+    end,
+    crud_build(Tail, {value, UpdatedValue}, History).
+
+
+replace_nth(Index, NewElement, Tuple) when is_tuple(Tuple) ->
+    list_to_tuple(replace_nth(Index, NewElement, tuple_to_list(Tuple)));
+replace_nth(Index, NewElement, List) when is_integer(Index), Index >= 1, is_list(List) ->
+    ListLen = length(List),
+    case Index =< ListLen of
+        true  ->
+            Prefix = lists:sublist(List, Index - 1),
+            Tail   = lists:nthtail(Index, List),
+            Prefix ++ [NewElement] ++ Tail;
+        false ->
+            PadLen = Index - ListLen - 1,
+            NilPad = lists:duplicate(PadLen, nil),
+            List ++ NilPad ++ [NewElement]
+    end.
+
+
+delete_nth(Index, Tuple) when is_tuple(Tuple) ->
+    list_to_tuple(delete_nth(Index, tuple_to_list(Tuple)));
+delete_nth(Index, List) when is_integer(Index), Index >= 1, is_list(List) ->
+    ListLen = length(List),
+    case Index =< ListLen of
+        true  ->
+            Prefix = lists:sublist(List, Index - 1),
+            Tail   = lists:nthtail(Index, List),
+            Prefix ++ Tail;
+        false ->
+            List
     end.
 
 

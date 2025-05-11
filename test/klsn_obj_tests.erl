@@ -160,3 +160,244 @@ find_2_test() ->
     ),
     ok.
 
+%% Tests for crud/3
+crud_3_test() ->
+    Key1 = {tuple1, tuple2, [1,2,3, {{4,5,6}, #{7=>#{8=>9}}, [a,b,c]}]},
+    Key2 = #{ key3 => [], key4 => {} },
+    Obj = #{
+        key1 => Key1
+      , key2 => Key2
+    },
+
+    ?assertEqual(
+        Obj#{ key5 => value5 }
+      , klsn_obj:crud(
+            [{m,key5}]
+          , fun
+                (none) ->
+                    {value, value5}
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        #{ key2 => Key2 }
+      , klsn_obj:crud(
+            [{m,key1}]
+          , fun
+                ({value, _}) ->
+                    none
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        bad_return
+      , try
+            klsn_obj:crud(
+                [{m,key1}]
+              , fun
+                    ({value, _}) ->
+                        other
+                end
+              , Obj
+            )
+        of
+            Res -> error({unexpected, Res})
+        catch
+            error:Error ->
+                element(1, Error)
+        end
+    ),
+    ?assertEqual(
+        #{
+            key1 => {
+                tuple1
+               , tuple2
+               , [0,2,3, {{4,5,6}, #{7=>#{8=>9}}, [a,b,c]}]
+             }
+          , key2 => Key2
+        }
+      , klsn_obj:crud(
+            [key1, 3, 1]
+          , fun
+                ({value, 1}) ->
+                    {value, 0}
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        #{
+            key1 => {
+                tuple1
+               , tuple2
+               , [1,3, {{4,5,6}, #{7=>#{8=>9}}, [a,b,c]}]
+             }
+          , key2 => Key2
+        }
+      , klsn_obj:crud(
+            [{map,key1}, {tuple,3}, {list,2}]
+          , fun
+                ({value, 2}) ->
+                    none
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        #{
+            key1 => {
+                tuple1
+               , tuple2
+               , [1,2,3, {{4,5}, #{7=>#{8=>9}}, [a,b,c]}]
+             }
+          , key2 => Key2
+        }
+      , klsn_obj:crud(
+            [{raw,key1}, {raw,3}, {raw,4}, {t,1},{t,3}]
+          , fun
+                ({value, 6}) ->
+                    none
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        #{
+            key1 => [nil, nil, f]
+          , key2 => Key2
+        }
+      , klsn_obj:crud(
+            [{m,key1}, {l,3}]
+          , fun
+                (none) ->
+                    {value, f}
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        #{
+            key1 => Key1
+          , key2 => #{ key3 => [first], key4 => {} }
+        }
+      , klsn_obj:crud(
+            [{m,key2}, {m,key3}, {l,1}]
+          , fun
+                (none) ->
+                    {value, first}
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        Obj
+      , klsn_obj:crud(
+            [{m,key2}, {m,key4}, {t,1}]
+          , fun
+                (none) ->
+                    none
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud(
+            []
+          , fun
+                ({value, Obj0}) when Obj0 =:= Obj ->
+                    none
+            end
+          , Obj
+        )
+    ),
+    ?assertEqual(
+        atom2
+      , klsn_obj:crud(
+            []
+          , fun
+                ({value, atom1}) ->
+                    {value, atom2}
+            end
+          , atom1
+        )
+    ),
+    ?assertEqual(
+        #{ field1 => atom2 }
+      , klsn_obj:crud(
+            [field1]
+          , fun
+                (none) ->
+                    {value, atom2}
+            end
+          , atom1
+        )
+    ),
+    ?assertEqual(
+        [[nil, {nil, nil, {nil, nil, nil, #{f1=>#{f2=>#{f3=>atom2}}}}}]]
+      , klsn_obj:crud(
+            [{list,1}, {l,2}, {tuple,3}, {t,4}, {raw,f1}, {map,f2}, {m,f3}]
+          , fun
+                (none) ->
+                    {value, atom2}
+            end
+          , #{}
+        )
+    ),
+
+    % Just for the sake of coverage.
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([field1], fun(none) -> none end, [])
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([field1], fun(none) -> none end, {})
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{l,1}], fun(none) -> none end, #{})
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{tuple,1}], fun(none) -> none end, #{})
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{t,1}], fun(none) -> none end, #{})
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{map,1}], fun(none) -> none end, [])
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{m,1}], fun(none) -> none end, [])
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{tuple,1}], fun(none) -> none end, [])
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{t,1}], fun(none) -> none end, [])
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{map,1}], fun(none) -> none end, {})
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{m,1}], fun(none) -> none end, {})
+    ),
+    ?assertEqual(
+        nil
+      , klsn_obj:crud([{list,1}], fun(none) -> none end, {})
+    ),
+
+    ok.
+
+
+
