@@ -160,3 +160,28 @@ find_2_test() ->
     ),
     ok.
 
+%% Tests for crud/3
+crud_3_test() ->
+    Key1 = {tuple1, tuple2, [1,2,3, {{4,5,6}, #{7=>#{8=>9}}, [a,b,c]}]},
+    Key2 = #{ key3 => [], key4 => {} },
+    Obj = #{
+        key1 => Key1
+      , key2 => Key2
+    },
+
+    ?assertEqual(
+        Obj#{ key5 => value5 }
+      , klsn_obj:crud(
+            [{m,key5}]
+          , fun
+                (none) ->
+                    {value, value5}
+            end
+          , Obj
+        )
+    ),
+
+    ok.
+
+
+

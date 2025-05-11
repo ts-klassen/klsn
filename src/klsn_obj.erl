@@ -15,6 +15,7 @@
       , cmd/0
       , path/0
       , find_fun/0
+      , crud_fun/0
     ]).
 
 -type value() :: term().
@@ -160,6 +161,17 @@ crud(Path, CRUDFun, Obj) ->
             Args
     end,
     MaybeUpdatedValue = CRUDFun(MaybeValue),
+    case MaybeUpdatedValue of
+        {value, _} ->
+            ok;
+        none ->
+            ok;
+        Other ->
+            erlang:error({bad_return, #{type => {?MODULE, crud_fun, 0}, return => Other, msg => <<"Return of klsn_obj:crud_fun() must be `{value, klsn_obj:value()}` or `none`.">>}})
+    end,
+    io:format("rpath: ~p~n", [lists:reverse(PathLeft)]),
+    io:format("muv: ~p~n", [MaybeUpdatedValue]),
+    io:format("history: ~p~n", [History]),
     crud_build(lists:reverse(PathLeft), MaybeUpdatedValue, History).
 
 
@@ -167,64 +179,64 @@ crud(Path, CRUDFun, Obj) ->
         path(), obj(), [{short_path(), obj()}]
     ) -> {path(), klsn:maybe(value()), [{short_path(), obj()}]}.
 crud_history([], Value, History) ->
-    {[], Value, History};
+    {[], {value, Value}, History};
 crud_history([H|T], Map, History) when is_map(Map) ->
     Key = case H of
         {raw, Key0} -> Key0;
         {map, Key0} -> Key0;
         {m, Key0} -> Key0;
-        {list, _} -> erlang:throw({?MODULE, {[H|T], Map, History}});
-        {l, _} -> erlang:throw({?MODULE, {[H|T], Map, History}});
-        {tuple, _} -> erlang:throw({?MODULE, {[H|T], Map, History}});
-        {t, _} -> erlang:throw({?MODULE, {[H|T], Map, History}});
+        {list, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {l, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {tuple, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {t, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
         Key0 -> Key0
     end,
     case maps:find(Key, Map) of
         {ok, Value} ->
             crud_history(T, Value, [{{m,Key},Map}|History]);
         error ->
-            {[{m,Key}|T], Map, History}
+            {T, none, [{{m,Key},Map}|History]}
     end;
 crud_history([H|T], List, History) when is_list(List) ->
     Nth = case H of
         {raw, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
-        {map, _} -> erlang:throw({?MODULE, {[H|T], List, History}});
-        {m, _} -> erlang:throw({?MODULE, {[H|T], List, History}});
+        {map, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {m, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
         {list, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
         {l, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
-        {tuple, _} -> erlang:throw({?MODULE, {[H|T], List, History}});
-        {t, _} -> erlang:throw({?MODULE, {[H|T], List, History}});
+        {tuple, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {t, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
         Key0 when is_integer(Key0), (Key0 > 0) -> Key0;
-        _ -> erlang:throw({?MODULE, {[H|T], List, History}})
+        _ -> erlang:throw({?MODULE, {[H|T], none, History}})
     end,
     try lists:nth(Nth, List) of
         Value ->
             crud_history(T, Value, [{{l,Nth},List}|History])
     catch
         error:function_clause ->
-            {[{l,Nth}|T], List, History}
+            {T, none, [{{l,Nth},List}|History]}
     end;
 crud_history([H|T], Tuple, History) when is_tuple(Tuple) ->
     Nth = case H of
         {raw, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
-        {map, _} -> erlang:throw({?MODULE, {[H|T], Tuple, History}});
-        {m, _} -> erlang:throw({?MODULE, {[H|T], Tuple, History}});
-        {list, _} -> erlang:throw({?MODULE, {[H|T], Tuple, History}});
-        {l, _} -> erlang:throw({?MODULE, {[H|T], Tuple, History}});
+        {map, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {m, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {list, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
+        {l, _} -> erlang:throw({?MODULE, {[H|T], none, History}});
         {tuple, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
         {t, Key0} when is_integer(Key0), (Key0 > 0) -> Key0;
         Key0 when is_integer(Key0), (Key0 > 0) -> Key0;
-        _ -> erlang:throw({?MODULE, {[H|T], Tuple, History}})
+        _ -> erlang:throw({?MODULE, {[H|T], none, History}})
     end,
     try element(Nth, Tuple) of
         Value ->
             crud_history(T, Value, [{{t,Nth},Tuple}|History])
     catch
         error:badarg ->
-            {[{t,Nth}|T], Tuple, History}
+            {T, none, [{{t,Nth},Tuple}|History]}
     end;
 crud_history(Path, Value, History) ->
-    {Path, Value, History}.
+    {Path, {value, Value}, History}.
 
 
 -spec crud_build(
