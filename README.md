@@ -1,5 +1,6 @@
-klsn
-=====
+# klsn
+
+[![Erlang CI](https://github.com/ts-klassen/klsn/actions/workflows/erlang-tests.yml/badge.svg?branch=main)](https://github.com/ts-klassen/klsn/actions/workflows/erlang-tests.yml)
 
 An OTP library
 
