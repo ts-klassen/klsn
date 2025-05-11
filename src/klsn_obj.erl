@@ -169,9 +169,6 @@ crud(Path, CRUDFun, Obj) ->
         Other ->
             erlang:error({bad_return, #{type => {?MODULE, crud_fun, 0}, return => Other, msg => <<"Return of klsn_obj:crud_fun() must be `{value, klsn_obj:value()}` or `none`.">>}})
     end,
-    io:format("rpath: ~p~n", [lists:reverse(PathLeft)]),
-    io:format("muv: ~p~n", [MaybeUpdatedValue]),
-    io:format("history: ~p~n", [History]),
     crud_build(lists:reverse(PathLeft), MaybeUpdatedValue, History).
 
 
