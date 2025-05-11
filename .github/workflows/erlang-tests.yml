@@ -89,8 +89,9 @@ jobs:
           path: _build/test/cover
 
   # ---------------------------------------------------------
+  # Build and publish the edoc
   # Publish the coverage report from OTP 26 run to GitHub Pages
-  publish-coverage:
+  publish-html:
     needs: test
     if: success() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -100,20 +101,6 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - name: Download coverage artifact (OTP 26)
-        uses: actions/download-artifact@v4
-        with:
-          name: coverage-otp-26
-          path: public                       # GitHub Pages expects this dir
-
-      # Move coverage report under /report while keeping _build intact
-      - name: Relocate coverage report to /report
-        run: |
-          mkdir -p public/report
-          if [ -d public/_build/test/cover ]; then
-            cp -r public/_build/test/cover/* public/report/
-          fi
-
       # Build HTML API docs and place them under public/edoc so that
       # the coverage report (index.html at the root) remains
       # the entry-point of the site.
@@ -139,6 +126,12 @@ jobs:
           DOC_PREFIX=$(pwd | sed 's|$|/doc/|')
           find public/edoc -type f -name '*.html' -print0 |\
             xargs -0 sed -i -e "s|$DOC_PREFIX||g"
+
+      - name: Download coverage artifact (OTP 26)
+        uses: actions/download-artifact@v4
+        with:
+          name: coverage-otp-26
+          path: public                       # GitHub Pages expects this dir
 
       # Create a simple landing page that links to both reports
       - name: Create landing page
