@@ -71,32 +71,32 @@ jobs:
           name: coverage-otp-${{ matrix.otp }}
           path: _build/test/cover
 
-# ---------------------------------------------------------
-# Publish the coverage report from OTP 26 run to GitHub Pages
-publish-coverage:
-  needs: test            # wait for all matrix jobs
-  if: success()          # only deploy on green builds
-  runs-on: ubuntu-latest
+  # ---------------------------------------------------------
+  # Publish the coverage report from OTP 26 run to GitHub Pages
+  publish-coverage:
+    needs: test            # wait for all matrix jobs
+    if: success()          # only deploy on green builds
+    runs-on: ubuntu-latest
 
-  # Grant the job permission to deploy to Pages
-  permissions:
-    pages: write
-    id-token: write
+    # Grant the job permission to deploy to Pages
+    permissions:
+      pages: write
+      id-token: write
 
-  steps:
-    - name: Download coverage artifact (OTP 26)
-      uses: actions/download-artifact@v3
-      with:
-        name: coverage-otp-26
-        path: public                       # GitHub Pages expects this dir
+    steps:
+      - name: Download coverage artifact (OTP 26)
+        uses: actions/download-artifact@v3
+        with:
+          name: coverage-otp-26
+          path: public                       # GitHub Pages expects this dir
 
-    # Upload the files as a Pages artifact
-    - name: Upload Pages artifact
-      uses: actions/upload-pages-artifact@v1
-      with:
-        path: public
+      # Upload the files as a Pages artifact
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v1
+        with:
+          path: public
 
-    # Deploy to GitHub Pages
-    - name: Deploy to GitHub Pages
-      id: deploy
-      uses: actions/deploy-pages@v1
+      # Deploy to GitHub Pages
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v1
