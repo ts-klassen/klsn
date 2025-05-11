@@ -82,7 +82,10 @@ get([H|T], List) when is_list(List) ->
         Key0 when is_integer(Key0), (Key0 > 0) -> Key0;
         _ -> erlang:error(not_found, [[H|T], List])
     end,
-    try lists:nth(Nth, List) catch
+    try lists:nth(Nth, List) of
+        Value ->
+            get(T, Value)
+    catch
         error:function_clause ->
             erlang:error(not_found, [[H|T], List])
     end;
@@ -98,7 +101,10 @@ get([H|T], Tuple) when is_tuple(Tuple) ->
         Key0 when is_integer(Key0), (Key0 > 0) -> Key0;
         _ -> erlang:error(not_found, [[H|T], Tuple])
     end,
-    try element(Nth, Tuple) catch
+    try element(Nth, Tuple) of
+        Value ->
+            get(T, Value)
+    catch
         error:badarg ->
             erlang:error(not_found, [[H|T], Tuple])
     end;
