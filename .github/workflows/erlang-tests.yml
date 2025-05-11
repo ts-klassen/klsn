@@ -80,7 +80,7 @@ jobs:
   # Publish the coverage report from OTP 26 run to GitHub Pages
   publish-coverage:
     needs: test
-    if: success()
+    if: success() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     environment:
