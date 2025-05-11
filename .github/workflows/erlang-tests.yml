@@ -132,6 +132,14 @@ jobs:
           mkdir -p public/edoc
           cp -r doc/* public/edoc/
 
+      # Strip absolute build path prefixes inside generated HTML so
+      # internal links are relative (remove ".../doc/")
+      - name: Make EDoc links relative
+        run: |
+          DOC_PREFIX=$(pwd | sed 's|$|/doc/|')
+          find public/edoc -type f -name '*.html' -print0 |\
+            xargs -0 sed -i -e "s|$DOC_PREFIX||g"
+
       # Create a simple landing page that links to both reports
       - name: Create landing page
         run: |
