@@ -41,7 +41,7 @@ jobs:
           rebar3-version: 'default'
 
       - name: Cache rebar3 deps & build
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: _build
           key: ${{ runner.os }}-rebar3-${{ matrix.otp }}-${{ hashFiles('rebar.config', 'rebar.lock', 'src/**/*.erl') }}
@@ -66,7 +66,7 @@ jobs:
 
       - name: Upload coverage report
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-otp-${{ matrix.otp }}
           path: _build/test/cover
@@ -85,7 +85,7 @@ jobs:
 
     steps:
       - name: Download coverage artifact (OTP 26)
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: coverage-otp-26
           path: public                       # GitHub Pages expects this dir
