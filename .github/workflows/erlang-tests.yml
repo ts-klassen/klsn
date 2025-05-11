@@ -106,6 +106,24 @@ jobs:
           name: coverage-otp-26
           path: public                       # GitHub Pages expects this dir
 
+      # Build HTML API docs and place them under public/edoc so that
+      # the coverage report (index.html at the root) remains
+      # the entry-point of the site.
+      - name: Checkout repository (for docs)
+        uses: actions/checkout@v3
+
+      - name: Set up Erlang/OTP (for docs)
+        uses: erlef/setup-beam@v1
+        with:
+          otp-version: 26
+          rebar3-version: ${{ env.REBAR3_VERSION }}
+
+      - name: Generate EDoc documentation
+        run: |
+          rebar3 edoc
+          mkdir -p public/edoc
+          cp -r doc/* public/edoc/
+
       - name: Setup Pages
         uses: actions/configure-pages@v5
 

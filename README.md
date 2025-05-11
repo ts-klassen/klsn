@@ -2,6 +2,7 @@
 
 [![Erlang CI](https://github.com/ts-klassen/klsn/actions/workflows/erlang-tests.yml/badge.svg?branch=main)](https://github.com/ts-klassen/klsn/actions/workflows/erlang-tests.yml)
 [Coverage report](https://ts-klassen.github.io/klsn/)
+[API docs](https://ts-klassen.github.io/klsn/edoc/)
 
 
 
