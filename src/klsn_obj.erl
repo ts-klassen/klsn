@@ -105,7 +105,7 @@ get([H|T], Tuple) when is_tuple(Tuple) ->
 get(Arg1, Arg2) ->
     erlang:error(not_found, [Arg1, Arg2]).
 
--spec find(find_fun(), obj()) -> short_path().
+-spec find(find_fun(), obj()) -> [short_path()].
 find(FindFun, Obj) when is_function(FindFun, 1) ->
     find(fun(Value, _Path) -> FindFun(Value) end, Obj);
 find(FindFun, Obj) when is_function(FindFun, 2) ->
@@ -116,9 +116,9 @@ find(FindFun, Obj) when is_function(FindFun, 2) ->
         fun((value(), short_path())->boolean())
       , obj()
       , path()
-    ) -> short_path().
+    ) -> [short_path()].
 find_dfs(FindFun, Obj, Path) ->
-    Ack = case FindFun(Obj, Path) of
+    Acc = case FindFun(Obj, Path) of
         true ->
             [Path];
         false ->
@@ -128,20 +128,20 @@ find_dfs(FindFun, Obj, Path) ->
         Map when is_map(Map) ->
             maps:fold(fun(Key, Elem, A)->
                 A ++ find_dfs(FindFun, Elem, Path ++ [{m, Key}])
-            end, Ack, Map);
+            end, Acc, Map);
         List when is_list(List) ->
             IList = lists:zip(lists:seq(1, length(List)), List),
             lists:foldl(fun({I, Elem}, A)->
                 A ++ find_dfs(FindFun, Elem, Path ++ [{l, I}])
-            end, Ack, IList);
+            end, Acc, IList);
         Tuple when is_tuple(Tuple) ->
             List = tuple_to_list(Tuple),
             IList = lists:zip(lists:seq(1, length(List)), List),
             lists:foldl(fun({I, Elem}, A)->
                 A ++ find_dfs(FindFun, Elem, Path ++ [{t, I}])
-            end, Ack, IList);
+            end, Acc, IList);
         _ ->
-            Ack
+            Acc
     end.
 
 
