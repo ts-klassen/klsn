@@ -91,6 +91,7 @@ jobs:
     # Required permissions to deploy to Pages
     permissions:
       contents: read      # to read the repository contents / artifacts
+      actions: read       # to fetch the artifact
       pages: write        # to deploy to Pages
       id-token: write     # to authenticate to GitHub Pages
 
