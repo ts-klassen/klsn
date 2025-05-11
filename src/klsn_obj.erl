@@ -235,8 +235,8 @@ crud_history([H|T], Tuple, History) when is_tuple(Tuple) ->
         error:badarg ->
             {T, none, [{{t,Nth},Tuple}|History]}
     end;
-crud_history(Path, Value, History) ->
-    {Path, {value, Value}, History}.
+crud_history(Path, _Value, History) ->
+    {Path, none, History}.
 
 
 -spec crud_build(
@@ -250,10 +250,9 @@ crud_build({value, Obj}, []) ->
 crud_build(none, [{{m,Key},Map}|Tail]) when is_map(Map) ->
     crud_build({value, maps:remove(Key, Map)}, Tail);
 crud_build(none, [{{l,Nth},List}|Tail]) when is_list(List) ->
-    crud_build({value, lists:delete(Nth, List)}, Tail);
+    crud_build({value, delete_nth(Nth, List)}, Tail);
 crud_build(none, [{{t,Nth},Tuple}|Tail]) when is_tuple(Tuple) ->
-    List = tuple_to_list(Tuple),
-    crud_build({value, list_to_tuple(lists:delete(Nth, List))}, Tail);
+    crud_build({value, delete_nth(Nth, Tuple)}, Tail);
 crud_build({value, Value}, [{{m,Key},Map}|Tail]) when is_map(Map) ->
     crud_build({value, Map#{ Key => Value }}, Tail);
 crud_build({value, Value}, [{{l,Nth},List}|Tail]) when is_list(List) ->
@@ -305,6 +304,20 @@ replace_nth(Index, NewElement, List) when is_integer(Index), Index >= 1, is_list
             PadLen = Index - ListLen - 1,
             NilPad = lists:duplicate(PadLen, nil),
             List ++ NilPad ++ [NewElement]
+    end.
+
+
+delete_nth(Index, Tuple) when is_tuple(Tuple) ->
+    list_to_tuple(delete_nth(Index, tuple_to_list(Tuple)));
+delete_nth(Index, List) when is_integer(Index), Index >= 1, is_list(List) ->
+    ListLen = length(List),
+    case Index =< ListLen of
+        true  ->
+            Prefix = lists:sublist(List, Index - 1),
+            Tail   = lists:nthtail(Index, List),
+            Prefix ++ Tail;
+        false ->
+            List
     end.
 
 
