@@ -77,9 +77,13 @@ jobs:
   # ---------------------------------------------------------
   # Publish the coverage report from OTP 26 run to GitHub Pages
   publish-coverage:
-    needs: test            # wait for all matrix jobs
-    if: success()          # only deploy on green builds
+    needs: test
+    if: success() && github.event_name == 'push'   # deploy only on push (not PR)
     runs-on: ubuntu-latest
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
 
     # Grant the job permission to deploy to Pages
     # Required permissions to deploy to Pages
