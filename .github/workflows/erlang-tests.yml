@@ -4,6 +4,18 @@ on:
   pull_request:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+# Top-level permissions for whole workflow (needed by Pages actions)
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Ensure only one Pages deployment runs at a time
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
 
 env:
   REBAR3_VERSION: '3.23.0'
@@ -85,15 +97,7 @@ jobs:
 
     environment:
       name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-
-    # Grant the job permission to deploy to Pages
-    # Required permissions to deploy to Pages
-    permissions:
-      contents: read      # to read the repository contents / artifacts
-      actions: read       # to fetch the artifact
-      pages: write        # to deploy to Pages
-      id-token: write     # to authenticate to GitHub Pages
+      url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Download coverage artifact (OTP 26)
@@ -101,6 +105,9 @@ jobs:
         with:
           name: coverage-otp-26
           path: public                       # GitHub Pages expects this dir
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
 
       # Upload the files as a Pages artifact
       - name: Upload Pages artifact
@@ -110,7 +117,5 @@ jobs:
 
       # Deploy to GitHub Pages
       - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v3
-        with:
-          artifact_name: github-pages
+        id: deployment
+        uses: actions/deploy-pages@v4
