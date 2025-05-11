@@ -5,6 +5,11 @@ An OTP library
 
 Erlang library for ts-klassen projects.
 
+Online documentation / reports
+------------------------------
+
+- HTML coverage report: <https://ts-klassen.github.io/klsn/> (updated automatically after each merge to main)
+
 Used by
 - [ts-klassen/jobpq](https://github.com/ts-klassen/jobpq) job priority queue
 - [ts-klassen/ghwhk](https://github.com/ts-klassen/ghwhk) Github app webhook for erlang
