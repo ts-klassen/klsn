@@ -40,6 +40,14 @@ jobs:
           otp-version: ${{ matrix.otp }}
           rebar3-version: 'default'
 
+      - name: Cache rebar3 deps & build
+        uses: actions/cache@v3
+        with:
+          path: _build
+          key: ${{ runner.os }}-rebar3-${{ matrix.otp }}-${{ hashFiles('rebar.config', 'rebar.lock', 'src/**/*.erl') }}
+          restore-keys: |
+            ${{ runner.os }}-rebar3-${{ matrix.otp }}-
+
       - name: Make test script executable
         run: chmod +x ./run_test.sh
 
