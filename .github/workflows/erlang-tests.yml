@@ -131,7 +131,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: coverage-otp-26
-          path: public                       # GitHub Pages expects this dir
+          path: public/cover
 
       # Create a simple landing page that links to both reports
       - name: Create landing page
@@ -146,7 +146,7 @@ jobs:
           <body>
             <h1>klsn – Generated reports</h1>
             <ul>
-              <li><a href="report/index.html">Coverage report</a></li>
+              <li><a href="cover/index.html">Coverage report</a></li>
               <li><a href="edoc/index.html">API docs (EDoc)</a></li>
             </ul>
           </body>
