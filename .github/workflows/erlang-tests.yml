@@ -80,7 +80,7 @@ jobs:
   # Publish the coverage report from OTP 26 run to GitHub Pages
   publish-coverage:
     needs: test
-    if: success() && github.event_name == 'push'   # deploy only on push (not PR)
+    if: success() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     environment:
@@ -91,6 +91,7 @@ jobs:
     # Required permissions to deploy to Pages
     permissions:
       contents: read      # to read the repository contents / artifacts
+      actions: read       # to fetch the artifact
       pages: write        # to deploy to Pages
       id-token: write     # to authenticate to GitHub Pages
 
