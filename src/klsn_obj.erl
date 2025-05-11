@@ -3,6 +3,7 @@
 -export([
         get/2
       , lookup/2
+      , find/2
     ]).
 
 -export_type([
@@ -12,6 +13,7 @@
       , obj/0
       , cmd/0
       , path/0
+      , find_fun/0
     ]).
 
 -type value() :: term().
@@ -32,6 +34,11 @@
 
 -type path() :: [cmd()].
 
+-type short_path() :: [{m, key()} | {l|t, nth()}].
+
+-type find_fun() :: fun((value())->boolean())
+                  | fun((value(), short_path())->boolean())
+                  .
 
 -spec lookup(path(), obj()) -> klsn:maybe(value()).
 lookup(Path, Obj) ->
@@ -53,7 +60,7 @@ get([H|T], Map) when is_map(Map) ->
         {m, Key0} -> Key0;
         {list, _} -> erlang:error(not_found, [[H|T], Map]);
         {l, _} -> erlang:error(not_found, [[H|T], Map]);
-        {tuple, Key0} -> erlang:error(not_found, [[H|T], Map]);
+        {tuple, _} -> erlang:error(not_found, [[H|T], Map]);
         {t, _} -> erlang:error(not_found, [[H|T], Map]);
         Key0 -> Key0
     end,
@@ -75,7 +82,10 @@ get([H|T], List) when is_list(List) ->
         Key0 when is_integer(Key0), (Key0 > 0) -> Key0;
         _ -> erlang:error(not_found, [[H|T], List])
     end,
-    try lists:nth(Nth, List) catch
+    try lists:nth(Nth, List) of
+        Value ->
+            get(T, Value)
+    catch
         error:function_clause ->
             erlang:error(not_found, [[H|T], List])
     end;
@@ -91,9 +101,54 @@ get([H|T], Tuple) when is_tuple(Tuple) ->
         Key0 when is_integer(Key0), (Key0 > 0) -> Key0;
         _ -> erlang:error(not_found, [[H|T], Tuple])
     end,
-    try element(Nth, Tuple) catch
+    try element(Nth, Tuple) of
+        Value ->
+            get(T, Value)
+    catch
         error:badarg ->
             erlang:error(not_found, [[H|T], Tuple])
+    end;
+get(Arg1, Arg2) ->
+    erlang:error(not_found, [Arg1, Arg2]).
+
+-spec find(find_fun(), obj()) -> [short_path()].
+find(FindFun, Obj) when is_function(FindFun, 1) ->
+    find(fun(Value, _Path) -> FindFun(Value) end, Obj);
+find(FindFun, Obj) when is_function(FindFun, 2) ->
+    find_dfs(FindFun, Obj, []).
+
+% Ignore the performance for now. Just get it to work.
+-spec find_dfs(
+        fun((value(), short_path())->boolean())
+      , obj()
+      , path()
+    ) -> [short_path()].
+find_dfs(FindFun, Obj, Path) ->
+    Acc = case FindFun(Obj, Path) of
+        true ->
+            [Path];
+        false ->
+            []
+    end,
+    case Obj of
+        Map when is_map(Map) ->
+            maps:fold(fun(Key, Elem, A)->
+                A ++ find_dfs(FindFun, Elem, Path ++ [{m, Key}])
+            end, Acc, Map);
+        List when is_list(List) ->
+            IList = lists:zip(lists:seq(1, length(List)), List),
+            lists:foldl(fun({I, Elem}, A)->
+                A ++ find_dfs(FindFun, Elem, Path ++ [{l, I}])
+            end, Acc, IList);
+        Tuple when is_tuple(Tuple) ->
+            List = tuple_to_list(Tuple),
+            IList = lists:zip(lists:seq(1, length(List)), List),
+            lists:foldl(fun({I, Elem}, A)->
+                A ++ find_dfs(FindFun, Elem, Path ++ [{t, I}])
+            end, Acc, IList);
+        _ ->
+            Acc
     end.
+
 
 
