@@ -80,7 +80,7 @@ jobs:
   # Publish the coverage report from OTP 26 run to GitHub Pages
   publish-coverage:
     needs: test
-    if: success() && github.event_name == 'push'   # deploy only on push (not PR)
+    if: success()
     runs-on: ubuntu-latest
 
     environment:
