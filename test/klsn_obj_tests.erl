@@ -1,8 +1,8 @@
 -module(klsn_obj_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-%% Tests for get1
-get_1_test() ->
+%% Tests for get/2
+get_2_test() ->
     Key1 = {tuple1, tuple2, [1,2,3, {{4,5,6}, #{7=>#{8=>9}}, [a,b,c]}]},
     Key2 = #{ key3 => [], key4 => {} },
     Obj = #{
@@ -52,8 +52,8 @@ get_1_test() ->
 
     ok.
 
-%% Tests for lookup/1
-lookup_1_test() ->
+%% Tests for lookup/2
+lookup_2_test() ->
     ?assertEqual({value, elem}, klsn_obj:lookup([1], {elem})),
     ?assertEqual(none, klsn_obj:lookup([2], {elem})),
     ok.
