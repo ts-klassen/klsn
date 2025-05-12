@@ -7,15 +7,15 @@
     ]).
 
 %% A small helper module for working with the *Maybe* pattern
-%% (`{value, V} | none') that is defined in `klsn' itself.  The functions
-%% mirror common operations from the Haskell `Maybe` / Rust `Option`
+%% ({value, V} | none) that is defined in the klsn module itself. The functions
+%% mirror common operations from the Haskell Maybe / Rust Option
 %% family while keeping the interface idiomatic Erlang.
 
 -export_type([
     ]).
 
 %% @doc
-%% Extract the wrapped value or raise `badarg` when *None* is supplied.
+%% Extract the wrapped value or raise badarg when *None* is supplied.
 -spec get_value({value, Value}) -> Value.
 get_value({value, Value}) ->
     Value;
@@ -36,9 +36,9 @@ get_value(Arg1, Arg2) ->
 
 
 %% @doc
-%% Combine filtering and mapping in one pass.  When the callback returns
-%% `{value, V}` the element is kept (and *V* becomes the new value);
-%% returning `none` discards the element.
+%% Combine filtering and mapping in one pass. When the callback returns
+%% {value, V} the element is kept (and V becomes the new value);
+%% returning none discards the element.
 -spec filtermap(fun((any())->klsn:maybe(any())), list()) -> list();
                (fun((any(), any())->klsn:maybe(any())), map()) -> map().
 filtermap(Fun, List) when is_list(List) ->

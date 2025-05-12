@@ -13,15 +13,14 @@
         key/0
     ]).
 
-%% @doc
-%% A *path* into a nested map, represented as a list of keys.  Example:
-%% `[foo, bar, baz]' first looks up `foo' in the outer map, then `bar' in
-%% the returned map, and finally `baz'.
+%% A path into a nested map, represented as a list of keys. Example:
+%% [foo, bar, baz] first looks up foo in the outer map, then bar in
+%% the returned map, and finally baz.
 -type key() :: [term()].
 
 
 %% @doc
-%% Fetch the value at *Key* inside *Map* or raise `error:not_found` when
+%% Fetch the value at Key inside Map or raise error:not_found when
 %% the path cannot be resolved.
 -spec get(key(), map()) -> term().
 get(Key, Map) ->
@@ -33,14 +32,14 @@ get(Key, Map) ->
     end.
 
 %% @doc
-%% Same as `get/2` but returns *Default* instead of throwing.
+%% Same as get/2 but returns Default instead of throwing.
 -spec get(key(), map(), term()) -> term().
 get(Key, Map, Default) ->
     klsn_maybe:get_value(lookup(Key, Map), Default).
 
 %% @doc
-%% Variant of `get/2` that never throws.  Returns `{value, V}` when the
-%% path exists or `none` otherwise.
+%% Variant of get/2 that never throws. Returns {value, V} when the
+%% path exists or none otherwise.
 -spec lookup(key(), map()) -> klsn:maybe(term()).
 lookup([], Value) ->
     {value, Value};
@@ -74,7 +73,7 @@ upsert_([H|T], Value, {value, Map}, Maps, Keys) ->
 
 
 %% @doc
-%% Remove entries whose value is `none` and unwrap `{value, V}`.
+%% Remove entries whose value is none and unwrap {value, V}.
 -spec filter(maps:map(Key, klsn:maybe(Value))) -> maps:map(Key, Value).
 filter(Map) ->
     maps:filtermap(fun
