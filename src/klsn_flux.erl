@@ -23,18 +23,32 @@
       , bucket/0
     ]).
 
+%% @doc
+%% Connection details for InfluxDB HTTP API.  Built by `info/0` when the
+%% caller does not supply its own map.
 -type info() :: #{
         uri_map := unicode:unicode_binary()
       , headers := [{[], []}]
     }.
+%% @doc
+%% Identifier that can appear in measurement, tag, field or as an AST
+%% element when building Flux queries.
 -type key() :: atom() | klsn:binstr().
+%% @doc
+%% Allowed value inside the *field* map of a point.
 -type field_value() :: key()
                      | integer()
                      | float()
                      | boolean()
                      .
+%% @doc
+%% Unix time in **nanoseconds** since epoch.
 -type timestamp() :: integer(). % nanosecond
+%% @doc
+%% Unix time in **seconds** since epoch.
 -type unixtime() :: integer(). % second
+%% @doc
+%% RFC-3339 timestamp as UTF-8 binary.
 -type date_time() :: klsn:binstr(). % rfc-3339
 -type point() :: #{
         measurement := key()
@@ -42,7 +56,11 @@
       , field := maps:map(key(), field_value())
       , timestamp => timestamp()
     }.
+%% @doc
+%% InfluxDB organisation.
 -type organization() :: key().
+%% @doc
+%% InfluxDB bucket name.
 -type bucket() :: key().
 -type unit() :: d | h | m | s.
 -type value() ::
@@ -95,6 +113,9 @@ post(Request, #{uri_map:=UriMap, headers:=Headers}) ->
     end.
 
 
+%% @doc
+%% Write one or more *Points* to *Bucket* (within *Org*) using the InfluxDB
+%% `/api/v2/write` endpoint.  Automatically retries on transient errors.
 -spec write(
         organization()
       , bucket()
@@ -103,6 +124,8 @@ post(Request, #{uri_map:=UriMap, headers:=Headers}) ->
 write(Org, Bucket, Points) ->
     write(Org, Bucket, Points, info()).
 
+%% @doc
+%% Same as `write/3` but with explicit connection *Info*.
 -spec write(
         organization()
       , bucket()
@@ -140,6 +163,10 @@ write_(Org, Bucket, Body, Info, Retry) ->
     end.
 
 
+%% @doc
+%% Convenience helper that parameterises a Flux `Query` with `Args`, sends
+%% it via `flux_query/2` and returns the first table as a list of maps
+%% (header row is stripped).
 -spec q(
         organization()
       , Query::klsn:binstr()
@@ -149,6 +176,9 @@ q(Org, Query, Args) ->
     q(Org, Query, Args, info()).
 
 
+%% @doc
+%% Same as `q/3` but lets the caller specify *Info* (target server, auth
+%% headers…).
 -spec q(
         organization()
       , Query::klsn:binstr()
@@ -184,6 +214,9 @@ q(Org, Query, Args, Info) ->
     end, Body).
 
 
+%% @doc
+%% Send a raw Flux script (*binary*) or JSON query object to InfluxDB and
+%% return the server response (CSV) as a binary.
 -spec flux_query(
         organization()
       , klsn:binstr() | #{}
@@ -191,6 +224,8 @@ q(Org, Query, Args, Info) ->
 flux_query(Org, Query) ->
     flux_query(Org, Query, info()).
 
+%% @doc
+%% Version of `flux_query/2` that takes custom connection *Info*.
 -spec flux_query(
         organization()
       , klsn:binstr() | #{}
@@ -234,6 +269,9 @@ flux_query_(Org, Query, Info, Retry) ->
     end.
 
 
+%% @doc
+%% Convert a *Point* or list of points to InfluxDB Line Protocol. Tags are
+%% alphabetically stable and strings are properly escaped.
 -spec points_to_line_protocol(point() | [point()]) -> klsn:binstr().
 points_to_line_protocol(Point) when is_map(Point) ->
     points_to_line_protocol([Point]);
@@ -298,6 +336,9 @@ points_to_line_protocol(Points) ->
             ]
     end, Points)).
 
+%% @doc
+%% Current Unix time in nanoseconds, suitable for line protocol points
+%% that omit an explicit timestamp.
 -spec timestamp() -> timestamp().
 timestamp() ->
     os:system_time(nanosecond).
@@ -322,6 +363,11 @@ sleep(Stage, TooMany, {Class,Error,Stack}) when Stage >= TooMany ->
 sleep(Stage, _, _) ->
     timer:sleep(round(1000 * rand:uniform() + 100 * math:exp(Stage))).
 
+
+%% @doc
+%% Convert the simplified Erlang representation returned by `klsn_flux:q/3`
+%% (or hand-crafted by callers) into the full JSON AST expected by the
+%% InfluxDB query API.
 
 value({object, Properties}) ->
     #{
@@ -430,6 +476,9 @@ value(Arg) ->
     erlang:error(badarg, [Arg]).
 
 
+%% @doc
+%% Very small CSV parser used by `q/3,4`. Returns the data as a list of
+%% rows where each cell is a UTF-8 binary.
 -spec csv(klsn:binstr()) -> [[klsn:binstr()]].
 csv(CSV) ->
     csv(CSV, normal, [[<<>>]]).

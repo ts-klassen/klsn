@@ -13,9 +13,16 @@
         key/0
     ]).
 
+%% @doc
+%% A *path* into a nested map, represented as a list of keys.  Example:
+%% `[foo, bar, baz]' first looks up `foo' in the outer map, then `bar' in
+%% the returned map, and finally `baz'.
 -type key() :: [term()].
 
 
+%% @doc
+%% Fetch the value at *Key* inside *Map* or raise `error:not_found` when
+%% the path cannot be resolved.
 -spec get(key(), map()) -> term().
 get(Key, Map) ->
     case lookup(Key, Map) of
@@ -25,10 +32,15 @@ get(Key, Map) ->
             erlang:error(not_found, [Key, Map])
     end.
 
+%% @doc
+%% Same as `get/2` but returns *Default* instead of throwing.
 -spec get(key(), map(), term()) -> term().
 get(Key, Map, Default) ->
     klsn_maybe:get_value(lookup(Key, Map), Default).
 
+%% @doc
+%% Variant of `get/2` that never throws.  Returns `{value, V}` when the
+%% path exists or `none` otherwise.
 -spec lookup(key(), map()) -> klsn:maybe(term()).
 lookup([], Value) ->
     {value, Value};
@@ -42,6 +54,9 @@ lookup([H|T], Map) ->
             none
     end.
 
+%% @doc
+%% Insert or replace the element located at *Key* with *Value* inside
+%% *Map*.  Missing intermediary maps are created on-the-fly.
 -spec upsert(key(), term(), map()) -> map().
 upsert(Key, Value, Map) ->
     upsert_(Key, Value, {value, Map}, [], []).
@@ -58,6 +73,8 @@ upsert_([H|T], Value, {value, Map}, Maps, Keys) ->
     upsert_(T, Value, Elem, [{value, Map}|Maps], [H|Keys]).
 
 
+%% @doc
+%% Remove entries whose value is `none` and unwrap `{value, V}`.
 -spec filter(maps:map(Key, klsn:maybe(Value))) -> maps:map(Key, Value).
 filter(Map) ->
     maps:filtermap(fun
@@ -67,6 +84,8 @@ filter(Map) ->
             false
     end, Map).
 
+%% @doc
+%% Produce a new map where keys become values and vice-versa.
 -spec invert(maps:map(Key, Value)) -> maps:map(Value, Key).
 invert(Map) ->
     maps:from_list(lists:map(fun({Key, Value})->
