@@ -18,15 +18,34 @@
       , crud_fun/0
     ]).
 
+%% ------------------------------------------------------------------
+%% Exported types
+%% ------------------------------------------------------------------
+
+%% @doc
+%% Any Erlang term that can live inside a nested structure tracked by this
+%% module.
 -type value() :: term().
+
+%% @doc
+%% Key used in a map.
 -type key() :: term().
+
+%% @doc
+%% 1-based index into a list or tuple.
 -type nth() :: pos_integer().
+
+%% @doc
+%% JSON-like recursive data structure: atoms, binaries, maps, lists or
+%% tuples of other `obj()` values.
 -type obj() :: value()
              | lists:list(obj())
              | tuple() % {}, {obj()}, {obj(), obj()}, ...
              | maps:map(key(), obj())
              .
 
+%% @doc
+%% A single navigation step used in a `path()`.
 -type cmd() :: {raw, nth() | key()}
              | {map, key()} | {m, key()}
              | {list, nth()} | {l, nth()}
@@ -34,16 +53,30 @@
              | nth() | key()
              .
 
+%% @doc
+%% List of navigation commands that drills down into an `obj()`.
 -type path() :: [cmd()].
 
+%% @doc
+%% A shortened path returned by `find/2` where each step is unambiguous.
 -type short_path() :: [{m, key()} | {l|t, nth()}].
 
+%% @doc
+%% Predicate used by `find/2`. It can accept either the current value only
+%% or the value together with its *short path*.
 -type find_fun() :: fun((value())->boolean())
                   | fun((value(), short_path())->boolean())
                   .
 
+%% @doc
+%% Callback used by `crud/3` to create, update or delete a value at the
+%% given path.
 -type crud_fun() :: fun((klsn:maybe(value()))->klsn:maybe(value())).
 
+
+%% @doc
+%% Safe navigation: returns `{value, V}` when the element exists, otherwise
+%% `none`.
 -spec lookup(path(), obj()) -> klsn:maybe(value()).
 lookup(Path, Obj) ->
     try get(Path, Obj) of
@@ -54,6 +87,9 @@ lookup(Path, Obj) ->
             none
     end.
 
+%% @doc
+%% Navigate *Obj* using *Path* and return the value. Raises
+%% `error:not_found` when any step is invalid.
 -spec get(path(), obj()) -> value().
 get([], Value) ->
     Value;
@@ -115,6 +151,9 @@ get([H|T], Tuple) when is_tuple(Tuple) ->
 get(Arg1, Arg2) ->
     erlang:error(not_found, [Arg1, Arg2]).
 
+%% @doc
+%% Depth-first search for every occurrence that satisfies *FindFun*.
+%% Returns a list of *short paths* to the matches.
 -spec find(find_fun(), obj()) -> [short_path()].
 find(FindFun, Obj) when is_function(FindFun, 1) ->
     find(fun(Value, _Path) -> FindFun(Value) end, Obj);
@@ -154,6 +193,10 @@ find_dfs(FindFun, Obj, Path) ->
             Acc
     end.
 
+%% @doc
+%% "Create-Read-Update-Delete" helper.  Applies *CRUDFun* on the existing
+%% value (or `none` when the path is missing) and rebuilds the object with
+%% the returned result.
 -spec crud(path(), crud_fun(), obj()) -> obj().
 crud(Path, CRUDFun, Obj) ->
     {PathLeft, MaybeValue, History} = try crud_history(Path, Obj, []) catch
