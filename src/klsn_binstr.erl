@@ -7,9 +7,8 @@
       , hash/1
     ]).
 
-%% @doc
 %% UTF-8 binary string used as the canonical textual representation across
-%% the `klsn_*` helper modules.
+%% the klsn_* helper modules.
 -export_type([
         binstr/0
     ]).
@@ -18,7 +17,7 @@
 
 
 %% @doc
-%% Return a lowercase hexadecimal SHA-256 digest of `Binary'.
+%% Return a lowercase hexadecimal SHA-256 digest of Binary.
 -spec hash(binstr()) -> binstr().
 hash(Binary) ->
     list_to_binary(
@@ -32,8 +31,8 @@ hash(Binary) ->
     ).
 
 %% @doc
-%% Apply each replacement rule `{Before,After}' to `Sub' using
-%% `binary:replace/4' with the `global' option. Rules are processed from
+%% Apply each replacement rule {Before,After} to Sub using
+%% binary:replace/4 with the global option. Rules are processed from
 %% left to right so earlier replacements feed into later ones.
 %%
 %% Returns the transformed binary.
@@ -59,9 +58,9 @@ from_any(IOList) ->
     iolist_to_binary(IOList).
 
 %% @doc
-%% Percent-encode `Bin' so that it becomes safe to embed inside a URL.
+%% Percent-encode Bin so that it becomes safe to embed inside a URL.
 %% The implementation keeps alphanumerics and the unreserved characters
-%% `- . _ ~' intact and encodes everything else as `%XX'.
+%% - . _ ~ intact and encodes everything else as %XX.
 -spec urlencode(binstr()) -> binstr().
 urlencode(Bin) ->
     IsSafe = fun

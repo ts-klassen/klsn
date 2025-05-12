@@ -32,63 +32,54 @@
 %% Exported types
 %% ------------------------------------------------------------------
 
-%% @doc
 %% Connection information used by the helper functions when talking to a
 %% CouchDB-compatible server. Currently only the base URL is recorded.
 -type info() :: #{
         url := unicode:unicode_binary()
     }.
 
-%% @doc
 %% Name of the database (will be url-encoded when used in a request).
 -type db() :: unicode:unicode_binary().
 
-%% @doc
-%% Document key (i.e. the `_id` field) inside the database.
+%% Document key (i.e. the _id field) inside the database.
 -type key() :: unicode:unicode_binary().
 
-%% @doc
-%% Document identifier returned by `CouchDB` after a create / update.
+%% Document identifier returned by CouchDB after a create / update.
 -type id() :: unicode:unicode_binary().
 
-%% @doc
-%% Revision string returned by CouchDB (the `_rev` field).
+%% Revision string returned by CouchDB (the _rev field).
 -type rev() :: unicode:unicode_binary().
 
-%% @doc
 %% JSON-serialisable map that becomes the body of a CouchDB document.
 -type payload() :: maps:map(atom() | unicode:unicode_binary(), value()).
 
-%% @doc
-%% Allowed JSON values used inside a `payload()`.
+%% Allowed JSON values used inside a payload().
 -type value() :: atom()
                | unicode:unicode_binary()
                | lists:list(value())
                | maps:map(atom() | unicode:unicode_binary(), value())
                .
 
-%% @doc
-%% Callback used by `update/3,4`. Receives the existing `payload()` and
+%% Callback used by update/3,4. Receives the existing payload() and
 %% must return the updated one.
 -type update_function() :: fun((payload())->payload()).
 
-%% @doc
-%% Callback used by `upsert/3,4`. Receives `none` when the document is
-%% missing, or `{value, Payload}` when it exists, and must return the new
+%% Callback used by upsert/3,4. Receives none when the document is
+%% missing, or {value, Payload} when it exists, and must return the new
 %% version that will be stored.
 -type upsert_function() :: fun((klsn:maybe(payload()))->payload()).
 
 %% @doc
 %% Create a new database named *Db* on the configured CouchDB server. If
 %% the database already exists the call is idempotent and still returns
-%% `ok`.
+%% ok.
 -spec create_db(db()) -> ok.
 create_db(Db) ->
     create_db(Db, db_info()).
 
 %% @doc
-%% Same as `create_db/1` but allows passing a custom connection *Info*
-%% record (usually produced by `db_info/0`).
+%% Same as create_db/1 but allows passing a custom connection Info
+%% record (usually produced by db_info/0).
 -spec create_db(db(), info()) -> ok.
 create_db(Db, Info) when is_atom(Db) ->
     create_db(atom_to_binary(Db), Info);
@@ -106,14 +97,14 @@ create_db(Db0, #{url:=Url0}) ->
 
 
 %% @doc
-%% Insert a new document *Data* into *Db* and return the `{Id, Rev}` pair
+%% Insert a new document Data into Db and return the {Id, Rev} pair
 %% assigned by the server. Convenience wrapper that uses default *Info*.
 -spec create_doc(db(), payload()) -> {id(), rev()}.
 create_doc(Db, Data0) ->
     create_doc(Db, Data0, db_info()).
 
 %% @doc
-%% Same as `create_doc/2` but with explicit *Info*.
+%% Same as create_doc/2 but with explicit Info.
 -spec create_doc(db(), payload(), info()) -> {id(), rev()}.
 create_doc(Db, Data0, Info) ->
     Data2 = remove_keys(['_rev', 'C', 'U'], Data0),
@@ -122,13 +113,13 @@ create_doc(Db, Data0, Info) ->
     post(Db, Data, Info).
 
 %% @doc
-%% Fetch the document identified by *Key* from *Db* or raise `error:not_found`.
+%% Fetch the document identified by Key from Db or raise error:not_found.
 -spec get(db(), key()) -> payload().
 get(Db, Key) ->
     get(Db, Key, db_info()).
 
 %% @doc
-%% Same as `get/2` but with explicit *Info*.
+%% Same as get/2 but with explicit Info.
 -spec get(db(), key(), info()) -> payload().
 get(Db, Key, Info) ->
     case lookup(Db, Key, Info) of
@@ -137,14 +128,14 @@ get(Db, Key, Info) ->
     end.
 
 %% @doc
-%% Safe variant of `get/2`. Returns `{value, Payload}` when the document
-%% exists or `none` when it is missing.
+%% Safe variant of get/2. Returns {value, Payload} when the document
+%% exists or none when it is missing.
 -spec lookup(db(), key()) -> klsn:maybe(payload()).
 lookup(Db, Key) ->
     lookup(Db, Key, db_info()).
 
 %% @doc
-%% Same as `lookup/2` but with explicit *Info*.
+%% Same as lookup/2 but with explicit Info.
 -spec lookup(db(), key(), info()) -> klsn:maybe(payload()).
 lookup(Db, Key, Info) when is_atom(Db) ->
     lookup(atom_to_binary(Db), Key, Info);
@@ -201,13 +192,13 @@ post(Db0, Payload0, #{url:=Url0}) ->
 
 %% @doc
 %% Read-modify-write helper.  Applies *Fun* to the current document and
-%% stores the result. Fails with `error:not_found` when the key is absent.
+%% stores the result. Fails with error:not_found when the key is absent.
 -spec update(db(), key(), update_function()) -> payload().
 update(Db, Key, Fun) ->
     update(Db, Key, Fun, db_info()).
 
 %% @doc
-%% Same as `update/3` but with explicit *Info*.
+%% Same as update/3 but with explicit Info.
 -spec update(db(), key(), update_function(), info()) -> payload().
 update(Db, Key, Fun0, Info) ->
     Fun = fun
@@ -219,15 +210,15 @@ update(Db, Key, Fun0, Info) ->
     upsert_(Db, Key, Fun, Info, 1).
 
 %% @doc
-%% Insert or update the document located at *Key* using *Fun*.  *Fun* will
-%% receive `none` on insert or `{value, Old}` on update and must return
+%% Insert or update the document located at Key using Fun. Fun will
+%% receive none on insert or {value, Old} on update and must return
 %% the new payload.
 -spec upsert(db(), key(), upsert_function()) -> payload().
 upsert(Db, Key, Fun) ->
     upsert(Db, Key, Fun, db_info()).
 
 %% @doc
-%% Same as `upsert/3` but with explicit *Info*.
+%% Same as upsert/3 but with explicit Info.
 -spec upsert(db(), key(), upsert_function(), info()
     ) -> payload().
 upsert(_, <<>>, Fun, _) ->
@@ -273,7 +264,7 @@ upsert_(Db, Key, Fun, Info, Retry) ->
 
 %% @doc
 %% ISO-8601/RFC-3339 timestamp with millisecond precision and a fixed
-%% `+09:00` offset. Used in audit fields `C` (created) and `U` (updated).
+%% +09:00 offset. Used in audit fields C (created) and U (updated).
 -spec time_now() -> unicode:unicode_binary().
 time_now() ->
     list_to_binary(calendar:system_time_to_rfc3339(erlang:system_time(millisecond), [{unit, millisecond}, {offset, "+09:00"}])).
@@ -288,7 +279,7 @@ remove_keys(Keys, Map) when is_list(Keys), is_map(Map) ->
 
 %% @doc
 %% Generate a monotonic-ish unique identifier suitable for use as a CouchDB
-%% `_id`. Combines the current Unix time (seconds) with parts of an Erlang
+%% _id. Combines the current Unix time (seconds) with parts of an Erlang
 %% reference encoded in base-36 so that the resulting IDs sort roughly in
 %% creation order and stay URL-safe.
 

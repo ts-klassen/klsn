@@ -23,31 +23,25 @@
       , bucket/0
     ]).
 
-%% @doc
-%% Connection details for InfluxDB HTTP API.  Built by `info/0` when the
+%% Connection details for the InfluxDB HTTP API. Built by info/0 when the
 %% caller does not supply its own map.
 -type info() :: #{
         uri_map := unicode:unicode_binary()
       , headers := [{[], []}]
     }.
-%% @doc
 %% Identifier that can appear in measurement, tag, field or as an AST
 %% element when building Flux queries.
 -type key() :: atom() | klsn:binstr().
-%% @doc
-%% Allowed value inside the *field* map of a point.
+%% Allowed value inside the field map of a point.
 -type field_value() :: key()
                      | integer()
                      | float()
                      | boolean()
                      .
-%% @doc
-%% Unix time in **nanoseconds** since epoch.
+%% Unix time in nanoseconds since epoch.
 -type timestamp() :: integer(). % nanosecond
-%% @doc
-%% Unix time in **seconds** since epoch.
+%% Unix time in seconds since epoch.
 -type unixtime() :: integer(). % second
-%% @doc
 %% RFC-3339 timestamp as UTF-8 binary.
 -type date_time() :: klsn:binstr(). % rfc-3339
 -type point() :: #{
@@ -56,10 +50,8 @@
       , field := maps:map(key(), field_value())
       , timestamp => timestamp()
     }.
-%% @doc
 %% InfluxDB organisation.
 -type organization() :: key().
-%% @doc
 %% InfluxDB bucket name.
 -type bucket() :: key().
 -type unit() :: d | h | m | s.
@@ -114,8 +106,8 @@ post(Request, #{uri_map:=UriMap, headers:=Headers}) ->
 
 
 %% @doc
-%% Write one or more *Points* to *Bucket* (within *Org*) using the InfluxDB
-%% `/api/v2/write` endpoint.  Automatically retries on transient errors.
+%% Write one or more Points to Bucket (within Org) using the InfluxDB
+%% /api/v2/write endpoint. Automatically retries on transient errors.
 -spec write(
         organization()
       , bucket()
@@ -125,7 +117,7 @@ write(Org, Bucket, Points) ->
     write(Org, Bucket, Points, info()).
 
 %% @doc
-%% Same as `write/3` but with explicit connection *Info*.
+%% Same as write/3 but with explicit connection Info.
 -spec write(
         organization()
       , bucket()
@@ -164,8 +156,8 @@ write_(Org, Bucket, Body, Info, Retry) ->
 
 
 %% @doc
-%% Convenience helper that parameterises a Flux `Query` with `Args`, sends
-%% it via `flux_query/2` and returns the first table as a list of maps
+%% Convenience helper that parameterises a Flux Query with Args, sends
+%% it via flux_query/2 and returns the first table as a list of maps
 %% (header row is stripped).
 -spec q(
         organization()
@@ -177,8 +169,7 @@ q(Org, Query, Args) ->
 
 
 %% @doc
-%% Same as `q/3` but lets the caller specify *Info* (target server, auth
-%% headers…).
+%% Same as q/3 but lets the caller specify Info (target server, auth headers…).
 -spec q(
         organization()
       , Query::klsn:binstr()
@@ -215,7 +206,7 @@ q(Org, Query, Args, Info) ->
 
 
 %% @doc
-%% Send a raw Flux script (*binary*) or JSON query object to InfluxDB and
+%% Send a raw Flux script (binary) or JSON query object to InfluxDB and
 %% return the server response (CSV) as a binary.
 -spec flux_query(
         organization()
@@ -225,7 +216,7 @@ flux_query(Org, Query) ->
     flux_query(Org, Query, info()).
 
 %% @doc
-%% Version of `flux_query/2` that takes custom connection *Info*.
+%% Version of flux_query/2 that takes custom connection Info.
 -spec flux_query(
         organization()
       , klsn:binstr() | #{}
@@ -365,7 +356,7 @@ sleep(Stage, _, _) ->
 
 
 %% @doc
-%% Convert the simplified Erlang representation returned by `klsn_flux:q/3`
+%% Convert the simplified Erlang representation returned by klsn_flux:q/3
 %% (or hand-crafted by callers) into the full JSON AST expected by the
 %% InfluxDB query API.
 
@@ -477,7 +468,7 @@ value(Arg) ->
 
 
 %% @doc
-%% Very small CSV parser used by `q/3,4`. Returns the data as a list of
+%% Very small CSV parser used by q/3,4. Returns the data as a list of
 %% rows where each cell is a UTF-8 binary.
 -spec csv(klsn:binstr()) -> [[klsn:binstr()]].
 csv(CSV) ->
