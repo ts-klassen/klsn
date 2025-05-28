@@ -33,9 +33,6 @@ sample_function(sample_function_arg2) ->
 -spec type({module(), atom(), non_neg_integer()}) -> {atom(), term(), [term()]}.
 type({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
     Forms = abstract_code(Module),
-    type_from_forms(Forms, Module, Name, Arity).
-
-type_from_forms(Forms, Module, Name, Arity) ->
     Types = [ {TName, TExpr, Vars}
               || {attribute, _, type, {TName, TExpr, Vars}} <- Forms,
                  TName == Name,
@@ -82,7 +79,7 @@ abstract_code(Module) when is_atom(Module) ->
                         {raw_abstract_v1, Forms} when is_list(Forms) ->
                             Forms;
                         Forms when is_list(Forms) ->
-                            erlang:error(unsupported_format, [Module]);
+                            Forms;
                         _ ->
                             erlang:error(no_abstract_code, [Module])
                     end;
