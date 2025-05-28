@@ -30,23 +30,39 @@ sample_function(sample_function_arg2) ->
     sample_function_return2.
 
 %% Retrieve the type definition for a given type name and arity.
--spec type({module(), atom(), non_neg_integer()}) -> {atom(), term(), [term()]} | {error, atom()}.
+-spec type({module(), atom(), non_neg_integer()}) -> {atom(), term(), [term()]}.
 type({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
-    Forms = abstract_code(Module),
+    try abstract_code(Module) of
+        Forms when is_list(Forms) ->
+            type_from_forms(Forms, Module, Name, Arity)
+    catch
+        _:_ ->
+            erlang:error(no_abstract_code, [Module, Name, Arity])
+    end.
+
+type_from_forms(Forms, Module, Name, Arity) ->
     Types = [ {TName, TExpr, Vars}
               || {attribute, _, type, {TName, TExpr, Vars}} <- Forms,
                  TName == Name,
                  length(Vars) =:= Arity ],
     case Types of
         [Result] -> Result;
-        [] -> {error, undefined_type};
+        [] -> erlang:error(undefined_type, [Module, Name, Arity]);
         [Result|_] -> Result
     end.
 
 %% Retrieve the spec (type signatures) for a given function name and arity.
 -spec spec({module(), atom(), non_neg_integer()}) -> [term()].
 spec({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
-    Forms = abstract_code(Module),
+    try abstract_code(Module) of
+        Forms when is_list(Forms) ->
+            spec_from_forms(Forms, Name, Arity)
+    catch
+        _:_ ->
+            erlang:error(no_abstract_code, [Module, Name, Arity])
+    end.
+
+spec_from_forms(Forms, Name, Arity) ->
     SpecsList = [ Specs
                   || {attribute, _, spec, {{FName, FArity}, Specs}} <- Forms,
                      FName == Name,
@@ -60,7 +76,15 @@ spec({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arit
 %% Retrieve the clauses (implementations) for a given function name and arity.
 -spec function({module(), atom(), non_neg_integer()}) -> [term()].
 function({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
-    Forms = abstract_code(Module),
+    try abstract_code(Module) of
+        Forms when is_list(Forms) ->
+            function_from_forms(Forms, Name, Arity)
+    catch
+        _:_ ->
+            erlang:error(no_abstract_code, [Module, Name, Arity])
+    end.
+
+function_from_forms(Forms, Name, Arity) ->
     ClausesList = [ Clauses
                     || {function, _, FName, FArity, Clauses} <- Forms,
                        FName == Name,
