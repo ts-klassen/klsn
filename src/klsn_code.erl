@@ -29,19 +29,55 @@ sample_function(sample_function_arg1) ->
 sample_function(sample_function_arg2) ->
     sample_function_return2.
 
--spec type(mfa()) -> any(). % FIXME: type any should not be used.
-type(_MFA) ->
-    todo.
+%% Retrieve the type definition for a given type name and arity.
+-spec type({module(), atom(), non_neg_integer()}) -> {atom(), term(), [term()]} | {error, atom()}.
+type({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
+    Forms = abstract_code(Module),
+    Types = [ {TName, TExpr, Vars}
+              || {attribute, _, type, {TName, TExpr, Vars}} <- Forms,
+                 TName == Name,
+                 length(Vars) =:= Arity ],
+    case Types of
+        [Result] -> Result;
+        [] -> {error, undefined_type};
+        [Result|_] -> Result
+    end.
 
--spec spec(mfa()) -> any(). % FIXME: type any should not be used.
-spec(_MFA) ->
-    todo.
+%% Retrieve the spec (type signatures) for a given function name and arity.
+-spec spec({module(), atom(), non_neg_integer()}) -> [term()].
+spec({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
+    Forms = abstract_code(Module),
+    SpecsList = [ Specs
+                  || {attribute, _, spec, {{FName, FArity}, Specs}} <- Forms,
+                     FName == Name,
+                     FArity =:= Arity ],
+    case SpecsList of
+        [Specs] -> Specs;
+        [] -> [];
+        [Specs|_] -> Specs
+    end.
 
--spec function(mfa()) -> any(). % FIXME: type any should not be used.
-function(_MFA) ->
-    todo.
+%% Retrieve the clauses (implementations) for a given function name and arity.
+-spec function({module(), atom(), non_neg_integer()}) -> [term()].
+function({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
+    Forms = abstract_code(Module),
+    ClausesList = [ Clauses
+                    || {function, _, FName, FArity, Clauses} <- Forms,
+                       FName == Name,
+                       FArity =:= Arity ],
+    case ClausesList of
+        [Clauses] -> Clauses;
+        [] -> [];
+        [Clauses|_] -> Clauses
+    end.
 
-abstract_code(Module) ->
-    {ok, Bin} = code:get_object_code(gpte_image),
-    beam_lib:chunks(Bin, [abstract_code]).
+%% Internal: load and return the raw abstract code forms for a module.
+-spec abstract_code(module()) -> [term()].
+abstract_code(Module) when is_atom(Module) ->
+    {_, Bin, _} = code:get_object_code(Module),
+    {ok, {_, [{abstract_code, Data}]}} = beam_lib:chunks(Bin, [abstract_code]),
+    case Data of
+        {raw_abstract_v1, Forms} -> Forms;
+        Forms when is_list(Forms) -> Forms
+    end.
 
