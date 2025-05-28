@@ -85,6 +85,9 @@ urlencode(<<Char/utf8, Rest/binary>>, IsSafe, Acc) ->
             <<Char/utf8>>
     end,
     urlencode(Rest, IsSafe, <<Acc/binary, Encoded/binary>>);
+urlencode(<<Char:1/binary, Rest/binary>>, IsSafe, Acc) ->
+    Encoded = percent_encode(<<Char/binary>>, <<>>),
+    urlencode(Rest, IsSafe, <<Acc/binary, Encoded/binary>>);
 urlencode(_, _, _) ->
     error(badarg).
 
