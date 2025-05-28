@@ -2,6 +2,7 @@
 
 -export([
         urlencode/1
+      , urldecode/1
       , from_any/1
       , replace/2
       , hash/1
@@ -108,6 +109,27 @@ encode_half_char(HalfChar) ->
         ((HalfChar) >= 0) andalso ((HalfChar) =< 9) -> (HalfChar) + $0;
         ((HalfChar) >= 10) andalso ((HalfChar) =< 15) -> (HalfChar) + $A - 10
     end.
+
+-spec urldecode(binstr()) -> binstr().
+urldecode(Bin) when is_binary(Bin) ->
+    urldecode(Bin, <<>>);
+urldecode(_) ->
+    error(badarg).
+
+urldecode(<<>>, Acc) ->
+    Acc;
+urldecode(<<"%", H, L, Rest/binary>>, Acc) ->
+    V0 = hex_val(H),
+    V1 = hex_val(L),
+    Byte = V0 * 16 + V1,
+    urldecode(Rest, <<Acc/binary, Byte>>);
+urldecode(<<Byte, Rest/binary>>, Acc) ->
+    urldecode(Rest, <<Acc/binary, Byte>>).
+
+-spec hex_val(integer()) -> integer().
+hex_val(H) when $0 =< H, H =< $9 -> H - $0;
+hex_val(H) when $A =< H, H =< $F -> H - $A + 10;
+hex_val(H) when $a =< H, H =< $f -> H - $a + 10.
 
 
 
