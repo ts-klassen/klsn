@@ -49,16 +49,12 @@ type_from_forms(Forms, Module, Name, Arity) ->
 -spec spec({module(), atom(), non_neg_integer()}) -> [term()].
 spec({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
     Forms = abstract_code(Module),
-    spec_from_forms(Forms, Name, Arity).
-
-spec_from_forms(Forms, Name, Arity) ->
     SpecsList = [ Specs
                   || {attribute, _, spec, {{FName, FArity}, Specs}} <- Forms,
                      FName == Name,
                      FArity =:= Arity ],
     case SpecsList of
-        [Specs] -> Specs;
-        [] -> [];
+        [] -> erlang:error(undefined_spec, [{Module, Name, Arity}]);
         [Specs|_] -> Specs
     end.
 
@@ -66,16 +62,12 @@ spec_from_forms(Forms, Name, Arity) ->
 -spec function({module(), atom(), non_neg_integer()}) -> [term()].
 function({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
     Forms = abstract_code(Module),
-    function_from_forms(Forms, Name, Arity).
-
-function_from_forms(Forms, Name, Arity) ->
     ClausesList = [ Clauses
                     || {function, _, FName, FArity, Clauses} <- Forms,
                        FName == Name,
                        FArity =:= Arity ],
     case ClausesList of
-        [Clauses] -> Clauses;
-        [] -> [];
+        [] -> erlang:error(undefined_function, [{Module, Name, Arity}]);
         [Clauses|_] -> Clauses
     end.
 
