@@ -15,6 +15,7 @@
          test_tags/1,
          test_fields_types/1,
          test_csv_escapes/1,
+         test_q/1,
          test_json_query/1]).
 
 %% Define the test suite with all/0
@@ -31,6 +32,7 @@ all() ->
       test_tags,
       test_fields_types,
       test_csv_escapes,
+      test_q,
       test_json_query
     ].
 
@@ -223,6 +225,26 @@ test_csv_escapes(_Config) ->
     length(Rows3) >= 1 orelse exit({csv3_rows, length(Rows3)}),
     [H3|_] = Rows3,
     H3 =:= [<<"a\"b">>,<<"c">>] orelse exit({csv3_hdr, H3}),
+    ok.
+
+%% Test q/3 returns a list of maps for a written point
+test_q(_Config) ->
+    Org = default, Bucket = sandbox,
+    Meas = klsn_db:new_id(),
+    Ts = klsn_flux:timestamp(),
+    P = #{measurement => Meas, field => #{test => 123}, timestamp => Ts},
+    ok = klsn_flux:write(Org, Bucket, P),
+    Flux = iolist_to_binary(io_lib:format(
+               "from(bucket: \"~s\") |> range(start: -1m)"
+               ++
+               " |> filter(fn: (r) => r._measurement == \"~s\" and r._field == \"test\")",
+               [atom_to_list(Bucket), binary_to_list(Meas)])),
+    QRes = klsn_flux:q(Org, Flux, {object, #{}}),
+    length(QRes) >= 1 orelse exit({q_empty, QRes}),
+    Map = hd(QRes),
+    maps:get(<<"_field">>, Map) =:= <<"test">> orelse exit({q_field, Map}),
+    ValueBin = maps:get(<<"_value">>, Map),
+    binary:match(ValueBin, <<"123">>) =/= nomatch orelse exit({q_value, ValueBin}),
     ok.
 %% Test flux_query/3 JSON branch returns binary
 test_json_query(_Config) ->
