@@ -1,33 +1,10 @@
 -module(klsn_code).
 
--export_type([
-        sample_type/0
-      , sample_type/1
-      , sample_type/2
-    ]).
-
 -export([
-        sample_function/0
-      , sample_function/1
-      , type/1
+        type/1
       , spec/1
       , function/1
     ]).
-
--type sample_type() :: sample_type_payload.
--type sample_type(A) :: A.
--type sample_type(A, B) :: {A,B}.
-
--spec sample_function() -> sample_function_return.
-sample_function() ->
-    sample_function_return.
-
--spec sample_function(sample_function_arg1) -> sample_function_return1;
-                     (sample_function_arg2) -> sample_function_return2.
-sample_function(sample_function_arg1) ->
-    sample_function_return1;
-sample_function(sample_function_arg2) ->
-    sample_function_return2.
 
 %% Retrieve the type definition for a given type name and arity.
 -spec type({module(), atom(), non_neg_integer()}) -> {atom(), term(), [term()]}.
