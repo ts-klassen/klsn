@@ -9,7 +9,11 @@
          flux_query_empty/1,
          multi_write/1,
          test_value/1,
-         test_csv/1]).
+         test_csv/1,
+         test_more_value/1,
+         test_timestamp/1,
+         test_tags/1,
+         test_json_query/1]).
 
 %% Define the test suite with all/0
 all() ->
@@ -19,7 +23,11 @@ all() ->
       flux_query_empty,
       multi_write,
       test_value,
-      test_csv
+      test_csv,
+      test_more_value,
+      test_timestamp,
+      test_tags,
+      test_json_query
     ].
 
 %% Just make sure there are no errors
@@ -151,5 +159,52 @@ test_csv(_Config) ->
     R2 = hd(Rest2),
     H2 =:= [<<"col,1">>,<<"abc">>] orelse exit({csv_quoted_hdr, H2}),
     R2 =:= [<<"x">>,<<"y">>,<<"z">>] orelse exit({csv_quoted_row, R2}),
+    ok.
+
+%% More value/1 branches: unary, call, identifier, regex, map, list, date_time, raw
+test_more_value(_Config) ->
+    U = klsn_flux:value({unary, <<"-">>, {int, 5}}),
+    (maps:get(type, U) =:= 'UnaryExpression' andalso maps:get(operator, U) =:= <<"-">>)
+        orelse exit({value_unary, U}),
+    C = klsn_flux:value({call, {identifier, foo}}),
+    (maps:get(type, C) =:= 'CallExpression') orelse exit({value_call, C}),
+    ID = klsn_flux:value({identifier, bar}),
+    (maps:get(type, ID) =:= 'Identifier' andalso maps:get(name, ID) =:= bar)
+        orelse exit({value_ident, ID}),
+    RI = klsn_flux:value(bar),
+    (maps:get(type, RI) =:= 'Identifier') orelse exit({value_atom, RI}),
+    RX = klsn_flux:value({regex, <<"ab.*">>}),
+    (maps:get(type, RX) =:= 'RegexpLiteral') orelse exit({value_regex, RX}),
+    MI = klsn_flux:value(#{<<"k">> => 1}),
+    (maps:get(type, MI) =:= 'ObjectExpression') orelse exit({value_map, MI}),
+    LI = klsn_flux:value([1, <<"a">>]),
+    (maps:get(type, LI) =:= 'ArrayExpression') orelse exit({value_list, LI}),
+    DT = <<"2020-01-01T00:00:00Z">>,
+    DL = klsn_flux:value({date_time, DT}),
+    (maps:get(type, DL) =:= 'DateTimeLiteral') orelse exit({value_dt, DL}),
+    RM = #{foo => <<"bar">>},
+    RR = klsn_flux:value({raw, RM}),
+    (RR =:= RM) orelse exit({value_raw, RR}),
+    ok.
+
+%% Test timestamp() returns a positive integer
+test_timestamp(_Config) ->
+    T = klsn_flux:timestamp(),
+    (is_integer(T) andalso T > 0) orelse exit({timestamp_bad, T}),
+    ok.
+
+%% Test tags are included in line protocol
+test_tags(_Config) ->
+    Meas = klsn_db:new_id(),
+    P = #{measurement => Meas, tag => #{t1 => <<"v1">>}, field => #{f1 => true}},
+    LP = klsn_flux:points_to_line_protocol(P),
+    binary:match(LP, <<",t1=v1">>) =/= nomatch orelse exit({tag_missing, LP}),
+    binary:match(LP, <<" f1=true">>) =/= nomatch orelse exit({field_missing, LP}),
+    ok.
+%% Test flux_query/3 JSON branch returns binary
+test_json_query(_Config) ->
+    QMap = #{<<"query">> => <<"from(bucket:\"sandbox\") |> range(start:-1m)">>},
+    Res = klsn_flux:flux_query(default, QMap),
+    is_binary(Res) orelse exit({json_query_fail, Res}),
     ok.
 
