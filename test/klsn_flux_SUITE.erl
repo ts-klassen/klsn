@@ -7,7 +7,9 @@
          protocol_format/1,
          write_empty/1,
          flux_query_empty/1,
-         multi_write/1]).
+         multi_write/1,
+         test_value/1,
+         test_csv/1]).
 
 %% Define the test suite with all/0
 all() ->
@@ -15,7 +17,9 @@ all() ->
       protocol_format,
       write_empty,
       flux_query_empty,
-      multi_write
+      multi_write,
+      test_value,
+      test_csv
     ].
 
 %% Just make sure there are no errors
@@ -97,5 +101,55 @@ write_empty(_Config) ->
 %% Test flux_query with an empty query returns ok
 flux_query_empty(_Config) ->
     ok = klsn_flux:flux_query(default, []),
+    ok.
+
+%% Test the value/1 function covers multiple AST branches
+test_value(_Config) ->
+    BTrue = klsn_flux:value(true),
+    (maps:get(type, BTrue) =:= 'BooleanLiteral' andalso maps:get(value, BTrue) =:= true)
+        orelse exit({value_true, BTrue}),
+    BFalse = klsn_flux:value(false),
+    (maps:get(type, BFalse) =:= 'BooleanLiteral' andalso maps:get(value, BFalse) =:= false)
+        orelse exit({value_false, BFalse}),
+    TInt = klsn_flux:value(123),
+    (maps:get(type, TInt) =:= 'IntegerLiteral' andalso maps:get(value, TInt) =:= 123)
+        orelse exit({value_int, TInt}),
+    TFloat = klsn_flux:value(1.23),
+    (maps:get(type, TFloat) =:= 'FloatLiteral' andalso maps:get(value, TFloat) =:= 1.23)
+        orelse exit({value_float, TFloat}),
+    TString = klsn_flux:value(<<"abc">>),
+    (maps:get(type, TString) =:= 'StringLiteral' andalso maps:get(value, TString) =:= <<"abc">>)
+        orelse exit({value_string, TString}),
+    TObject = klsn_flux:value({object, #{<<"a">> => 1}}),
+    (maps:get(type, TObject) =:= 'ObjectExpression' andalso length(maps:get(properties, TObject)) =:= 1)
+        orelse exit({value_object, TObject}),
+    TArray = klsn_flux:value({array, [1, <<"b">>]}),
+    (maps:get(type, TArray) =:= 'ArrayExpression' andalso length(maps:get(elements, TArray)) =:= 2)
+        orelse exit({value_array, TArray}),
+    Ts = 1, % small timestamp
+    TDate = klsn_flux:value({timestamp, Ts}),
+    (maps:get(type, TDate) =:= 'DateTimeLiteral' andalso is_binary(maps:get(values, TDate)))
+        orelse exit({value_timestamp, TDate}),
+    UDate = klsn_flux:value({unixtime, 1}),
+    (maps:get(type, UDate) =:= 'DateTimeLiteral' andalso is_binary(maps:get(values, UDate)))
+        orelse exit({value_unixtime, UDate}),
+    ok.
+
+%% Test the CSV parser covers basic and quoted fields
+test_csv(_Config) ->
+    CSV1 = <<"a,b,c\n1,2,3\n">>,
+    Rows1 = klsn_flux:csv(CSV1),
+    length(Rows1) >= 2 orelse exit({csv_rows, length(Rows1)}),
+    [H1 | Rest1] = Rows1,
+    R1 = hd(Rest1),
+    H1 =:= [<<"a">>,<<"b">>,<<"c">>] orelse exit({csv_hdr, H1}),
+    R1 =:= [<<"1">>,<<"2">>,<<"3">>] orelse exit({csv_row, R1}),
+    CSV2 = <<"\"col,1\",abc\nx,y,z\n">>,
+    Rows2 = klsn_flux:csv(CSV2),
+    length(Rows2) >= 2 orelse exit({csv2_rows, length(Rows2)}),
+    [H2 | Rest2] = Rows2,
+    R2 = hd(Rest2),
+    H2 =:= [<<"col,1">>,<<"abc">>] orelse exit({csv_quoted_hdr, H2}),
+    R2 =:= [<<"x">>,<<"y">>,<<"z">>] orelse exit({csv_quoted_row, R2}),
     ok.
 
