@@ -39,11 +39,9 @@ urlencode_1_test() ->
     >>,
     ?assertEqual(Expect, klsn_binstr:urlencode(BinStr)),
     
-    ok.
+    ?assertError(badarg, klsn_binstr:urlencode(123)),
 
-%% Error cases
-urlencode_error_test() ->
-    ?assertError(badarg, klsn_binstr:urlencode(123)).
+    ok.
 
 %% Tests for urldecode/1
 urldecode_1_test() ->
@@ -59,6 +57,9 @@ urldecode_1_test() ->
     %% Test decoding of a string with mixed safe and unsafe characters
     ?assertEqual(<<"foo/bar?baz=qux">>, klsn_binstr:urldecode(<<"foo%2Fbar%3Fbaz%3Dqux">>)),
     
+    %% Test decoding of a string with mixed safe and unsafe characters in lower case
+    ?assertEqual(<<"foo/bar?baz=qux">>, klsn_binstr:urldecode(<<"foo%2fbar%3fbaz%3dqux">>)),
+
     %% Test decoding of non-ASCII characters
     ?assertEqual(<<"こんにちは"/utf8>>, klsn_binstr:urldecode(<<"%E3%81%93%E3%82%93%E3%81%AB%E3%81%A1%E3%81%AF">>)),
     
@@ -82,6 +83,8 @@ urldecode_1_test() ->
         "%F7%F8%F9%FA%FB%FC%FD%FE%FF"
     >>,
     ?assertEqual(Expect, klsn_binstr:urldecode(BinStr)),
+
+    ?assertError(badarg, klsn_binstr:urldecode(123)),
     
     ok.
 
