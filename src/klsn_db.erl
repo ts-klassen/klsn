@@ -167,10 +167,6 @@ lookup(Db0, Key0, #{url:=Url0}) ->
             none
     end.
 
--spec post(db(), payload()) -> {id(), rev()}.
-post(Db, Payload) ->
-    post(Db, Payload, db_info()).
-
 -spec post(db(), payload(), info()) -> {id(), rev()}.
 post(Db, Payload, Info) when is_atom(Db) ->
     post(atom_to_binary(Db), Payload, Info);
