@@ -13,6 +13,8 @@
          test_more_value/1,
          test_timestamp/1,
          test_tags/1,
+         test_fields_types/1,
+         test_csv_escapes/1,
          test_json_query/1]).
 
 %% Define the test suite with all/0
@@ -27,6 +29,8 @@ all() ->
       test_more_value,
       test_timestamp,
       test_tags,
+      test_fields_types,
+      test_csv_escapes,
       test_json_query
     ].
 
@@ -200,6 +204,25 @@ test_tags(_Config) ->
     LP = klsn_flux:points_to_line_protocol(P),
     binary:match(LP, <<",t1=v1">>) =/= nomatch orelse exit({tag_missing, LP}),
     binary:match(LP, <<" f1=true">>) =/= nomatch orelse exit({field_missing, LP}),
+    ok.
+
+%% Test integer and float field formatting
+test_fields_types(_Config) ->
+    Meas = klsn_db:new_id(),
+    P = #{measurement => Meas, field => #{i => 1, f => 1.23}},
+    LP = klsn_flux:points_to_line_protocol(P),
+    binary:match(LP, <<"i=1i">>) =/= nomatch orelse exit({int_missing, LP}),
+    %% float should appear with f= prefix
+    binary:match(LP, <<"f=">>) =/= nomatch orelse exit({float_missing, LP}),
+    ok.
+
+%% Test CSV parser handles escaped quotes in quoted fields
+test_csv_escapes(_Config) ->
+    CSV3 = <<"\"a\\\"b\",c\r\n">>,
+    Rows3 = klsn_flux:csv(CSV3),
+    length(Rows3) >= 1 orelse exit({csv3_rows, length(Rows3)}),
+    [H3|_] = Rows3,
+    H3 =:= [<<"a\"b">>,<<"c">>] orelse exit({csv3_hdr, H3}),
     ok.
 %% Test flux_query/3 JSON branch returns binary
 test_json_query(_Config) ->
