@@ -15,6 +15,7 @@
       , upsert/4
       , time_now/0
       , new_id/0
+      , db_info/0
     ]).
 -export_type([
         info/0
