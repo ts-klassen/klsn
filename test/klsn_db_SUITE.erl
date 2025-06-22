@@ -92,5 +92,14 @@ main(_Config) ->
             Doc
     end),
     false = erlang:is_process_alive(ConflictPid),
+    %% Ensure upsert/3 returns error:not_found when the target DB is missing
+    ok = try
+        klsn_db:upsert(non_existing, klsn_db:new_id(), fun(none) ->
+            #{}
+        end)
+    catch
+        error:not_found ->
+            ok
+    end,
     ok.
 

@@ -249,6 +249,8 @@ upsert_(Db, Key, Fun, Info, Retry) ->
         error:conflict ->
             sleep(Retry),
             upsert_(Db, Key, Fun, Info, Retry+1);
+        error:not_found ->
+            error(not_found);
         throw:Error ->
             throw(Error);
         Class:Error:Stack ->
