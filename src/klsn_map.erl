@@ -5,6 +5,7 @@
       , get/2
       , get/3
       , upsert/3
+      , remove/2
       , filter/1
       , invert/1
     ]).
@@ -70,6 +71,22 @@ upsert_([H|T], Value, none, Maps, Keys) ->
 upsert_([H|T], Value, {value, Map}, Maps, Keys) ->
     Elem = lookup([H], Map),
     upsert_(T, Value, Elem, [{value, Map}|Maps], [H|Keys]).
+
+
+%% @doc
+%% TODO: (codex) Write a document.
+-spec remove(key(), map()) -> map().
+remove([], _Map) ->
+    #{};
+remove(Path, Map) ->
+    [KeyToDelete|PathToKeepRev] = lists:reverse(Path),
+    PathToKeep = lists:reverse(PathToKeepRev),
+    case lookup(PathToKeep, Map) of
+        {value, MapToDelete} when is_map(MapToDelete) ->
+            upsert(PathToKeep, maps:remove(KeyToDelete, MapToDelete), Map);
+        _ ->
+            Map
+    end.
 
 
 %% @doc
