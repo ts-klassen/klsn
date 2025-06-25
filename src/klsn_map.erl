@@ -74,7 +74,8 @@ upsert_([H|T], Value, {value, Map}, Maps, Keys) ->
 
 
 %% @doc
-%% TODO: (codex) Write a document.
+%% Remove the element at *Path* inside *Map*.  Returns Map unchanged when the
+%% path cannot be resolved.  An empty path clears the map.
 -spec remove(key(), map()) -> map().
 remove([], _Map) ->
     #{};
