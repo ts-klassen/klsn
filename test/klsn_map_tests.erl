@@ -118,3 +118,24 @@ invert_test() ->
       , b => 2
     })).
 
+%% Tests for remove/2
+remove_test() ->
+    %% Remove a top-level key
+    Map1 = #{a => 1, b => 2},
+    ?assertEqual(#{b => 2}, klsn_map:remove([a], Map1)),
+
+    %% Remove a nested key
+    Map2 = #{a => #{x => 10, y => 20}, b => 3},
+    ?assertEqual(#{a => #{y => 20}, b => 3}, klsn_map:remove([a, x], Map2)),
+
+    %% Removing with an empty path clears the map
+    ?assertEqual(#{}, klsn_map:remove([], Map2)),
+
+    %% Removing a non-existing key/path leaves the map unchanged
+    ?assertEqual(Map1, klsn_map:remove([c], Map1)),
+    ?assertEqual(Map1, klsn_map:remove([a, z], Map1)),
+
+    %% Path where an intermediate value is not a map – unchanged
+    Map3 = #{a => 5},
+    ?assertEqual(Map3, klsn_map:remove([a, x], Map3)).
+
