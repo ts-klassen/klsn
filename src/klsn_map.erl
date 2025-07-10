@@ -41,7 +41,7 @@ get(Key, Map, Default) ->
 %% @doc
 %% Variant of get/2 that never throws. Returns {value, V} when the
 %% path exists or none otherwise.
--spec lookup(key(), map()) -> klsn:maybe(term()).
+-spec lookup(key(), map()) -> klsn:'maybe'(term()).
 lookup([], Value) ->
     {value, Value};
 lookup(_, Value) when not is_map(Value) ->
@@ -92,7 +92,7 @@ remove(Path, Map) ->
 
 %% @doc
 %% Remove entries whose value is none and unwrap {value, V}.
--spec filter(maps:map(Key, klsn:maybe(Value))) -> maps:map(Key, Value).
+-spec filter(maps:map(Key, klsn:'maybe'(Value))) -> maps:map(Key, Value).
 filter(Map) ->
     maps:filtermap(fun
         (_, {value, Value}) ->

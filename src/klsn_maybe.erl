@@ -39,8 +39,8 @@ get_value(Arg1, Arg2) ->
 %% Combine filtering and mapping in one pass. When the callback returns
 %% {value, V} the element is kept (and V becomes the new value);
 %% returning none discards the element.
--spec filtermap(fun((any())->klsn:maybe(any())), list()) -> list();
-               (fun((any(), any())->klsn:maybe(any())), map()) -> map().
+-spec filtermap(fun((any())->klsn:'maybe'(any())), list()) -> list();
+               (fun((any(), any())->klsn:'maybe'(any())), map()) -> map().
 filtermap(Fun, List) when is_list(List) ->
     lists:filtermap(fun(Val) ->
         case Fun(Val) of
