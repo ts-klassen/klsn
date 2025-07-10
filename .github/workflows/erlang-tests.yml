@@ -19,6 +19,8 @@ concurrency:
 
 env:
   REBAR3_VERSION: '3.23.0'
+  # OTP version to use for coverage and docs publishing
+  COVERAGE_OTP: '26'
 
 jobs:
   test:
@@ -120,7 +122,7 @@ jobs:
 
   # ---------------------------------------------------------
   # Build and publish the edoc
-  # Publish the coverage report from OTP 26 run to GitHub Pages
+  # Publish the coverage report from OTP ${{ env.COVERAGE_OTP }} run to GitHub Pages
   publish-html:
     needs: test
     if: success() && github.ref == 'refs/heads/main'
@@ -140,7 +142,7 @@ jobs:
       - name: Set up Erlang/OTP (for docs)
         uses: erlef/setup-beam@v1
         with:
-          otp-version: 26
+          otp-version: ${{ env.COVERAGE_OTP }}
           rebar3-version: ${{ env.REBAR3_VERSION }}
 
       - name: Generate EDoc documentation
@@ -157,10 +159,10 @@ jobs:
           find public/edoc -type f -name '*.html' -print0 |\
             xargs -0 sed -i -e "s|$DOC_PREFIX||g"
 
-      - name: Download coverage artifact (OTP 26)
+      - name: Download coverage artifact (OTP ${{ env.COVERAGE_OTP }})
         uses: actions/download-artifact@v4
         with:
-          name: coverage-otp-26
+          name: coverage-otp-${{ env.COVERAGE_OTP }}
           path: public/cover
 
       # Create a simple landing page that links to both reports
