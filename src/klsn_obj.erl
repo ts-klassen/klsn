@@ -62,13 +62,13 @@
 
 %% Callback used by crud/3 to create, update or delete a value at the
 %% given path.
--type crud_fun() :: fun((klsn:maybe(value()))->klsn:maybe(value())).
+-type crud_fun() :: fun((klsn:'maybe'(value()))->klsn:'maybe'(value())).
 
 
 %% @doc
 %% Safe navigation: returns {value, V} when the element exists, otherwise
 %% none.
--spec lookup(path(), obj()) -> klsn:maybe(value()).
+-spec lookup(path(), obj()) -> klsn:'maybe'(value()).
 lookup(Path, Obj) ->
     try get(Path, Obj) of
         Value ->
@@ -208,7 +208,7 @@ crud(Path, CRUDFun, Obj) ->
 
 -spec crud_history(
         path(), obj(), [{short_path(), obj()}]
-    ) -> {path(), klsn:maybe(value()), [{short_path(), obj()}]}.
+    ) -> {path(), klsn:'maybe'(value()), [{short_path(), obj()}]}.
 crud_history([], Value, History) ->
     {[], {value, Value}, History};
 crud_history([H|T], Map, History) when is_map(Map) ->
@@ -271,7 +271,7 @@ crud_history(Path, _Value, History) ->
 
 
 -spec crud_build(
-        klsn:maybe(obj())
+        klsn:'maybe'(obj())
       , [{short_path(), obj()}]
     ) -> obj().
 crud_build(none, []) ->
@@ -293,7 +293,7 @@ crud_build({value, Value}, [{{t,Nth},Tuple}|Tail]) when is_tuple(Tuple) ->
 
 -spec crud_build(
         Reversed::path()
-      , klsn:maybe(value())
+      , klsn:'maybe'(value())
       , [{short_path(), obj()}]
     ) -> obj().
 crud_build(_, none, History) ->

@@ -68,7 +68,7 @@
 %% Callback used by upsert/3,4. Receives none when the document is
 %% missing, or {value, Payload} when it exists, and must return the new
 %% version that will be stored.
--type upsert_function() :: fun((klsn:maybe(payload()))->payload()).
+-type upsert_function() :: fun((klsn:'maybe'(payload()))->payload()).
 
 %% @doc
 %% Create a new database named *Db* on the configured CouchDB server. If
@@ -131,13 +131,13 @@ get(Db, Key, Info) ->
 %% @doc
 %% Safe variant of get/2. Returns {value, Payload} when the document
 %% exists or none when it is missing.
--spec lookup(db(), key()) -> klsn:maybe(payload()).
+-spec lookup(db(), key()) -> klsn:'maybe'(payload()).
 lookup(Db, Key) ->
     lookup(Db, Key, db_info()).
 
 %% @doc
 %% Same as lookup/2 but with explicit Info.
--spec lookup(db(), key(), info()) -> klsn:maybe(payload()).
+-spec lookup(db(), key(), info()) -> klsn:'maybe'(payload()).
 lookup(Db, Key, Info) when is_atom(Db) ->
     lookup(atom_to_binary(Db), Key, Info);
 lookup(_, <<>>, _) ->
