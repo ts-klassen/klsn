@@ -71,7 +71,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Erlang/OTP ${{ matrix.otp }}
         uses: erlef/setup-beam@v1
@@ -99,6 +99,10 @@ jobs:
             fi
             sleep 2
           done
+          if ! curl -fs http://admin:admin@localhost:5984/_up >/dev/null; then
+            echo "CouchDB failed to become healthy after 60 s" >&2
+            exit 1
+          fi
 
       - name: Wait for InfluxDB to be healthy
         run: |
@@ -109,6 +113,10 @@ jobs:
             fi
             sleep 2
           done
+          if ! curl -fs http://localhost:8086/health >/dev/null; then
+            echo "InfluxDB failed to become healthy after 60 s" >&2
+            exit 1
+          fi
 
       - name: Run test suite
         run: ./run_test.sh
@@ -137,7 +145,7 @@ jobs:
       # the coverage report (index.html at the root) remains
       # the entry-point of the site.
       - name: Checkout repository (for docs)
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Erlang/OTP (for docs)
         uses: erlef/setup-beam@v1
