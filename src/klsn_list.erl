@@ -1,7 +1,5 @@
 -module(klsn_list).
 
-%% Concurrency-friendly helpers around lists.
-
 -export([
         pmap/2
       , pmap/3
@@ -61,11 +59,10 @@ pmap(Fun, List, Opts) when is_list(List), is_map(Opts) ->
 spawn_tasks([], _Fun, _Parent, _Tag, RefMap) ->
     RefMap;
 spawn_tasks([{Index, Elem}|Rest], Fun, Parent, Tag, RefMap) ->
-    {Pid, MRef} = erlang:spawn_monitor(fun()->
+    {_, MRef} = erlang:spawn_monitor(fun()->
         Result = Fun(Elem),
         Parent ! {Tag, Index, Result}
     end),
-    _ = Pid, % silence unused variable warning
     spawn_tasks(Rest, Fun, Parent, Tag, RefMap#{MRef => Index}).
 
 
@@ -113,9 +110,8 @@ maybe_spawn_next([], RefMap, _Fun, _Tag) ->
     {RefMap, []};
 maybe_spawn_next([{Index, Elem}|Rest], RefMap, Fun, Tag) ->
     Parent = self(),
-    {Pid, MRef} = erlang:spawn_monitor(fun()->
+    {_, MRef} = erlang:spawn_monitor(fun()->
         Result = Fun(Elem),
         Parent ! {Tag, Index, Result}
     end),
-    _ = Pid,
     {RefMap#{MRef => Index}, Rest}.
