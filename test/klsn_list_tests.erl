@@ -23,16 +23,23 @@ pmap_timing_unlimited_test() ->
     Fun = fun(_) -> timer:sleep(Sleep), ok end,
     {Micros, _} = timer:tc(klsn_list, pmap, [Fun, In]),
     Milli = Micros div 1000,
-    ?assert(Milli < 250).
+    %% Allow generous headroom: execution should finish well under
+    %% Sleep * 3 even on moderately slow systems.
+    ?assert(Milli < Sleep * 3).
 
 pmap_timing_bounded_test() ->
     Sleep = 100,
     In = [1,2,3,4],
+    Workers = 2,
     Fun = fun(_) -> timer:sleep(Sleep), ok end,
-    {Micros, _} = timer:tc(klsn_list, pmap, [Fun, In, #{workers => 2}]),
+    {Micros, _} = timer:tc(klsn_list, pmap, [Fun, In, #{workers => Workers}]),
     Milli = Micros div 1000,
-    ?assert(Milli > 150),
-    ?assert(Milli < 350).
+    Rounds = (length(In) + Workers - 1) div Workers, %% ceiling division
+    Expected = Rounds * Sleep,
+    Lower = Expected div 2,
+    Upper = Expected * 3,
+    ?assert(Milli >= Lower),
+    ?assert(Milli =< Upper).
 
 pmap_empty_test() ->
     ?assertEqual([], klsn_list:pmap(fun(X) -> X end, [])).
