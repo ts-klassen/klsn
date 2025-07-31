@@ -5,14 +5,20 @@
       , create_db/2
       , create_doc/2
       , create_doc/3
+      , bulk_create_doc/2
+      , bulk_create_doc/3
       , get/2
       , get/3
       , lookup/2
       , lookup/3
+      , bulk_lookup/2
+      , bulk_lookup/3
       , update/3
       , update/4
       , upsert/3
       , upsert/4
+      , bulk_upsert/3
+      , bulk_upsert/4
       , time_now/0
       , new_id/0
       , db_info/0
@@ -113,6 +119,11 @@ create_doc(Db, Data0, Info) ->
     Data = Data2#{<<"U">>=>TimeNow, <<"C">>=>TimeNow},
     post(Db, Data, Info).
 
+-spec bulk_create_doc(db(), payload()) -> [klsn:'maybe'({id(), rev()})].
+bulk_create_doc(_, _) -> todo.
+-spec bulk_create_doc(db(), payload(), info()) -> [klsn:'maybe'({id(), rev()})].
+bulk_create_doc(_, _, _) -> todo.
+
 %% @doc
 %% Fetch the document identified by Key from Db or raise error:not_found.
 -spec get(db(), key()) -> payload().
@@ -167,6 +178,17 @@ lookup(Db0, Key0, #{url:=Url0}) ->
         {ok, {{_, 404, _}, _, _}} ->
             none
     end.
+
+
+-spec bulk_lookup(db(), [key()]) -> [klsn:'maybe'(payload())].
+bulk_lookup(_, _) -> todo.
+-spec bulk_lookup(db(), [key()], info()) -> [klsn:'maybe'(payload())].
+bulk_lookup(_, _, _) -> todo.
+-spec bulk_upsert(db(), [key()], upsert_function()) -> payload().
+bulk_upsert(_, _, _) -> todo.
+-spec bulk_upsert(db(), [key()], upsert_function(), info()) -> payload().
+bulk_upsert(_, _, _, _) -> todo.
+
 
 -spec post(db(), payload(), info()) -> {id(), rev()}.
 post(Db, Payload, Info) when is_atom(Db) ->
