@@ -119,9 +119,9 @@ create_doc(Db, Data0, Info) ->
     Data = Data2#{<<"U">>=>TimeNow, <<"C">>=>TimeNow},
     post(Db, Data, Info).
 
--spec bulk_create_doc(db(), payload()) -> [klsn:'maybe'({id(), rev()})].
+-spec bulk_create_doc(db(), [payload()]) -> [klsn:'maybe'({id(), rev()})].
 bulk_create_doc(_, _) -> todo.
--spec bulk_create_doc(db(), payload(), info()) -> [klsn:'maybe'({id(), rev()})].
+-spec bulk_create_doc(db(), [payload()], info()) -> [klsn:'maybe'({id(), rev()})].
 bulk_create_doc(_, _, _) -> todo.
 
 %% @doc
