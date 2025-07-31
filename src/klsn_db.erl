@@ -184,9 +184,9 @@ lookup(Db0, Key0, #{url:=Url0}) ->
 bulk_lookup(_, _) -> todo.
 -spec bulk_lookup(db(), [key()], info()) -> [klsn:'maybe'(payload())].
 bulk_lookup(_, _, _) -> todo.
--spec bulk_upsert(db(), [key()], upsert_function()) -> payload().
+-spec bulk_upsert(db(), [key()], upsert_function()) -> [payload()].
 bulk_upsert(_, _, _) -> todo.
--spec bulk_upsert(db(), [key()], upsert_function(), info()) -> payload().
+-spec bulk_upsert(db(), [key()], upsert_function(), info()) -> [payload()].
 bulk_upsert(_, _, _, _) -> todo.
 
 

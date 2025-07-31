@@ -111,9 +111,9 @@ main(_Config) ->
     end),
     [
         none
-      , {value, #{<<"_id">> := <<"bulk1">>, <<"_rev">> := BulkRev1, <<"bulk">> := 1}}
+      , {value, #{<<"_id">> := <<"bulk1">>, <<"_rev">> := BulkRev1, <<"bulk">> := 0}}
       , none
-      , {value, #{<<"_id">> := <<"bulk2">>, <<"_rev">> := BulkRev3, <<"bulk">> := 1}}
+      , {value, #{<<"_id">> := <<"bulk3">>, <<"_rev">> := BulkRev3, <<"bulk">> := 0}}
       , none
     ] = klsn_db:bulk_lookup(DB, [bulk0, bulk1, bulk2, bulk3, bulk4]),
     [
