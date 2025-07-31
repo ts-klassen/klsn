@@ -267,9 +267,17 @@ bulk_upsert(Db, Keys0, Fun, #{url := Url0} = Info) when is_list(Keys0) ->
         {ok, {{_, Stat, _}, _, Data}} when 200 =< Stat, Stat =< 299 ->
             Results = jsone:decode(Data),
             lists:map(
-                fun({Doc0, #{<<"ok">> := true, <<"id">> := Id, <<"rev">> := Rev}}) ->
-                        Doc = jsone:decode(jsone:encode(Doc0)),
-                        Doc#{<<"_id">> => Id, <<"_rev">> => Rev}
+                fun({Doc0, ResRow}) ->
+                    Doc = jsone:decode(jsone:encode(Doc0)),
+                    case ResRow of
+                        #{<<"ok">> := true, <<"id">> := Id, <<"rev">> := Rev} ->
+                            Doc#{<<"_id">> => Id, <<"_rev">> => Rev};
+                        #{<<"error">> := _} ->
+                            %% Retry single-document upsert that already
+                            %% has conflict–handling logic.
+                            KeyBin = maps:get(<<"_id">>, Doc),
+                            upsert(Db, KeyBin, Fun, Info)
+                    end
                 end,
                 lists:zip(DocsPrepared, Results)
             )
