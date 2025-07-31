@@ -101,5 +101,43 @@ main(_Config) ->
         error:not_found ->
             ok
     end,
+
+    %% Bulk tests
+    [
+        #{<<"_id">> := <<"bulk1">>, <<"_rev">> := _, <<"bulk">> := 0}
+      , #{<<"_id">> := <<"bulk3">>, <<"_rev">> := _, <<"bulk">> := 0}
+    ] = klsn_db:bulk_upsert(DB, [<<"bulk1">>, <<"bulk3">>], fun(none) ->
+        #{bulk => 0}
+    end),
+    [
+        none
+      , {value, #{<<"_id">> := <<"bulk1">>, <<"_rev">> := BulkRev1, <<"bulk">> := 0}}
+      , none
+      , {value, #{<<"_id">> := <<"bulk3">>, <<"_rev">> := BulkRev3, <<"bulk">> := 0}}
+      , none
+    ] = klsn_db:bulk_lookup(DB, [<<"bulk0">>, <<"bulk1">>, <<"bulk2">>, <<"bulk3">>, <<"bulk4">>]),
+    [
+        #{<<"_id">> := <<"bulk0">>, <<"_rev">> := _, <<"bulk">> := 0}
+      , #{<<"_id">> := <<"bulk1">>, <<"_rev">> := _, <<"bulk">> := 1}
+      , #{<<"_id">> := <<"bulk2">>, <<"_rev">> := _, <<"bulk">> := 0}
+      , #{<<"_id">> := <<"bulk3">>, <<"_rev">> := _, <<"bulk">> := 3}
+      , #{<<"_id">> := <<"bulk4">>, <<"_rev">> := _, <<"bulk">> := 0}
+    ] = klsn_db:bulk_upsert(DB, [<<"bulk0">>, <<"bulk1">>, <<"bulk2">>, <<"bulk3">>, <<"bulk4">>], fun
+        (none) ->
+            #{bulk => 0};
+        ({value, Doc=#{<<"_id">> := <<"bulk1">>, <<"_rev">> := Rev}}) when Rev =:= BulkRev1 ->
+            Doc#{<<"bulk">> := 1};
+        ({value, Doc=#{<<"_id">> := <<"bulk3">>, <<"_rev">> := Rev}}) when Rev =:= BulkRev3 ->
+            Doc#{<<"bulk">> := 3}
+    end),
+    [
+        {value, #{<<"_id">> := <<"bulk0">>, <<"_rev">> := _, <<"bulk">> := 0}}
+      , {value, #{<<"_id">> := <<"bulk1">>, <<"_rev">> := _, <<"bulk">> := 1}}
+      , {value, #{<<"_id">> := <<"bulk2">>, <<"_rev">> := _, <<"bulk">> := 0}}
+      , {value, #{<<"_id">> := <<"bulk3">>, <<"_rev">> := _, <<"bulk">> := 3}}
+      , {value, #{<<"_id">> := <<"bulk4">>, <<"_rev">> := _, <<"bulk">> := 0}}
+    ] = lists:map(fun(Id) ->
+        klsn_db:lookup(DB, Id)
+    end, [<<"bulk0">>, <<"bulk1">>, <<"bulk2">>, <<"bulk3">>, <<"bulk4">>]),
     ok.
 

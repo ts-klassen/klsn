@@ -5,14 +5,20 @@
       , create_db/2
       , create_doc/2
       , create_doc/3
+      , bulk_create_doc/2
+      , bulk_create_doc/3
       , get/2
       , get/3
       , lookup/2
       , lookup/3
+      , bulk_lookup/2
+      , bulk_lookup/3
       , update/3
       , update/4
       , upsert/3
       , upsert/4
+      , bulk_upsert/3
+      , bulk_upsert/4
       , time_now/0
       , new_id/0
       , db_info/0
@@ -113,6 +119,36 @@ create_doc(Db, Data0, Info) ->
     Data = Data2#{<<"U">>=>TimeNow, <<"C">>=>TimeNow},
     post(Db, Data, Info).
 
+-spec bulk_create_doc(db(), [payload()]) -> [klsn:'maybe'({id(), rev()})].
+bulk_create_doc(Db, Docs) ->
+    bulk_create_doc(Db, Docs, db_info()).
+-spec bulk_create_doc(db(), [payload()], info()) -> [klsn:'maybe'({id(), rev()})].
+bulk_create_doc(_Db, [], _Info) -> [];
+bulk_create_doc(Db, Docs0, #{url := Url0}) when is_list(Docs0) ->
+    TimeNow = time_now(),
+    Docs1 = lists:map(
+        fun(D0) ->
+            D1 = remove_keys(['_rev', 'C', 'U'], D0),
+            D1#{<<"U">> => TimeNow, <<"C">> => TimeNow}
+        end,
+        Docs0),
+    DbBin = klsn_binstr:urlencode(klsn_binstr:from_any(Db)),
+    Path = <<"/", DbBin/binary, "/_bulk_docs">>,
+    Url = <<Url0/binary, Path/binary>>,
+    Body = jsone:encode(#{<<"docs">> => Docs1}),
+    Res = httpc:request(post, {Url, [], "application/json", Body}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, Data}} when 200 =< Stat, Stat =< 299 ->
+            Results = jsone:decode(Data),
+            lists:map(
+                fun(#{<<"ok">> := true, <<"id">> := Id, <<"rev">> := Rev}) -> {value, {Id, Rev}};
+                   (_) -> none
+                end,
+                Results);
+        _ ->
+            lists:duplicate(length(Docs0), none)
+    end.
+
 %% @doc
 %% Fetch the document identified by Key from Db or raise error:not_found.
 -spec get(db(), key()) -> payload().
@@ -167,6 +203,86 @@ lookup(Db0, Key0, #{url:=Url0}) ->
         {ok, {{_, 404, _}, _, _}} ->
             none
     end.
+
+
+-spec bulk_lookup(db(), [key()]) -> [klsn:'maybe'(payload())].
+bulk_lookup(Db, Keys) ->
+    bulk_lookup(Db, Keys, db_info()).
+-spec bulk_lookup(db(), [key()], info()) -> [klsn:'maybe'(payload())].
+bulk_lookup(_Db, [], _Info) -> [];
+bulk_lookup(Db, Keys0, #{url := Url0}) when is_list(Keys0) ->
+    Keys = lists:map(fun klsn_binstr:from_any/1, Keys0),
+    DbBin = klsn_binstr:urlencode(klsn_binstr:from_any(Db)),
+    Path = <<"/", DbBin/binary, "/_all_docs?include_docs=true">>,
+    Url = <<Url0/binary, Path/binary>>,
+    Body = jsone:encode(#{<<"keys">> => Keys}),
+    Res = httpc:request(post, {Url, [], "application/json", Body}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, Data}} when 200 =< Stat, Stat =< 299 ->
+            #{<<"rows">> := Rows} = jsone:decode(Data),
+            lists:map(
+                fun(Row) ->
+                    case Row of
+                        #{<<"error">> := _} -> none;
+                        #{<<"doc">> := Doc} -> {value, Doc}
+                    end
+                end,
+                Rows);
+        _ ->
+            lists:duplicate(length(Keys0), none)
+    end.
+-spec bulk_upsert(db(), [key()], upsert_function()) -> [payload()].
+bulk_upsert(Db, Keys, Fun) ->
+    bulk_upsert(Db, Keys, Fun, db_info()).
+-spec bulk_upsert(db(), [key()], upsert_function(), info()) -> [payload()].
+bulk_upsert(_Db, [], _Fun, _Info) -> [];
+bulk_upsert(Db, Keys0, Fun, #{url := Url0} = Info) when is_list(Keys0) ->
+    %% Fetch current documents once
+    MaybeDocs = bulk_lookup(Db, Keys0, Info),
+
+    %% Prepare updated/new documents using the callback
+    TimeNow = time_now(),
+    DocsPrepared = lists:map(
+        fun({Key, MaybeDoc}) ->
+            New0 = Fun(MaybeDoc),
+            New1 = remove_keys(['_id', 'C', 'U'], New0),
+            New2 = New1#{<<"_id">> => klsn_binstr:from_any(Key)},
+            New3 = New2#{<<"U">> => TimeNow},
+            case MaybeDoc of
+                {value, #{<<"C">> := C}} -> New3#{<<"C">> => C};
+                _ -> New3#{<<"C">> => TimeNow}
+            end
+        end,
+        lists:zip(Keys0, MaybeDocs)
+    ),
+
+    %% Submit via _bulk_docs
+    DbBin = klsn_binstr:urlencode(klsn_binstr:from_any(Db)),
+    Path = <<"/", DbBin/binary, "/_bulk_docs">>,
+    Url = <<Url0/binary, Path/binary>>,
+    Body = jsone:encode(#{<<"docs">> => DocsPrepared}),
+    Res = httpc:request(post, {Url, [], "application/json", Body}, [], [{body_format, binary}]),
+
+    case Res of
+        {ok, {{_, Stat, _}, _, Data}} when 200 =< Stat, Stat =< 299 ->
+            Results = jsone:decode(Data),
+            lists:map(
+                fun({Doc0, ResRow}) ->
+                    Doc = jsone:decode(jsone:encode(Doc0)),
+                    case ResRow of
+                        #{<<"ok">> := true, <<"id">> := Id, <<"rev">> := Rev} ->
+                            Doc#{<<"_id">> => Id, <<"_rev">> => Rev};
+                        #{<<"error">> := _} ->
+                            %% Retry single-document upsert that already
+                            %% has conflict–handling logic.
+                            KeyBin = maps:get(<<"_id">>, Doc),
+                            upsert(Db, KeyBin, Fun, Info)
+                    end
+                end,
+                lists:zip(DocsPrepared, Results)
+            )
+    end.
+
 
 -spec post(db(), payload(), info()) -> {id(), rev()}.
 post(Db, Payload, Info) when is_atom(Db) ->
