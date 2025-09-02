@@ -25,14 +25,14 @@
 -spec rfc3339_to_unix_seconds(rfc3339()) -> unix_seconds().
 rfc3339_to_unix_seconds(RFC3339) when is_binary(RFC3339) ->
     String = binary_to_list(RFC3339),
-    iolist_to_binary(calendar:rfc3339_to_system_time(String, [{unit, second}])).
+    calendar:rfc3339_to_system_time(String, [{unit, second}]).
 
 %% @doc
 %% Convert an RFC3339 datetime (binary) to Unix time in nanoseconds.
 -spec rfc3339_to_unix_nanoseconds(rfc3339()) -> unix_nanoseconds().
 rfc3339_to_unix_nanoseconds(RFC3339) when is_binary(RFC3339) ->
     String = binary_to_list(RFC3339),
-    iolist_to_binary(calendar:rfc3339_to_system_time(String, [{unit, nanosecond}])).
+    calendar:rfc3339_to_system_time(String, [{unit, nanosecond}]).
 
 %% @doc
 %% Convert Unix time in seconds to RFC3339 datetime (binary).
