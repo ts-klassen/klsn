@@ -13,6 +13,12 @@
       , lookup/3
       , bulk_lookup/2
       , bulk_lookup/3
+      , mango_find/2
+      , mango_find/3
+      , mango_index/2
+      , mango_index/3
+      , mango_explain/2
+      , mango_explain/3
       , update/3
       , update/4
       , upsert/3
@@ -100,6 +106,85 @@ create_db(Db0, #{url:=Url0}) ->
             ok;
         {ok, {{_, 412, _}, _, _}} ->
             error(exists)
+    end.
+
+
+%% @doc
+%% Run a Mango query against Db using the provided Body.
+%%
+%% Body must be a JSON-serialisable map compatible with CouchDB's
+%% /_find endpoint. Returns the list of matching documents from the
+%% "docs" field.
+-spec mango_find(db(), map()) -> [payload()].
+mango_find(Db, Body) ->
+    mango_find(Db, Body, db_info()).
+
+-spec mango_find(db(), map(), info()) -> [payload()].
+mango_find(Db, Body, Info) when is_atom(Db) ->
+    mango_find(atom_to_binary(Db), Body, Info);
+mango_find(Db0, Body0, #{url := Url0}) ->
+    Db1 = klsn_binstr:urlencode(Db0),
+    Path = <<"/", Db1/binary, "/_find">>,
+    Url = <<Url0/binary, Path/binary>>,
+    Payload = jsone:encode(Body0),
+    Res = httpc:request(post, {Url, [], "application/json", Payload}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, Data}} when 200 =< Stat, Stat =< 299 ->
+            #{<<"docs">> := Docs} = jsone:decode(Data),
+            Docs;
+        {ok, {{_, 404, _}, _, _}} ->
+            error(not_found)
+    end.
+
+
+%% @doc
+%% Create a Mango index on Db using the provided Body.
+%%
+%% Body must be a JSON-serialisable map for the /_index endpoint.
+%% Returns the decoded response (e.g. #{"result" := "created"|"exists", ...}).
+-spec mango_index(db(), map()) -> map().
+mango_index(Db, Body) ->
+    mango_index(Db, Body, db_info()).
+
+-spec mango_index(db(), map(), info()) -> map().
+mango_index(Db, Body, Info) when is_atom(Db) ->
+    mango_index(atom_to_binary(Db), Body, Info);
+mango_index(Db0, Body0, #{url := Url0}) ->
+    Db1 = klsn_binstr:urlencode(Db0),
+    Path = <<"/", Db1/binary, "/_index">>,
+    Url = <<Url0/binary, Path/binary>>,
+    Payload = jsone:encode(Body0),
+    Res = httpc:request(post, {Url, [], "application/json", Payload}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, Data}} when 200 =< Stat, Stat =< 299 ->
+            jsone:decode(Data);
+        {ok, {{_, 404, _}, _, _}} ->
+            error(not_found)
+    end.
+
+
+%% @doc
+%% Explain a Mango query plan for Db using the provided Body.
+%%
+%% Body matches the /_find request body. Returns the decoded explanation map.
+-spec mango_explain(db(), map()) -> map().
+mango_explain(Db, Body) ->
+    mango_explain(Db, Body, db_info()).
+
+-spec mango_explain(db(), map(), info()) -> map().
+mango_explain(Db, Body, Info) when is_atom(Db) ->
+    mango_explain(atom_to_binary(Db), Body, Info);
+mango_explain(Db0, Body0, #{url := Url0}) ->
+    Db1 = klsn_binstr:urlencode(Db0),
+    Path = <<"/", Db1/binary, "/_explain">>,
+    Url = <<Url0/binary, Path/binary>>,
+    Payload = jsone:encode(Body0),
+    Res = httpc:request(post, {Url, [], "application/json", Payload}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, Data}} when 200 =< Stat, Stat =< 299 ->
+            jsone:decode(Data);
+        {ok, {{_, 404, _}, _, _}} ->
+            error(not_found)
     end.
 
 
@@ -430,5 +515,3 @@ db_info() ->
 
 sleep(Stage) ->
     timer:sleep(round(1000 * rand:uniform() + 100 * math:exp(Stage))).
-
-

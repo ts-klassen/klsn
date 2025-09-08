@@ -139,5 +139,45 @@ main(_Config) ->
     ] = lists:map(fun(Id) ->
         klsn_db:lookup(DB, Id)
     end, [<<"bulk0">>, <<"bulk1">>, <<"bulk2">>, <<"bulk3">>, <<"bulk4">>]),
-    ok.
 
+    %% Mango find tests (CouchDB _find)
+    {_, _} = klsn_db:create_doc(DB, #{<<"mango">> => true, <<"n">> => 1}),
+    {_, _} = klsn_db:create_doc(DB, #{<<"mango">> => true, <<"n">> => 2}),
+    {_, _} = klsn_db:create_doc(DB, #{<<"mango">> => true, <<"n">> => 3}),
+    Docs = klsn_db:mango_find(DB, #{
+        <<"selector">> => #{
+            <<"mango">> => true,
+            <<"n">> => #{<<"$gte">> => 2}
+        }
+    }),
+    2 = length([D || D <- Docs, maps:get(<<"mango">>, D, false) =:= true]),
+    true = lists:any(fun(#{<<"n">> := 2}) -> true; (_) -> false end, Docs),
+    true = lists:any(fun(#{<<"n">> := 3}) -> true; (_) -> false end, Docs),
+    %% Mango index tests (CouchDB /_index)
+    IndexRes = klsn_db:mango_index(DB, #{
+        <<"index">> => #{<<"fields">> => [<<"mango">>, <<"n">>]},
+        <<"name">> => <<"mango_n_idx">>
+    }),
+    true = lists:member(maps:get(<<"result">>, IndexRes), [<<"created">>, <<"exists">>]),
+    _ = maps:get(<<"name">>, IndexRes),
+    %% id may or may not be present depending on server, skip strict check
+    %% Mango explain tests (CouchDB /_explain)
+    ExplainRes = klsn_db:mango_explain(DB, #{
+        <<"selector">> => #{
+            <<"mango">> => true
+        },
+        <<"use_index">> => <<"mango_n_idx">>
+    }),
+    true = is_map(ExplainRes),
+    ok = try klsn_db:mango_find(non_existing, #{<<"selector">> => #{}}) catch
+        error:not_found -> ok
+    end,
+    ok = try klsn_db:mango_index(non_existing, #{
+        <<"index">> => #{<<"fields">> => [<<"mango">>]}
+    }) catch
+        error:not_found -> ok
+    end,
+    ok = try klsn_db:mango_explain(non_existing, #{<<"selector">> => #{}}) catch
+        error:not_found -> ok
+    end,
+    ok.
