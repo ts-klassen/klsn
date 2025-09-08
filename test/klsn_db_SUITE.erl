@@ -153,7 +153,20 @@ main(_Config) ->
     2 = length([D || D <- Docs, maps:get(<<"mango">>, D, false) =:= true]),
     true = lists:any(fun(#{<<"n">> := 2}) -> true; (_) -> false end, Docs),
     true = lists:any(fun(#{<<"n">> := 3}) -> true; (_) -> false end, Docs),
+    %% Mango index tests (CouchDB /_index)
+    IndexRes = klsn_db:mango_index(DB, #{
+        <<"index">> => #{<<"fields">> => [<<"mango">>, <<"n">>]},
+        <<"name">> => <<"mango_n_idx">>
+    }),
+    true = lists:member(maps:get(<<"result">>, IndexRes), [<<"created">>, <<"exists">>]),
+    _ = maps:get(<<"name">>, IndexRes),
+    %% id may or may not be present depending on server, skip strict check
     ok = try klsn_db:mango_find(non_existing, #{<<"selector">> => #{}}) catch
+        error:not_found -> ok
+    end,
+    ok = try klsn_db:mango_index(non_existing, #{
+        <<"index">> => #{<<"fields">> => [<<"mango">>]}
+    }) catch
         error:not_found -> ok
     end,
     ok.
