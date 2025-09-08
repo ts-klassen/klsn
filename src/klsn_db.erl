@@ -17,6 +17,8 @@
       , mango_find/3
       , mango_index/2
       , mango_index/3
+      , mango_explain/2
+      , mango_explain/3
       , update/3
       , update/4
       , upsert/3
@@ -150,6 +152,31 @@ mango_index(Db, Body, Info) when is_atom(Db) ->
 mango_index(Db0, Body0, #{url := Url0}) ->
     Db1 = klsn_binstr:urlencode(Db0),
     Path = <<"/", Db1/binary, "/_index">>,
+    Url = <<Url0/binary, Path/binary>>,
+    Payload = jsone:encode(Body0),
+    Res = httpc:request(post, {Url, [], "application/json", Payload}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, Data}} when 200 =< Stat, Stat =< 299 ->
+            jsone:decode(Data);
+        {ok, {{_, 404, _}, _, _}} ->
+            error(not_found)
+    end.
+
+
+%% @doc
+%% Explain a Mango query plan for Db using the provided Body.
+%%
+%% Body matches the /_find request body. Returns the decoded explanation map.
+-spec mango_explain(db(), map()) -> map().
+mango_explain(Db, Body) ->
+    mango_explain(Db, Body, db_info()).
+
+-spec mango_explain(db(), map(), info()) -> map().
+mango_explain(Db, Body, Info) when is_atom(Db) ->
+    mango_explain(atom_to_binary(Db), Body, Info);
+mango_explain(Db0, Body0, #{url := Url0}) ->
+    Db1 = klsn_binstr:urlencode(Db0),
+    Path = <<"/", Db1/binary, "/_explain">>,
     Url = <<Url0/binary, Path/binary>>,
     Payload = jsone:encode(Body0),
     Res = httpc:request(post, {Url, [], "application/json", Payload}, [], [{body_format, binary}]),
