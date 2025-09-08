@@ -139,5 +139,21 @@ main(_Config) ->
     ] = lists:map(fun(Id) ->
         klsn_db:lookup(DB, Id)
     end, [<<"bulk0">>, <<"bulk1">>, <<"bulk2">>, <<"bulk3">>, <<"bulk4">>]),
-    ok.
 
+    %% Mango find tests (CouchDB _find)
+    {_, _} = klsn_db:create_doc(DB, #{<<"mango">> => true, <<"n">> => 1}),
+    {_, _} = klsn_db:create_doc(DB, #{<<"mango">> => true, <<"n">> => 2}),
+    {_, _} = klsn_db:create_doc(DB, #{<<"mango">> => true, <<"n">> => 3}),
+    Docs = klsn_db:mango_find(DB, #{
+        <<"selector">> => #{
+            <<"mango">> => true,
+            <<"n">> => #{<<"$gte">> => 2}
+        }
+    }),
+    2 = length([D || D <- Docs, maps:get(<<"mango">>, D, false) =:= true]),
+    true = lists:any(fun(#{<<"n">> := 2}) -> true; (_) -> false end, Docs),
+    true = lists:any(fun(#{<<"n">> := 3}) -> true; (_) -> false end, Docs),
+    ok = try klsn_db:mango_find(non_existing, #{<<"selector">> => #{}}) catch
+        error:not_found -> ok
+    end,
+    ok.
