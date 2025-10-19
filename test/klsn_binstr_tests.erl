@@ -147,3 +147,17 @@ replace_edge_cases_test() ->
     ?assertEqual(LargeB, klsn_binstr:replace([{<<"a">>, <<"b">>}], LargeA)),
 
     ok.
+
+uuid_0_test() ->
+    ?assertMatch(<<
+        _:8/binary
+      , "-"
+      , _:4/binary
+      , "-"
+      , _:4/binary
+      , "-"
+      , _:4/binary
+      , "-"
+      , _:12/binary
+    >>, klsn_binstr:uuid()).
+

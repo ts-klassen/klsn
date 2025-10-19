@@ -6,6 +6,7 @@
       , from_any/1
       , replace/2
       , hash/1
+      , uuid/0
     ]).
 
 %% UTF-8 binary string used as the canonical textual representation across
@@ -132,4 +133,12 @@ hex_val(H) when $A =< H, H =< $F -> H - $A + 10;
 hex_val(H) when $a =< H, H =< $f -> H - $a + 10.
 
 
+-spec uuid() -> binstr().
+uuid() ->
+    <<R1:48, _:4, R2:12, _:2, R3:62>> = crypto:strong_rand_bytes(16),
+    <<U1:32, U2:16, U3:16, U4:16, U5:48>> = <<R1:48, 0:1, 1:1, 0:1, 0:1, R2:12, 1:1, 0:1, R3:62>>,
+    iolist_to_binary(io_lib:format(
+        "~8.16.0b-~4.16.0b-~4.16.0b-~4.16.0b-~12.16.0b",
+        [U1, U2, U3, U4, U5])
+    ).
 
