@@ -11,13 +11,17 @@
     ]).
 
 -export_type([
-        key/0
+        path/0
+      , key/0
     ]).
 
 %% A path into a nested map, represented as a list of keys. Example:
 %% [foo, bar, baz] first looks up foo in the outer map, then bar in
 %% the returned map, and finally baz.
--type key() :: [term()].
+-type path() :: [term()].
+
+%% Deprecated. I should have named it path.
+-type key() :: path().
 
 
 %% @doc
