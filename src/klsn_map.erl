@@ -4,6 +4,7 @@
         lookup/2
       , get/2
       , get/3
+      , exists/2
       , upsert/3
       , remove/2
       , filter/1
@@ -57,6 +58,13 @@ lookup([H|T], Map) ->
         error ->
             none
     end.
+
+%% @doc
+%% Return true when the path exists within the map, false otherwise.
+%% This is a boolean convenience wrapper around lookup/2.
+-spec exists(key(), map()) -> boolean().
+exists(Key, Map) ->
+    lookup(Key, Map) =/= none.
 
 %% @doc
 %% Insert or replace the element located at *Key* with *Value* inside

@@ -45,6 +45,11 @@ Function
 -spec lookup(key(), map()) -> klsn:maybe(term()).
 ```
 
+### `klsn_map:exists/2`
+```
+-spec exists(key(), map()) -> boolean().
+```
+
 ### `klsn_map:upsert/3`
 ```
 -spec upsert(key(), term(), map()) -> map().
