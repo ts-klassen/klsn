@@ -139,3 +139,24 @@ remove_test() ->
     Map3 = #{a => 5},
     ?assertEqual(Map3, klsn_map:remove([a, x], Map3)).
 
+%% Tests for exists/2
+exists_test() ->
+    %% Base maps
+    Map = #{a => 1, b => 2},
+    NestedMap = #{c => #{d => 4}},
+    ComplexMap = #{a => 1, b => 2, c => NestedMap},
+
+    %% Empty path exists (refers to the whole value)
+    ?assert(klsn_map:exists([], Map)),
+
+    %% Existing keys / paths
+    ?assert(klsn_map:exists([a], Map)),
+    ?assert(klsn_map:exists([c, c, d], ComplexMap)),
+
+    %% Missing keys / paths
+    ?assertNot(klsn_map:exists([e], Map)),
+    ?assertNot(klsn_map:exists([c, e], ComplexMap)),
+
+    %% Non-map bases should not crash and should return false
+    ?assertNot(klsn_map:exists([a], not_a_map)),
+    ?assertNot(klsn_map:exists([a, b], #{a => not_a_map})).
