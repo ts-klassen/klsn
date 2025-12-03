@@ -7,6 +7,8 @@
       , replace/2
       , hash/1
       , uuid/0
+      , join/1
+      , join/2
     ]).
 
 %% UTF-8 binary string used as the canonical textual representation across
@@ -16,6 +18,7 @@
     ]).
 
 -type binstr() :: unicode:unicode_binary().
+-type from_any_input() :: integer() | float() | atom() | iolist().
 
 
 %% @doc
@@ -49,7 +52,7 @@ replace(Rule, Sub) ->
 %%
 %% If the value is already a binary it is returned unchanged (through the
 %% iolist clause).
--spec from_any(any()) -> binstr().
+-spec from_any(from_any_input()) -> binstr().
 from_any(Integer) when is_integer(Integer) ->
     integer_to_binary(Integer);
 from_any(Float) when is_float(Float) ->
@@ -142,3 +145,28 @@ uuid() ->
         [U1, U2, U3, U4, U5])
     ).
 
+%% @doc
+%% Join a list of binstr values without a separator (equivalent to join(List, &lt;&lt;&gt;&gt;)).
+-spec join([binstr()]) -> binstr().
+join(List) when is_list(List) ->
+    join(List, <<>>);
+join(_) ->
+    error(badarg).
+
+%% @doc
+%% Join a list of binstr values inserting the given binary Separator
+%% between each element.
+-spec join([binstr()], binstr()) -> binstr().
+join(List, Separator) when is_list(List), is_binary(Separator) ->
+    iolist_to_binary(join_bin(List, Separator, true, []));
+join(_, _) ->
+    error(badarg).
+
+join_bin([], _Sep, _IsFirst, Acc) ->
+    lists:reverse(Acc);
+join_bin([Head | Tail], Sep, true, Acc) when is_binary(Head) ->
+    join_bin(Tail, Sep, false, [Head | Acc]);
+join_bin([Head | Tail], Sep, false, Acc) when is_binary(Head) ->
+    join_bin(Tail, Sep, false, [Head, Sep | Acc]);
+join_bin(_, _, _, _) ->
+    error(badarg).

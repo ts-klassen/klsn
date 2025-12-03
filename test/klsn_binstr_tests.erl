@@ -161,3 +161,16 @@ uuid_0_test() ->
       , _:12/binary
     >>, klsn_binstr:uuid()).
 
+join_1_test() ->
+    ?assertEqual(<<>>, klsn_binstr:join([])),
+    ?assertEqual(<<"abc">>, klsn_binstr:join([<<"abc">>])),
+    ?assertEqual(<<"abc123">>, klsn_binstr:join([<<"abc">>, <<"123">>])),
+    ?assertEqual(<<"abc123XYZ">>, klsn_binstr:join([<<"abc">>, <<"123">>, <<"XYZ">>])),
+    ok.
+
+join_2_test() ->
+    ?assertEqual(<<>>, klsn_binstr:join([], <<", ">>)),
+    ?assertEqual(<<"abc">>, klsn_binstr:join([<<"abc">>], <<", ">>)),
+    ?assertEqual(<<"abc, 123">>, klsn_binstr:join([<<"abc">>, <<"123">>], <<", ">>)),
+    ?assertEqual(<<"abc, 123, XYZ">>, klsn_binstr:join([<<"abc">>, <<"123">>, <<"XYZ">>], <<", ">>)),
+    ok.
