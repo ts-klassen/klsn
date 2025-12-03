@@ -146,7 +146,7 @@ uuid() ->
     ).
 
 %% @doc
-%% Join a list of binstr values without a separator (equivalent to join(List, <<>>)).
+%% Join a list of binstr values without a separator (equivalent to join(List, &lt;&lt;&gt;&gt;)).
 -spec join([binstr()]) -> binstr().
 join(List) when is_list(List) ->
     join(List, <<>>);
