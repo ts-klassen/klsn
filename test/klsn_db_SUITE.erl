@@ -24,6 +24,9 @@ main(_Config) ->
             ok
     end,
     {Key, _} = klsn_db:create_doc(DB, #{<<"test_val">> => <<"test123">>}),
+    true = klsn_db:exists(DB, Key),
+    false = klsn_db:exists(DB, <<"non-existing-key">>),
+    false = klsn_db:exists(DB, <<>>),
     ok = try
         klsn_db:create_doc(non_existing, #{})
     catch
@@ -53,6 +56,7 @@ main(_Config) ->
             map => <<"function (doc) {emit(doc._id, 1);}">>
         }}, language => javascript}
     end),
+    true = klsn_db:exists(DB, {raw, <<"_design/index">>}),
     #{} = klsn_db:upsert(DB, {raw, <<"_design/index">>}, fun({value, Doc}) ->
         Doc#{views => #{test => #{
             map => <<"function (doc) {emit(doc._id, 2);}">>

@@ -7,6 +7,8 @@
       , create_doc/3
       , bulk_create_doc/2
       , bulk_create_doc/3
+      , exists/2
+      , exists/3
       , get/2
       , get/3
       , lookup/2
@@ -239,6 +241,50 @@ bulk_create_doc(Db, Docs0, #{url := Url0}) when is_list(Docs0) ->
 -spec get(db(), key()) -> payload().
 get(Db, Key) ->
     get(Db, Key, db_info()).
+
+%% @doc
+%% Return true when the document identified by Key exists in Db, false otherwise.
+%% Uses HTTP HEAD against CouchDB to avoid transferring the document body.
+-spec exists(db(), key()) -> boolean().
+exists(Db, Key) ->
+    exists(Db, Key, db_info()).
+
+%% @doc
+%% Same as exists/2 but with explicit Info.
+-spec exists(db(), key(), info()) -> boolean().
+exists(Db, Key, Info) when is_atom(Db) ->
+    exists(atom_to_binary(Db), Key, Info);
+exists(_, <<>>, _) ->
+    false;
+exists(Db0, {raw, Key0}, #{url := Url0}) ->
+    Db1 = klsn_binstr:urlencode(Db0),
+    Db = <<"/", Db1/binary>>,
+    Key = <<"/", Key0/binary>>,
+    Url = <<Url0/binary, Db/binary, Key/binary>>,
+    Res = httpc:request(head, {Url, []}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, _}} when 200 =< Stat, Stat =< 299 ->
+            true;
+        {ok, {{_, 404, _}, _, _}} ->
+            false;
+        {ok, {{_, Stat, _}, _, _}} ->
+            error({http_error, Stat})
+    end;
+exists(Db0, Key0, #{url := Url0}) ->
+    Db1 = klsn_binstr:urlencode(Db0),
+    Db = <<"/", Db1/binary>>,
+    Key1 = klsn_binstr:urlencode(Key0),
+    Key = <<"/", Key1/binary>>,
+    Url = <<Url0/binary, Db/binary, Key/binary>>,
+    Res = httpc:request(head, {Url, []}, [], [{body_format, binary}]),
+    case Res of
+        {ok, {{_, Stat, _}, _, _}} when 200 =< Stat, Stat =< 299 ->
+            true;
+        {ok, {{_, 404, _}, _, _}} ->
+            false;
+        {ok, {{_, Stat, _}, _, _}} ->
+            error({http_error, Stat})
+    end.
 
 %% @doc
 %% Same as get/2 but with explicit Info.
