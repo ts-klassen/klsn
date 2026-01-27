@@ -87,6 +87,25 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-rebar3-${{ matrix.otp }}-
 
+      - name: Install bubblewrap
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap uidmap
+          bwrap --version
+          ls -la "$(command -v bwrap)"
+
+      - name: Enable unprivileged user namespaces (for bwrap)
+        run: |
+          sudo sysctl -w kernel.unprivileged_userns_clone=1
+          sudo sysctl -w user.max_user_namespaces=28633
+          if sudo sysctl -a 2>/dev/null | grep -q '^kernel.apparmor_restrict_unprivileged_userns'; then
+            sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+
+      - name: Verify bwrap can run
+        run: |
+          bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp -- /bin/true
+
       - name: Make test script executable
         run: chmod +x ./run_test.sh
 
