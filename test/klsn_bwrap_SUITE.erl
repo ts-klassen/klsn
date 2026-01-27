@@ -21,6 +21,7 @@ all() ->
     ].
 
 echo_stdout(_Config) ->
+    application:ensure_all_started(klsn),
     #{exit_code := 0, stdout := <<"hello\n">>, stderr := <<>>} =
         klsn_bwrap:run(
             [<<"/bin/echo">>, <<"hello">>]
@@ -37,6 +38,7 @@ echo_stdout(_Config) ->
     ok.
 
 non_zero_exit_code(_Config) ->
+    application:ensure_all_started(klsn),
     #{exit_code := 7, stdout := <<>>, stderr := <<>>} =
         klsn_bwrap:run(
             [<<"/bin/sh">>, <<"-lc">>, <<"exit 7">>]
@@ -53,6 +55,7 @@ non_zero_exit_code(_Config) ->
     ok.
 
 captures_stderr(_Config) ->
+    application:ensure_all_started(klsn),
     #{exit_code := 0, stdout := <<"out\n">>, stderr := <<"err\n">>} =
         klsn_bwrap:run(
             [<<"/bin/sh">>, <<"-lc">>, <<"echo out; echo err 1>&2">>]
@@ -69,6 +72,7 @@ captures_stderr(_Config) ->
     ok.
 
 enforces_timeout(_Config) ->
+    application:ensure_all_started(klsn),
     %% Intentionally short timeout to ensure the call fails deterministically.
     ok = try
         klsn_bwrap:run(
@@ -91,6 +95,7 @@ enforces_timeout(_Config) ->
     ok.
 
 bwrap_option_takes_effect(_Config) ->
+    application:ensure_all_started(klsn),
     %% chdir+dir should affect the process working directory.
     UniqueDir = iolist_to_binary([
         <<"/tmp/ct-">>,
