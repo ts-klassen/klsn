@@ -5,6 +5,7 @@
 -export([
         all/0
       , echo_stdout/1
+      , stdin_large_chunked/1
       , non_zero_exit_code/1
       , captures_stderr/1
       , enforces_timeout/1
@@ -14,6 +15,7 @@
 all() ->
     [
         echo_stdout
+      , stdin_large_chunked
       , non_zero_exit_code
       , captures_stderr
       , enforces_timeout
@@ -32,6 +34,25 @@ echo_stdout(_Config) ->
                   , {proc, <<"/proc">>}
                   , {dev, <<"/dev">>}
                 ]
+              , timeout => 5000
+            }
+        ),
+    ok.
+
+stdin_large_chunked(_Config) ->
+    application:ensure_all_started(klsn),
+    Payload = binary:copy(<<"abcdefghijklmnopqrstuvwxyz0123456789\n">>, 4000),
+    #{exit_code := 0, stdout := Payload, stderr := <<>>} =
+        klsn_bwrap:run(
+            [<<"/bin/cat">>]
+          , #{
+                bwrap => [
+                    {ro_bind, <<"/">>, <<"/">>}
+                  , {tmpfs, <<"/tmp">>}
+                  , {proc, <<"/proc">>}
+                  , {dev, <<"/dev">>}
+                ]
+              , stdin => Payload
               , timeout => 5000
             }
         ),
