@@ -87,6 +87,12 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-rebar3-${{ matrix.otp }}-
 
+      - name: Install bubblewrap
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends bubblewrap
+          bwrap --version
+
       - name: Make test script executable
         run: chmod +x ./run_test.sh
 
