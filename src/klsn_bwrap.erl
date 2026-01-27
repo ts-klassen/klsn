@@ -118,7 +118,7 @@ run(Command, Opts) when is_list(Command), is_map(Opts) ->
         {ok, _Pid, OsPid} ->
             case MaybeStdin of
                 {value, StdinBinary1} ->
-                    ok = exec:send(OsPid, StdinBinary1),
+                    ok = send_stdin_chunked(OsPid, StdinBinary1),
                     ok = exec:send(OsPid, eof);
                 none ->
                     ok
@@ -129,6 +129,21 @@ run(Command, Opts) when is_list(Command), is_map(Opts) ->
     end;
 run(Command, Opts) ->
     erlang:error(badarg, [Command, Opts]).
+
+send_stdin_chunked(_OsPid, <<>>) ->
+    ok;
+send_stdin_chunked(OsPid, StdinBinary) when is_integer(OsPid), is_binary(StdinBinary) ->
+    ChunkSize = 60000,
+    send_stdin_chunked(OsPid, StdinBinary, ChunkSize, 0).
+
+send_stdin_chunked(_OsPid, StdinBinary, _ChunkSize, Pos) when Pos >= byte_size(StdinBinary) ->
+    ok;
+send_stdin_chunked(OsPid, StdinBinary, ChunkSize, Pos) ->
+    Remaining = byte_size(StdinBinary) - Pos,
+    Len = erlang:min(ChunkSize, Remaining),
+    Chunk = binary:part(StdinBinary, Pos, Len),
+    ok = exec:send(OsPid, Chunk),
+    send_stdin_chunked(OsPid, StdinBinary, ChunkSize, Pos + Len).
 
 wait_result(OsPid, Deadline, StdoutAcc, StderrAcc) ->
     Timeout = timeout_remaining(Deadline),
