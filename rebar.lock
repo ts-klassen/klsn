@@ -1,4 +1,8 @@
-[{<<"jsone">>,
+[{<<"erlexec">>,
+  {git,"https://github.com/saleyn/erlexec.git",
+       {ref,"f5d9995448362489b349a1452cc3b1c0588d62c5"}},
+  0},
+ {<<"jsone">>,
   {git,"https://github.com/sile/jsone.git",
        {ref,"331b4a7b66cc9dc7c16ac067cf8a8297e0e669d8"}},
   0}].
