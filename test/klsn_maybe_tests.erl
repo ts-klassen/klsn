@@ -9,6 +9,12 @@ get_value_1_test() ->
     %% Test with 'none' to ensure it raises a badarg error
     ?assertError(badarg, klsn_maybe:get_value(none)).
 
+%% Tests for has_value/1
+has_value_1_test() ->
+    ?assertEqual(true, klsn_maybe:has_value({value, 42})),
+    ?assertEqual(false, klsn_maybe:has_value(none)),
+    ?assertError(badarg, klsn_maybe:has_value({invalid, args})).
+
 %% Tests for get_value/2
 get_value_2_test() ->
     %% Test with a valid value and default

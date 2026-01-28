@@ -3,6 +3,7 @@
 -export([
         get_value/1
       , get_value/2
+      , has_value/1
       , filtermap/2
     ]).
 
@@ -13,6 +14,16 @@
 
 -export_type([
     ]).
+
+%% @doc
+%% Return true when a Maybe contains a value, otherwise false.
+-spec has_value(klsn:'maybe'(any())) -> boolean().
+has_value({value, _}) ->
+    true;
+has_value(none) ->
+    false;
+has_value(Arg1) ->
+    erlang:error(badarg, [Arg1]).
 
 %% @doc
 %% Extract the wrapped value or raise badarg when *None* is supplied.
