@@ -5,6 +5,8 @@
       , lookup/2
       , find/2
       , crud/3
+      , validate/2
+      , normalize/2
     ]).
 
 -export_type([
@@ -16,6 +18,8 @@
       , path/0
       , find_fun/0
       , crud_fun/0
+      , rule/0
+      , reject_reason/0
     ]).
 
 %% ------------------------------------------------------------------
@@ -63,6 +67,40 @@
 %% Callback used by crud/3 to create, update or delete a value at the
 %% given path.
 -type crud_fun() :: fun((klsn:'maybe'(value()))->klsn:'maybe'(value())).
+
+
+-type rule() :: any
+              | integer
+              | to_integer
+              | float
+              | to_float
+              | number
+              | to_number
+              | binstr
+              | to_binstr
+              | existing_atom
+              | to_existing_atom
+              | {atom, [atom()]}
+              | {to_atom, [atom()]}
+              | #{ atom() := {r|required | o|optional, rule()} }
+              | {map, rule(), rule()}
+              | {list, rule()}
+              | {tuple, [rule()]} % Also allow {tuple, {rule(), ...}}
+              | {optnl, rule()}
+              | timeout
+              | boolean
+              .
+
+-type reject_reason() :: {invalid, rule(), term()}
+                       | {invalid_field, atom(), reject_reason()}
+                       | {missing_required_field, atom(), term()}
+                       | {invalid_list_element, pos_integer(), reject_reason()}
+                       | {invalid_tuple_element, pos_integer(), reject_reason()}
+                       | {invalid_optnl_value, reject_reason()}
+                       | {duplicated_map_keys, [term()]}
+                       | {invalid_map_key, reject_reason()}
+                       | {invalid_map_value, term(), reject_reason()}
+                       .
 
 
 %% @doc
@@ -351,5 +389,239 @@ delete_nth(Index, List) when is_integer(Index), Index >= 1, is_list(List) ->
             List
     end.
 
+-spec validate(rule(), term()) -> boolean().
+validate(Rule, Input) ->
+    try
+        parse_rule(Rule, Input)
+    of
+        _ ->
+            true
+    catch
+        throw:{?MODULE, _Reason} ->
+            false
+    end.
 
+-spec normalize(rule(), term()) -> term().
+normalize(Rule, Input) ->
+    try parse_rule(Rule, Input) catch
+        throw:{?MODULE, Reason} ->
+            erlang:error({?MODULE, reject_reason, Reason})
+    end.
+
+parse_rule(integer, Valid) when is_integer(Valid) ->
+    Valid;
+parse_rule(to_integer, Valid) when is_integer(Valid) ->
+    Valid;
+parse_rule(to_integer, Binary) when is_binary(Binary) ->
+    try binary_to_integer(Binary) catch
+        _:_ ->
+            throw({?MODULE, {invalid, to_integer, Binary}})
+    end;
+parse_rule(to_integer, List) when is_list(List) ->
+    try list_to_integer(List) catch
+        _:_ ->
+            throw({?MODULE, {invalid, to_integer, List}})
+    end;
+parse_rule(float, Valid) when is_float(Valid) ->
+    Valid;
+parse_rule(to_float, Valid) when is_float(Valid) ->
+    Valid;
+parse_rule(to_float, Binary) when is_binary(Binary) ->
+    try binary_to_float(Binary) catch
+        _:_ ->
+            throw({?MODULE, {invalid, to_float, Binary}})
+    end;
+parse_rule(to_float, List) when is_list(List) ->
+    try list_to_float(List) catch
+        _:_ ->
+            throw({?MODULE, {invalid, to_float, List}})
+    end;
+parse_rule(number, Valid) when is_number(Valid) ->
+    Valid;
+parse_rule(to_number, Valid) when is_number(Valid) ->
+    Valid;
+parse_rule(to_number, Binary) when is_binary(Binary) ->
+    try binary_to_integer(Binary) catch
+        _:_ ->
+            try binary_to_float(Binary) catch
+                _:_ ->
+                    throw({?MODULE, {invalid, to_number, Binary}})
+            end
+    end;
+parse_rule(to_number, List) when is_list(List) ->
+    try list_to_integer(List) catch
+        _:_ ->
+            try list_to_float(List) catch
+                _:_ ->
+                    throw({?MODULE, {invalid, to_number, List}})
+            end
+    end;
+parse_rule(timeout, Valid) when is_integer(Valid), Valid >= 0 ->
+    Valid;
+parse_rule(timeout, infinity) ->
+    infinity;
+parse_rule(boolean, true) ->
+    true;
+parse_rule(boolean, false) ->
+    false;
+parse_rule(binstr, Valid) when is_binary(Valid) ->
+    Valid;
+parse_rule(to_binstr, Valid) when is_binary(Valid) ->
+    Valid;
+parse_rule(to_binstr, Atom) when is_atom(Atom) ->
+    atom_to_binary(Atom, utf8);
+parse_rule(to_binstr, Int) when is_integer(Int) ->
+    integer_to_binary(Int);
+parse_rule(to_binstr, Float) when is_float(Float) ->
+    float_to_binary(Float);
+parse_rule(to_binstr, List) when is_list(List) ->
+    try list_to_binary(List) catch
+        _:_ ->
+            throw({?MODULE, {invalid, to_binstr, List}})
+    end;
+parse_rule(existing_atom, Valid) when is_atom(Valid) ->
+    Valid;
+parse_rule(to_existing_atom, Valid) when is_atom(Valid) ->
+    Valid;
+parse_rule(to_existing_atom, Binary) when is_binary(Binary) ->
+    try binary_to_existing_atom(Binary, utf8) catch
+        _:_ ->
+            throw({?MODULE, {invalid, to_existing_atom, Binary}})
+    end;
+parse_rule(to_existing_atom, List) when is_list(List) ->
+    try binary_to_existing_atom(list_to_binary(List), utf8) catch
+        _:_ ->
+            throw({?MODULE, {invalid, to_existing_atom, List}})
+    end;
+parse_rule({atom, AllowedAtoms}, Atom) when is_atom(Atom) ->
+    case lists:member(Atom, AllowedAtoms) of
+        true ->
+            Atom;
+        false ->
+            throw({?MODULE, {invalid, {atom, AllowedAtoms}, Atom}})
+    end;
+parse_rule({to_atom, AllowedAtoms}, Atom) when is_atom(Atom) ->
+    case lists:member(Atom, AllowedAtoms) of
+        true ->
+            Atom;
+        false ->
+            throw({?MODULE, {invalid, {to_atom, AllowedAtoms}, Atom}})
+    end;
+parse_rule({to_atom, AllowedAtoms}, Binary) when is_binary(Binary) ->
+    try binary_to_existing_atom(Binary, utf8) of
+        Atom ->
+            case lists:member(Atom, AllowedAtoms) of
+                true ->
+                    Atom;
+                false ->
+                    throw({?MODULE, {invalid, {to_atom, AllowedAtoms}, Binary}})
+            end
+    catch
+        _:_ ->
+            throw({?MODULE, {invalid, {to_atom, AllowedAtoms}, Binary}})
+    end;
+parse_rule({to_atom, AllowedAtoms}, List) when is_list(List) ->
+    try binary_to_existing_atom(list_to_binary(List), utf8) of
+        Atom ->
+            case lists:member(Atom, AllowedAtoms) of
+                true ->
+                    Atom;
+                false ->
+                    throw({?MODULE, {invalid, {to_atom, AllowedAtoms}, List}})
+            end
+    catch
+        _:_ ->
+            throw({?MODULE, {invalid, {to_atom, AllowedAtoms}, List}})
+    end;
+parse_rule(Rule, Map) when is_map(Rule), is_map(Map) ->
+    maps:filtermap(fun
+        (Key, {R, ValRule}) when is_atom(Key), (R=:=r orelse R=:=required) ->
+            case lookup_map(Key, Map) of
+                {value, Value} ->
+                   try {true, parse_rule(ValRule, Value)} catch
+                       throw:{?MODULE, Reason} ->
+                           throw({?MODULE, {invalid_field, Key, Reason}})
+                   end;
+                none ->
+                    throw({?MODULE, {missing_required_field, Key, Map}})
+            end;
+        (Key, {O, ValRule}) when is_atom(Key), (O=:=o orelse O=:=optional) ->
+            case lookup_map(Key, Map) of
+                {value, Value} ->
+                   try {true, parse_rule(ValRule, Value)} catch
+                       throw:{?MODULE, Reason} ->
+                           throw({?MODULE, {invalid_field, Key, Reason}})
+                   end;
+                none ->
+                    false
+            end;
+        (_, _) ->
+            throw({?MODULE, {invalid, Rule, Map}})
+    end, Rule);
+parse_rule({map, KeyRule, ValRule}, Map) when is_map(Map) ->
+    {ResultMap, _SeenKeys, DuplicatedKeys} =
+        lists:foldl(fun({Key0, Value0}, {AccMap, SeenKeys, DupKeys}) ->
+            Key = try parse_rule(KeyRule, Key0) catch
+                throw:{?MODULE, Reason0} ->
+                    throw({?MODULE, {invalid_map_key, Reason0}})
+            end,
+            case lists:member(Key, SeenKeys) orelse maps:is_key(Key, AccMap) of
+                true ->
+                    {AccMap, SeenKeys, [Key | DupKeys]};
+                false ->
+                    Value = try parse_rule(ValRule, Value0) catch
+                        throw:{?MODULE, Reason} ->
+                            throw({?MODULE, {invalid_map_value, Key, Reason}})
+                    end,
+                    {maps:put(Key, Value, AccMap), [Key | SeenKeys], DupKeys}
+            end
+        end, {#{}, [], []}, maps:to_list(Map)),
+    case DuplicatedKeys of
+        [] ->
+            ResultMap;
+        _ ->
+            throw({?MODULE, {invalid_map_key, {duplicated_map_keys, DuplicatedKeys}}})
+    end;
+parse_rule({list, Rule}, List) when is_list(List) ->
+    lists:map(fun({I, Element}) ->
+        try parse_rule(Rule, Element) catch
+            throw:{?MODULE, Reason} ->
+                throw({?MODULE, {invalid_list_element, I, Reason}})
+        end
+    end, lists:zip(lists:seq(1, length(List)), List));
+parse_rule({tuple, Rules0}, Tuple) when (is_list(Rules0) orelse is_tuple(Rules0)), is_tuple(Tuple) ->
+    Rules = case is_list(Rules0) of
+        true -> Rules0;
+        false -> tuple_to_list(Rules0)
+    end,
+    case length(Rules) =:= size(Tuple) of
+        true -> ok;
+        false -> throw({?MODULE, {invalid, {tuple, Rules0}, Tuple}})
+    end,
+    List = lists:zip(Rules, tuple_to_list(Tuple)),
+    list_to_tuple(lists:map(fun({I, {Rule, Element}}) ->
+        try parse_rule(Rule, Element) catch
+            throw:{?MODULE, Reason} ->
+                throw({?MODULE, {invalid_tuple_element, I, Reason}})
+        end
+    end, lists:zip(lists:seq(1, length(List)), List)));
+parse_rule({optnl, Rule}, {value, Value}) ->
+    try {value, parse_rule(Rule, Value)} catch
+        throw:{?MODULE, Reason} ->
+            throw({?MODULE, {invalid_optnl_value, Reason}})
+    end;
+parse_rule({optnl, _}, none) ->
+    none;
+parse_rule(any, Term) ->
+    Term;
+parse_rule(Rule, Invalid) ->
+    throw({?MODULE, {invalid, Rule, Invalid}}).
+
+lookup_map(Key, Map) ->
+    case klsn_map:lookup([Key], Map) of
+        none ->
+            klsn_map:lookup([klsn_binstr:from_any(Key)], Map);
+        Other ->
+            Other
+    end.
 

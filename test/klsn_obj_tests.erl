@@ -399,5 +399,273 @@ crud_3_test() ->
 
     ok.
 
+any_rule_test() ->
+    Rule = any,
+    Valid = [],
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)).
+
+integer_rule_test() ->
+    Rule = integer,
+    Valid = 42,
+    Invalid = 3.14,
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid, Rule, Invalid}, invalid_reason(Rule, Invalid)).
+
+to_integer_rule_test() ->
+    Rule = to_integer,
+    ?assertEqual(42, klsn_obj:normalize(Rule, <<"42">>)),
+    ?assertEqual({invalid, Rule, <<"a">>}, invalid_reason(Rule, <<"a">>)),
+    ?assertEqual(42, klsn_obj:normalize(Rule, "42")),
+    ?assertEqual({invalid, Rule, "a"}, invalid_reason(Rule, "a")).
+
+float_rule_test() ->
+    Rule = float,
+    Valid = 3.14,
+    Invalid = 42,
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid, Rule, Invalid}, invalid_reason(Rule, Invalid)).
+
+to_float_rule_test() ->
+    Rule = to_float,
+    ?assertEqual(3.14, klsn_obj:normalize(Rule, <<"3.14">>)),
+    ?assertEqual({invalid, Rule, <<"a">>}, invalid_reason(Rule, <<"a">>)),
+    ?assertEqual(3.14, klsn_obj:normalize(Rule, "3.14")),
+    ?assertEqual({invalid, Rule, "a"}, invalid_reason(Rule, "a")).
+
+number_rule_test() ->
+    Rule = number,
+    Valid = 3.14,
+    Invalid = <<"42">>,
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid, Rule, Invalid}, invalid_reason(Rule, Invalid)).
+
+to_number_rule_test() ->
+    Rule = to_number,
+    ?assertEqual(42, klsn_obj:normalize(Rule, <<"42">>)),
+    ?assertEqual(3.14, klsn_obj:normalize(Rule, <<"3.14">>)),
+    ?assertEqual({invalid, Rule, <<"a">>}, invalid_reason(Rule, <<"a">>)),
+    ?assertEqual(42, klsn_obj:normalize(Rule, "42")),
+    ?assertEqual(3.14, klsn_obj:normalize(Rule, "3.14")),
+    ?assertEqual({invalid, Rule, "a"}, invalid_reason(Rule, "a")),
+    ?assertEqual(42, klsn_obj:normalize(Rule, 42)),
+    ?assertEqual(3.14, klsn_obj:normalize(Rule, 3.14)).
+
+binstr_rule_test() ->
+    Rule = binstr,
+    Valid = <<"hello world">>,
+    Invalid = "hello world",
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid, Rule, Invalid}, invalid_reason(Rule, Invalid)).
+
+to_binstr_rule_test() ->
+    Rule = to_binstr,
+    ?assertEqual(<<"hello">>, klsn_obj:normalize(Rule, <<"hello">>)),
+    ?assertEqual(<<"hello">>, klsn_obj:normalize(Rule, "hello")),
+    ?assertEqual(<<"atom">>, klsn_obj:normalize(Rule, atom)),
+    ?assertEqual(<<"42">>, klsn_obj:normalize(Rule, 42)),
+    ?assertMatch(<<"3.1", _/binary>>, klsn_obj:normalize(Rule, 3.14)),
+    ?assertEqual({invalid, Rule, {1,2,3}}, invalid_reason(Rule, {1,2,3})),
+    ?assertEqual({invalid, Rule, ['not', a, string]}, invalid_reason(Rule, ['not', a, string])).
+
+existing_atom_rule_test() ->
+    Rule = existing_atom,
+    Valid = atom,
+    Invalid = <<"binstr">>,
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid, Rule, Invalid}, invalid_reason(Rule, Invalid)).
+
+to_existing_atom_rule_test() ->
+    Rule = to_existing_atom,
+    NonExisting = crypto:strong_rand_bytes(16),
+    NonExistingList = binary_to_list(NonExisting),
+    ?assertEqual(atom, klsn_obj:normalize(Rule, atom)),
+    ?assertEqual(atom, klsn_obj:normalize(Rule, <<"atom">>)),
+    ?assertEqual(atom, klsn_obj:normalize(Rule, "atom")),
+    ?assertEqual({invalid, Rule, 42}, invalid_reason(Rule, 42)),
+    ?assertEqual({invalid, Rule, NonExisting}, invalid_reason(Rule, NonExisting)),
+    ?assertEqual({invalid, Rule, NonExistingList}, invalid_reason(Rule, NonExistingList)).
+
+atom_rule_test() ->
+    Rule = {atom, [atom1, atom2]},
+    Valid = atom2,
+    Invalid = atom3,
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid, Rule, Invalid}, invalid_reason(Rule, Invalid)).
+
+to_atom_rule_test() ->
+    Rule = {to_atom, [atom1, atom2]},
+    Valid = atom2,
+    Invalid = atom3,
+    NonExisting = crypto:strong_rand_bytes(16),
+    NonExistingList = binary_to_list(NonExisting),
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, <<"atom2">>)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, "atom2")),
+    ?assertEqual({invalid, Rule, Invalid}, invalid_reason(Rule, Invalid)),
+    ?assertEqual({invalid, Rule, <<"atom3">>}, invalid_reason(Rule, <<"atom3">>)),
+    ?assertEqual({invalid, Rule, "atom3"}, invalid_reason(Rule, "atom3")),
+    ?assertEqual({invalid, Rule, NonExisting}, invalid_reason(Rule, NonExisting)),
+    ?assertEqual({invalid, Rule, NonExistingList}, invalid_reason(Rule, NonExistingList)).
+
+map_rule_test() ->
+    Rule = #{
+        required_field => {required, integer}
+      , r_field => {r, integer}
+      , optional_field => {optional, integer}
+      , o_field => {o, integer}
+      , optional_missing_field => {optional, integer}
+      , o_missing_field => {o, integer}
+    },
+    Valid = #{
+        required_field => 1
+      , <<"r_field">> => 2
+      , optional_field => 3
+      , <<"o_field">> => 4
+    },
+    Expected = #{
+        required_field => 1
+      , r_field => 2
+      , optional_field => 3
+      , o_field => 4
+    },
+    Invalid = #{
+        required_field => 1
+      % <<"r_field">> => 2
+      , optional_field => 3
+      , <<"o_field">> => 4
+    },
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Expected, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({missing_required_field, r_field, Invalid}, invalid_reason(Rule, Invalid)).
+
+map_key_value_rule_test() ->
+    Rule = {map, integer, integer},
+    Valid = #{
+        1 => 2
+      , 3 => 6
+      , 4 => 8
+    },
+    InvalidKey = #{
+        1 => 2
+      , 3 => 6
+      , <<"4">> => 8
+    },
+    InvalidValue = #{
+        1 => 2
+      , 3 => 6
+      , 4 => <<"8">>
+    },
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, InvalidKey)),
+    ?assertEqual(false, klsn_obj:validate(Rule, InvalidValue)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid_map_key, {invalid, integer, <<"4">>}}, invalid_reason(Rule, InvalidKey)),
+    ?assertEqual({invalid_map_value, 4, {invalid, integer, <<"8">>}}, invalid_reason(Rule, InvalidValue)).
+
+list_rule_test() ->
+    Rule = {list, integer},
+    Valid = [1, 2, 3],
+    Invalid = [1, 2.3, 4],
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid_list_element, 2, {invalid, integer, 2.3}}, invalid_reason(Rule, Invalid)).
+
+tuple_rule_test() ->
+    Rule = {tuple, {integer, float}},
+    Valid = {42, 3.14},
+    Invalid = {42, 123},
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid_tuple_element, 2, {invalid, float, 123}}, invalid_reason(Rule, Invalid)).
+
+optnl_rule_test() ->
+    Rule = {optnl, integer},
+    Valid = {value, 42},
+    Invalid = {value, 3.14},
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(Valid, klsn_obj:normalize(Rule, Valid)),
+    ?assertEqual({invalid_optnl_value, {invalid, integer, 3.14}}, invalid_reason(Rule, Invalid)).
+
+map_key_collision_rule_test() ->
+    Rule = {map, to_integer, integer},
+
+    Valid = #{
+        <<"1">> => 10
+      , "2" => 20
+    },
+    ?assertEqual(true, klsn_obj:validate(Rule, Valid)),
+    ?assertEqual(#{1 => 10, 2 => 20}, klsn_obj:normalize(Rule, Valid)),
+
+    Colliding1 = #{
+        1 => 10
+      , <<"1">> => 20
+    },
+    ?assertEqual(false, klsn_obj:validate(Rule, Colliding1)),
+    ?assertEqual({invalid_map_key, {duplicated_map_keys, [1]}}, invalid_reason(Rule, Colliding1)),
+
+    Colliding2 = #{
+        1 => 10
+      , <<"1">> => 20
+      , 2 => 30
+      , <<"2">> => 40
+    },
+    ?assertEqual(false, klsn_obj:validate(Rule, Colliding2)),
+    {invalid_map_key, {duplicated_map_keys, Keys}} = invalid_reason(Rule, Colliding2),
+    ?assertEqual([1, 2], lists:sort(Keys)).
+
+timeout_rule_test() ->
+    Rule = timeout,
+    ValidInt = 1000,
+    ValidInf = infinity,
+    InvalidNeg = -1,
+    InvalidType = <<"1000">>,
+    ?assertEqual(true, klsn_obj:validate(Rule, ValidInt)),
+    ?assertEqual(true, klsn_obj:validate(Rule, ValidInf)),
+    ?assertEqual(false, klsn_obj:validate(Rule, InvalidNeg)),
+    ?assertEqual(false, klsn_obj:validate(Rule, InvalidType)),
+    ?assertEqual(ValidInt, klsn_obj:normalize(Rule, ValidInt)),
+    ?assertEqual(ValidInf, klsn_obj:normalize(Rule, ValidInf)),
+    ?assertEqual({invalid, Rule, InvalidNeg}, invalid_reason(Rule, InvalidNeg)),
+    ?assertEqual({invalid, Rule, InvalidType}, invalid_reason(Rule, InvalidType)).
+
+boolean_rule_test() ->
+    Rule = boolean,
+    ValidTrue = true,
+    ValidFalse = false,
+    Invalid = <<"true">>,
+    ?assertEqual(true, klsn_obj:validate(Rule, ValidTrue)),
+    ?assertEqual(true, klsn_obj:validate(Rule, ValidFalse)),
+    ?assertEqual(false, klsn_obj:validate(Rule, Invalid)),
+    ?assertEqual(ValidTrue, klsn_obj:normalize(Rule, ValidTrue)),
+    ?assertEqual(ValidFalse, klsn_obj:normalize(Rule, ValidFalse)),
+    ?assertEqual({invalid, Rule, Invalid}, invalid_reason(Rule, Invalid)).
+
+invalid_reason(Rule, Value) ->
+    try klsn_obj:normalize(Rule, Value) of
+        _ ->
+            error(unexpected_success)
+    catch
+        error:{klsn_obj, reject_reason, Reason} ->
+            Reason
+    end.
 
 
