@@ -6,10 +6,10 @@
    [kernel,
     stdlib,
     jsone,
-    erlexec,
     inets,
     ssl
    ]},
+  {included_applications,[erlexec]},
   {env,[]},
   {modules, []},
 
