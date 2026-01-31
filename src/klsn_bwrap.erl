@@ -95,6 +95,8 @@
 
 -spec run(command(), opts()) -> result().
 run(Command, Opts) when is_list(Command), is_map(Opts) ->
+    ensure_erlexec_started(),
+
     BwrapOpts = maps:get(bwrap, Opts),
     Timeout = maps:get(timeout, Opts, infinity),
 
@@ -129,6 +131,38 @@ run(Command, Opts) when is_list(Command), is_map(Opts) ->
     end;
 run(Command, Opts) ->
     erlang:error(badarg, [Command, Opts]).
+
+ensure_erlexec_started() ->
+    case whereis(exec) of
+        Pid when is_pid(Pid) ->
+            ok;
+        undefined ->
+            case os:getenv("SHELL") of
+                false ->
+                    os:putenv("SHELL", find_shell());
+                _ ->
+                    ok
+            end,
+            {ok, _} = application:ensure_all_started(erlexec)
+    end.
+
+find_shell() ->
+    case os:find_executable("bash") of
+        false ->
+            case os:find_executable("sh") of
+                false ->
+                    case filelib:is_file("/bin/bash") of
+                        true ->
+                            "/bin/bash";
+                        false ->
+                            "/bin/sh"
+                    end;
+                Sh ->
+                    Sh
+            end;
+        Bash ->
+            Bash
+    end.
 
 send_stdin_chunked(_OsPid, <<>>) ->
     ok;
