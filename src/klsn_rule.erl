@@ -24,6 +24,7 @@
       , nullable_number_rule/2
       , nullable_binstr_rule/2
       , list_rule/2
+      , tuple_rule/2
     ]).
 
 -export_type([
@@ -64,6 +65,7 @@
               | nullable_number
               | nullable_binstr
               | {list, rule()}
+              | {tuple, [rule()] | tuple()} % {rule(), rule(), ...}
               .
 
 -type reason() :: {custom, term()}
@@ -71,6 +73,7 @@
                 | {invalid, name(), input()}
                 | {invalid_enum, [atom()], input()}
                 | {invalid_list_element, pos_integer(), reason()}
+                | {invalid_tuple_element, pos_integer(), reason()}
                 .
 
 -type result() :: valid
@@ -357,6 +360,49 @@ list_rule(Input, ElementRule) when is_list(Input) ->
             end
     end;
 list_rule(_, _) ->
+    reject.
+
+-spec tuple_rule(input(), acc()) -> result().
+tuple_rule(Input, Rules) when is_tuple(Input), is_tuple(Rules) ->
+    tuple_rule(Input, tuple_to_list(Rules));
+tuple_rule(Input, Rules) when is_tuple(Input), is_list(Rules), length(Rules) =/= tuple_size(Input) ->
+    {reject, {invalid, tuple, Input}};
+tuple_rule(Input, Rules) when is_tuple(Input), is_list(Rules) ->
+    InputList = tuple_to_list(Input),
+    List0 = lists:map(fun({Rule, Elem}) ->
+        eval(Rule, Elem)
+    end, lists:zip(Rules, InputList)),
+    List = lists:zip(lists:seq(1, length(List0)), List0),
+    MaybeReject = lists:search(fun
+        ({_I, {reject, _}})->
+            true;
+        (_) ->
+            false
+    end, List),
+    case MaybeReject of
+        {value, {I, {reject, Reason}}} ->
+            {reject, {invalid_tuple_element, I, Reason}};
+        _ ->
+            MaybeNormalized = lists:search(fun
+                ({_I, {normalized, _, _}})->
+                    true;
+                (_) ->
+                    false
+            end, List),
+            case MaybeNormalized of
+                {value, {I, {normalized, _, Reason}}} ->
+                    Output = lists:map(fun
+                        ({_I, {valid, ElemOutput}}) ->
+                            ElemOutput;
+                        ({_I, {normalized, ElemOutput, _}}) ->
+                            ElemOutput
+                    end, List),
+                    {normalized, list_to_tuple(Output), {invalid_tuple_element, I, Reason}};
+                _ ->
+                    valid
+            end
+    end;
+tuple_rule(_, _) ->
     reject.
 
 -spec do(fun((input()) -> boolean()), [fun((input()) -> output())], input()) -> result().
