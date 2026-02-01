@@ -4,6 +4,7 @@
 -export([
         validate/2
       , normalize/2
+      , eval/2
     ]).
 
 %% builtin rules
@@ -22,6 +23,7 @@
       , nullable_float_rule/2
       , nullable_number_rule/2
       , nullable_binstr_rule/2
+      , list_rule/2
     ]).
 
 -export_type([
@@ -33,6 +35,7 @@
       , rule/0
       , reason/0
       , result/0
+      , strict_result/0
     ]).
 
 -type name() :: atom().
@@ -60,63 +63,49 @@
               | nullable_float
               | nullable_number
               | nullable_binstr
+              | {list, rule()}
               .
 
 -type reason() :: {custom, term()}
                 | {unknown_rule, rule()}
                 | {invalid, name(), input()}
                 | {invalid_enum, [atom()], input()}
+                | {invalid_list_element, pos_integer(), reason()}
                 .
 
 -type result() :: valid
+                | {valid, output()}
                 | {normalized, output()}
                 | {normalized, output(), reason()}
                 | reject
                 | {reject, reason()}
                 .
 
+-type strict_result() :: {valid, output()}
+                       | {normalized, output(), reason()}
+                       | {reject, reason()}
+                       .
+
 -spec validate(rule(), input()) -> output().
-validate({custom, Name, Custom, Acc}, Input) ->
-    case Custom(Input, Acc) of
-        valid ->
+validate(Rule, Input) ->
+    case eval(Rule, Input) of
+        {valid, _} ->
             ok;
-        {normalized, _} ->
-            error({?MODULE, {invalid, Name, Input}});
         {normalized, _, Reason} ->
             error({?MODULE, Reason});
-        reject ->
-            error({?MODULE, {invalid, Name, Input}});
         {reject, Reason} ->
             error({?MODULE, Reason})
-    end;
-validate(Rule, Input) ->
-    case lookup_rule(Rule) of
-        {value, {Custom, Acc}} ->
-            validate({custom, Rule, Custom, Acc}, Input);
-        none ->
-            error({?MODULE, {unknown_rule, Rule}})
     end.
 
--spec normalize(rule(), input()) -> ok.
-normalize({custom, Name, Custom, Acc}, Input) ->
-    case Custom(Input, Acc) of
-        valid ->
-            Input;
-        {normalized, Output} ->
+-spec normalize(rule(), input()) -> output().
+normalize(Rule, Input) ->
+    case eval(Rule, Input) of
+        {valid, Output} ->
             Output;
         {normalized, Output, _Reason} ->
             Output;
-        reject ->
-            error({?MODULE, {invalid, Name, Input}});
         {reject, Reason} ->
             error({?MODULE, Reason})
-    end;
-normalize(Rule, Input) ->
-    case lookup_rule(Rule) of
-        {value, {Custom, Acc}} ->
-            normalize({custom, Rule, Custom, Acc}, Input);
-        none ->
-            error({?MODULE, {unknown_rule, Rule}})
     end.
 
 -spec any_rule(input(), acc()) -> result().
@@ -332,6 +321,44 @@ nullable_binstr_rule({value, Value}, Acc) ->
 nullable_binstr_rule(Value, Acc) ->
     binstr_rule(Value, Acc).
 
+-spec list_rule(input(), acc()) -> result().
+list_rule(Input, ElementRule) when is_list(Input) ->
+    List0 = lists:map(fun(Elem) ->
+        eval(ElementRule, Elem)
+    end, Input),
+    List = lists:zip(lists:seq(1, length(List0)), List0),
+    MaybeReject = lists:search(fun
+        ({_I, {reject, _}})->
+            true;
+        (_) ->
+            false
+    end, List),
+    case MaybeReject of
+        {value, {I, {reject, Reason}}} ->
+            {reject, {invalid_list_element, I, Reason}};
+        _ ->
+            MaybeNormalized = lists:search(fun
+                ({_I, {normalized, _, _}})->
+                    true;
+                (_) ->
+                    false
+            end, List),
+            case MaybeNormalized of
+                {value, {I, {normalized, _, Reason}}} ->
+                    Output = lists:map(fun
+                        ({_I, {valid, ElemOutput}}) ->
+                            ElemOutput;
+                        ({_I, {normalized, ElemOutput, _}}) ->
+                            ElemOutput
+                    end, List),
+                    {normalized, Output, {invalid_list_element, I, Reason}};
+                _ ->
+                    valid
+            end
+    end;
+list_rule(_, _) ->
+    reject.
+
 -spec do(fun((input()) -> boolean()), [fun((input()) -> output())], input()) -> result().
 do(Guard, Converts, Input) ->
     try Guard(Input) of
@@ -356,8 +383,47 @@ do([H|T], Input) ->
         do(T, Input)
     end.
 
--spec lookup_rule(rule()) -> klsn:optnl({custom(), acc()}).
-lookup_rule(Rule) ->
+
+-spec eval(rule(), input()) -> strict_result().
+eval({custom, Name, Custom, Acc}=Arg1, Input) ->
+    case Custom(Input, Acc) of
+        valid ->
+            {valid, Input};
+        {valid, Input} ->
+            {valid, Input};
+        {valid, Modified} ->
+            error({invalid_custom_rule, klsn_binstr:from_any(io_lib:format(
+                "custom rule ~p returned {valid, Output}=~p for input ~p, but Output /= Input. "
+                "{valid, output()} must return the unmodified input (or return valid)."
+              , [Name, Modified, Input]
+            ))}, [Arg1, Input]);
+        {normalized, Output} ->
+            {normalized, Output, {invalid, Name, Input}};
+        {normalized, Output, Reason} ->
+            {normalized, Output, Reason};
+        reject ->
+            {reject, {invalid, Name, Input}};
+        {reject, Reason} ->
+            {reject, Reason};
+        Unexpected ->
+            error({invalid_custom_rule, klsn_binstr:from_any(io_lib:format(
+                "custom rule ~p returned ~p when input is ~p. klsn_rule:result() expected."
+              , [Name, Unexpected, Input]
+            ))}, [Arg1, Input])
+    end;
+eval(Rule, Input) ->
+    case rule_to_custom_(Rule) of
+        {value, CustomRule} ->
+            eval(CustomRule, Input);
+        none ->
+            {reject, {unknown_rule, Rule}}
+    end.
+
+
+-spec rule_to_custom_(rule()) -> klsn:optnl({custom, name(), custom(), acc()}).
+rule_to_custom_({custom, Name, Custom, Acc}) ->
+    {value, {custom, Name, Custom, Acc}};
+rule_to_custom_(Rule) ->
     {Name, Acc} = case Rule of
         {_, _} ->
             Rule;
@@ -376,7 +442,7 @@ lookup_rule(Rule) ->
     end, ?MODULE:module_info(exports)),
     case MaybeRule of
         {value, {Function, Arity}} ->
-            {value, {fun ?MODULE:Function/Arity, Acc}};
+            {value, {custom, Name, fun ?MODULE:Function/Arity, Acc}};
         _ ->
             none
     end.
