@@ -26,6 +26,7 @@
       , list_rule/2
       , tuple_rule/2
       , map_rule/2
+      , struct_rule/2
     ]).
 
 -export_type([
@@ -68,6 +69,7 @@
               | {list, rule()}
               | {tuple, [rule()] | tuple()} % {rule(), rule(), ...}
               | {map, {KeyRule::rule(), ValueRule::rule()}}
+              | {struct, #{atom() => {required | optional, rule()}}}
               .
 
 -type reason() :: {custom, term()}
@@ -80,6 +82,10 @@
                 | {invalid_map_key, reason()}
                 | {invalid_map_value, Key::term(), reason()}
                 | {map_key_conflict, Key::term()}
+                | {invalid_struct_field, term()}
+                | {invalid_struct_value, atom(), reason()}
+                | {missing_required_field, atom()}
+                | {struct_field_conflict, atom()}
                 .
 
 -type result() :: valid
@@ -495,7 +501,136 @@ map_rule(Input, {KeyRule, ValueRule}) when is_map(Input) ->
     end;
 map_rule(_, _) ->
     reject.
-    
+
+-spec struct_rule(input(), acc()) -> result().
+struct_rule(Input, StructSpec) when is_map(Input), is_map(StructSpec) ->
+    SpecList0 = maps:to_list(StructSpec),
+    SpecList = lists:map(fun
+        ({Field, {ReqOpt, Rule}}) when is_atom(Field), (ReqOpt =:= required orelse ReqOpt =:= optional) ->
+            {Field, {ReqOpt, Rule}};
+        (_) ->
+            error
+    end, SpecList0),
+    case lists:member(error, SpecList) of
+        true ->
+            reject;
+        false ->
+            BinToField = maps:from_list(lists:map(fun({Field, _}) ->
+                {klsn_binstr:from_any(Field), Field}
+            end, SpecList)),
+            InputList = maps:to_list(Input),
+            {Matches0, ExtraKeysRev, KeyNormKeysRev} = lists:foldl(fun({Key, Value}, {MatchesAcc, ExtraAcc, NormAcc}) ->
+                case maybe_binstr_from_any_(Key) of
+                    {value, KeyBin} ->
+                        case maps:find(KeyBin, BinToField) of
+                            {ok, Field} ->
+                                Existing = maps:get(Field, MatchesAcc, []),
+                                MatchesAcc1 = maps:put(Field, [{Key, Value}|Existing], MatchesAcc),
+                                NormAcc1 = case Key =:= Field of
+                                    true ->
+                                        NormAcc;
+                                    false ->
+                                        [Key|NormAcc]
+                                end,
+                                {MatchesAcc1, ExtraAcc, NormAcc1};
+                            error ->
+                                {MatchesAcc, [Key|ExtraAcc], NormAcc}
+                        end;
+                    none ->
+                        {MatchesAcc, [Key|ExtraAcc], NormAcc}
+                end
+            end, {#{}, [], []}, InputList),
+            ExtraKeys = lists:reverse(ExtraKeysRev),
+            KeyNormKeys = lists:reverse(KeyNormKeysRev),
+            MaybeConflict = lists:search(fun({Field, _}) ->
+                case maps:get(Field, Matches0, []) of
+                    [] -> false;
+                    [_] -> false;
+                    [_|_] -> true
+                end
+            end, SpecList),
+            case MaybeConflict of
+                {value, {Field, _}} ->
+                    {reject, {struct_field_conflict, Field}};
+                _ ->
+                    MaybeMissingRequired = lists:search(fun
+                        ({Field, {required, _}}) ->
+                            maps:get(Field, Matches0, []) =:= [];
+                        (_) ->
+                            false
+                    end, SpecList),
+                    case MaybeMissingRequired of
+                        {value, {Field, _}} ->
+                            {reject, {missing_required_field, Field}};
+                        _ ->
+                            case struct_eval_fields_(SpecList, Matches0, #{}, none) of
+                                {reject, Reason} ->
+                                    {reject, Reason};
+                                {ok, Output, MaybeValueNormReason} ->
+                                    IsNormalized = (ExtraKeys =/= []) orelse (KeyNormKeys =/= []) orelse (MaybeValueNormReason =/= none),
+                                    case IsNormalized of
+                                        false ->
+                                            valid;
+                                        true ->
+                                            NormReason = case ExtraKeys of
+                                                [ExtraKey|_] ->
+                                                    {invalid_struct_field, ExtraKey};
+                                                [] ->
+                                                    case KeyNormKeys of
+                                                        [KeyNormKey|_] ->
+                                                            {invalid_struct_field, KeyNormKey};
+                                                        [] ->
+                                                            klsn_maybe:get_value(MaybeValueNormReason)
+                                                    end
+                                            end,
+                                            {normalized, Output, NormReason}
+                                    end
+                            end
+                    end
+            end
+    end;
+struct_rule(_, _) ->
+    reject.
+
+-spec maybe_binstr_from_any_(term()) -> klsn:optnl(klsn:binstr()).
+maybe_binstr_from_any_(Value) ->
+    try
+        {value, klsn_binstr:from_any(Value)}
+    catch
+        _:_ ->
+            none
+    end.
+
+-spec struct_eval_fields_(
+        [{atom(), {required | optional, rule()}}]
+      , #{atom() => [{term(), term()}]}
+      , maps:map(atom(), term())
+      , klsn:optnl(reason())
+    ) -> {ok, maps:map(atom(), term()), klsn:optnl(reason())} | {reject, reason()}.
+struct_eval_fields_([], _Matches, Output, MaybeNormReason) ->
+    {ok, Output, MaybeNormReason};
+struct_eval_fields_([{Field, {_ReqOpt, Rule}}|T], Matches, Output0, MaybeNormReason0) ->
+    case maps:get(Field, Matches, []) of
+        [] ->
+            struct_eval_fields_(T, Matches, Output0, MaybeNormReason0);
+        [{_Key, Value}] ->
+            case eval(Rule, Value) of
+                {valid, ValueOut} ->
+                    struct_eval_fields_(T, Matches, maps:put(Field, ValueOut, Output0), MaybeNormReason0);
+                {normalized, ValueOut, Reason} ->
+                    MaybeNormReason1 = case MaybeNormReason0 of
+                        none ->
+                            {value, {invalid_struct_value, Field, Reason}};
+                        _ ->
+                            MaybeNormReason0
+                    end,
+                    struct_eval_fields_(T, Matches, maps:put(Field, ValueOut, Output0), MaybeNormReason1);
+                {reject, Reason} ->
+                    {reject, {invalid_struct_value, Field, Reason}}
+            end;
+        _ ->
+            {reject, {struct_field_conflict, Field}}
+    end.
 
 -spec do(fun((input()) -> boolean()), [fun((input()) -> output())], input()) -> result().
 do(Guard, Converts, Input) ->
