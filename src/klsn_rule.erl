@@ -25,6 +25,7 @@
       , nullable_binstr_rule/2
       , list_rule/2
       , tuple_rule/2
+      , map_rule/2
     ]).
 
 -export_type([
@@ -66,6 +67,7 @@
               | nullable_binstr
               | {list, rule()}
               | {tuple, [rule()] | tuple()} % {rule(), rule(), ...}
+              | {map, {KeyRule::rule(), ValueRule::rule()}}
               .
 
 -type reason() :: {custom, term()}
@@ -73,7 +75,11 @@
                 | {invalid, name(), input()}
                 | {invalid_enum, [atom()], input()}
                 | {invalid_list_element, pos_integer(), reason()}
+                | {invalid_tuple_size, non_neg_integer(), input()}
                 | {invalid_tuple_element, pos_integer(), reason()}
+                | {invalid_map_key, reason()}
+                | {invalid_map_value, Key::term(), reason()}
+                | {map_key_conflict, Key::term()}
                 .
 
 -type result() :: valid
@@ -201,7 +207,7 @@ binstr_rule(Input, _Acc) ->
       , Input
     ) .
     
-atom_rule(Input, none) ->
+atom_rule(Input, _Acc) ->
     do(
         fun is_atom/1
       , [fun(I) ->
@@ -366,7 +372,7 @@ list_rule(_, _) ->
 tuple_rule(Input, Rules) when is_tuple(Input), is_tuple(Rules) ->
     tuple_rule(Input, tuple_to_list(Rules));
 tuple_rule(Input, Rules) when is_tuple(Input), is_list(Rules), length(Rules) =/= tuple_size(Input) ->
-    {reject, {invalid, tuple, Input}};
+    {reject, {invalid_tuple_size, length(Rules), Input}};
 tuple_rule(Input, Rules) when is_tuple(Input), is_list(Rules) ->
     InputList = tuple_to_list(Input),
     List0 = lists:map(fun({Rule, Elem}) ->
@@ -404,6 +410,92 @@ tuple_rule(Input, Rules) when is_tuple(Input), is_list(Rules) ->
     end;
 tuple_rule(_, _) ->
     reject.
+
+-spec map_rule(input(), acc()) -> result().
+map_rule(Input, {KeyRule, ValueRule}) when is_map(Input) ->
+    List0 = lists:map(fun({Key, Value}) ->
+        {Key, eval(KeyRule, Key), eval(ValueRule, Value)}
+    end, maps:to_list(Input)),
+    MaybeKeyReject = lists:search(fun
+        ({_Key, {reject, _}, _}) ->
+            true;
+        (_) ->
+            false
+    end, List0),
+    case MaybeKeyReject of
+        {value, {_Key, {reject, Reason}, _}} ->
+            {reject, {invalid_map_key, Reason}};
+        _ ->
+            MaybeValueReject = lists:search(fun
+                ({_Key, _KeyRes, {reject, _}}) ->
+                    true;
+                (_) ->
+                    false
+            end, List0),
+            case MaybeValueReject of
+                {value, {Key, _KeyRes, {reject, Reason}}} ->
+                    {reject, {invalid_map_value, Key, Reason}};
+                _ ->
+                    MaybeNormalized = lists:search(fun
+                        ({_Key, {normalized, _, _}, _}) ->
+                            true;
+                        ({_Key, _KeyRes, {normalized, _, _}}) ->
+                            true;
+                        (_) ->
+                            false
+                    end, List0),
+                    MaybeNormReason = case MaybeNormalized of
+                        {value, {_Key, {normalized, _, Reason}, _}} ->
+                            {value, {invalid_map_key, Reason}};
+                        {value, {Key, _KeyRes, {normalized, _, Reason}}} ->
+                            {value, {invalid_map_value, Key, Reason}};
+                        _ ->
+                            none
+                    end,
+                    case MaybeNormReason of
+                        {value, NormReason} ->
+                            OutputList = lists:map(fun({_Key0, KeyRes0, ValueRes0}) ->
+                                Key1 = case KeyRes0 of
+                                    {valid, KeyOut} ->
+                                        KeyOut;
+                                    {normalized, KeyOut, _} ->
+                                        KeyOut
+                                end,
+                                Value1 = case ValueRes0 of
+                                    {valid, ValueOut} ->
+                                        ValueOut;
+                                    {normalized, ValueOut, _} ->
+                                        ValueOut
+                                end,
+                                {Key1, Value1}
+                            end, List0),
+                            MaybeKeyConflict = lists:foldl(fun({Key1, _Value1}, Acc) ->
+                                case Acc of
+                                    {value, _} ->
+                                        Acc;
+                                    Seen ->
+                                        case maps:is_key(Key1, Seen) of
+                                            true ->
+                                                {value, Key1};
+                                            false ->
+                                                maps:put(Key1, true, Seen)
+                                        end
+                                end
+                            end, #{}, OutputList),
+                            case MaybeKeyConflict of
+                                {value, Key1} ->
+                                    {reject, {map_key_conflict, Key1}};
+                                _ ->
+                                    {normalized, maps:from_list(OutputList), NormReason}
+                            end;
+                        _ ->
+                            valid
+                    end
+            end
+    end;
+map_rule(_, _) ->
+    reject.
+    
 
 -spec do(fun((input()) -> boolean()), [fun((input()) -> output())], input()) -> result().
 do(Guard, Converts, Input) ->
