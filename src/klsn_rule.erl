@@ -23,10 +23,7 @@
       , any_of_rule/2
       , all_of_rule/2
       , optnl_rule/2
-      , nullable_integer_rule/2
-      , nullable_float_rule/2
-      , nullable_number_rule/2
-      , nullable_binstr_rule/2
+      , nullable_rule/2
       , list_rule/2
       , tuple_rule/2
       , map_rule/2
@@ -69,11 +66,8 @@
               | {enum, [atom()]}
               | {any_of, [rule()]}
               | {all_of, [rule()]}
-              | optnl
-              | nullable_integer
-              | nullable_float
-              | nullable_number
-              | nullable_binstr
+              | {optnl, rule()}
+              | {nullable, rule()}
               | {list, rule()}
               | {tuple, [rule()] | tuple()} % {rule(), rule(), ...}
               | {map, {KeyRule::rule(), ValueRule::rule()}}
@@ -87,6 +81,8 @@
                 | {invalid_list_element, pos_integer(), reason()}
                 | {invalid_tuple_size, non_neg_integer(), input()}
                 | {invalid_tuple_element, pos_integer(), reason()}
+                | {invalid_optnl_value, reason()}
+                | {invalid_nullable_value, reason()}
                 | {invalid_map_key, reason()}
                 | {invalid_map_value, Key::term(), reason()}
                 | {map_key_conflict, Key::term()}
@@ -476,94 +472,76 @@ all_of_rule_(Input, [Rule|T], MaybeValidOutput0, MaybeNormOutput0, NormReasonsRe
     end.
 
 -spec optnl_rule(input(), acc()) -> result().
-optnl_rule(none, _Acc) ->
+optnl_rule(none, _Rule) ->
     valid;
-optnl_rule({value, _}, _Acc) ->
-    valid;
-optnl_rule(null, _Acc) ->
+optnl_rule({value, Value}, Rule) ->
+    optnl_eval_value_(Value, Rule, valid);
+optnl_rule(null, _Rule) ->
     {normalized, none};
-optnl_rule(nil, _Acc) ->
+optnl_rule(nil, _Rule) ->
     {normalized, none};
-optnl_rule(undefined, _Acc) ->
+optnl_rule(undefined, _Rule) ->
     {normalized, none};
-optnl_rule(false, _Acc) ->
+optnl_rule(false, _Rule) ->
     {normalized, none};
-optnl_rule([], _Acc) ->
+optnl_rule([], _Rule) ->
     {normalized, none};
-optnl_rule(error, _Acc) ->
+optnl_rule(error, _Rule) ->
     {normalized, none};
-optnl_rule({ok, Value}, _Acc) ->
-    {normalized, {value, Value}};
-optnl_rule({true, Value}, _Acc) ->
-    {normalized, {value, Value}};
-optnl_rule([Value], _Acc) ->
-    {normalized, {value, Value}};
-optnl_rule(Value, _Acc) when is_binary(Value) ->
-    {normalized, {value, Value}};
-optnl_rule(Value, _Acc) when is_number(Value) ->
-    {normalized, {value, Value}};
-optnl_rule(_, _Acc) ->
+optnl_rule({ok, Value}, Rule) ->
+    optnl_eval_value_(Value, Rule, normalized);
+optnl_rule({true, Value}, Rule) ->
+    optnl_eval_value_(Value, Rule, normalized);
+optnl_rule([Value], Rule) ->
+    optnl_eval_value_(Value, Rule, normalized);
+optnl_rule(Value, Rule) when is_binary(Value) ->
+    optnl_eval_value_(Value, Rule, normalized);
+optnl_rule(Value, Rule) when is_number(Value) ->
+    optnl_eval_value_(Value, Rule, normalized);
+optnl_rule(_, _Rule) ->
     reject.
 
--spec nullable_integer_rule(input(), acc()) -> result().
-nullable_integer_rule(null, _Acc) ->
+-spec nullable_rule(input(), acc()) -> result().
+nullable_rule(null, _Rule) ->
     valid;
-nullable_integer_rule(none, _Acc) ->
+nullable_rule(none, _Rule) ->
     {normalized, null};
-nullable_integer_rule({value, Value}, Acc) ->
-    case integer_rule(Value, Acc) of
-        valid ->
-            {normalized, Value};
-        Result ->
-            Result
-    end;
-nullable_integer_rule(Value, Acc) ->
-    integer_rule(Value, Acc).
+nullable_rule({value, Value}, Rule) ->
+    nullable_eval_value_(Value, Rule, normalized);
+nullable_rule(Value, Rule) ->
+    nullable_eval_value_(Value, Rule, valid).
 
--spec nullable_float_rule(input(), acc()) -> result().
-nullable_float_rule(null, _Acc) ->
-    valid;
-nullable_float_rule(none, _Acc) ->
-    {normalized, null};
-nullable_float_rule({value, Value}, Acc) ->
-    case float_rule(Value, Acc) of
-        valid ->
-            {normalized, Value};
-        Result ->
-            Result
-    end;
-nullable_float_rule(Value, Acc) ->
-    float_rule(Value, Acc).
+-spec optnl_eval_value_(input(), rule(), valid | normalized) -> result().
+optnl_eval_value_(Value, Rule, Validity) ->
+    case eval(Rule, Value) of
+        {valid, Output} ->
+            case Validity of
+                valid ->
+                    {valid, {value, Output}};
+                normalized ->
+                    {normalized, {value, Output}}
+            end;
+        {normalized, Output, Reason} ->
+            {normalized, {value, Output}, {invalid_optnl_value, Reason}};
+        {reject, Reason} ->
+            {reject, {invalid_optnl_value, Reason}}
+    end.
 
--spec nullable_number_rule(input(), acc()) -> result().
-nullable_number_rule(null, _Acc) ->
-    valid;
-nullable_number_rule(none, _Acc) ->
-    {normalized, null};
-nullable_number_rule({value, Value}, Acc) ->
-    case number_rule(Value, Acc) of
-        valid ->
-            {normalized, Value};
-        Result ->
-            Result
-    end;
-nullable_number_rule(Value, Acc) ->
-    number_rule(Value, Acc).
-
--spec nullable_binstr_rule(input(), acc()) -> result().
-nullable_binstr_rule(null, _Acc) ->
-    valid;
-nullable_binstr_rule(none, _Acc) ->
-    {normalized, null};
-nullable_binstr_rule({value, Value}, Acc) ->
-    case binstr_rule(Value, Acc) of
-        valid ->
-            {normalized, Value};
-        Result ->
-            Result
-    end;
-nullable_binstr_rule(Value, Acc) ->
-    binstr_rule(Value, Acc).
+-spec nullable_eval_value_(input(), rule(), valid | normalized) -> result().
+nullable_eval_value_(Value, Rule, Validity) ->
+    case eval(Rule, Value) of
+        {valid, Output} ->
+            case Validity of
+                valid ->
+                    {valid, Output};
+                normalized ->
+                    {normalized, Output}
+            end;
+        {normalized, Output, Reason} ->
+            {normalized, Output, {invalid_nullable_value, Reason}};
+        {reject, Reason} ->
+            {reject, {invalid_nullable_value, Reason}}
+    end.
 
 -spec list_rule(input(), acc()) -> result().
 list_rule(Input, ElementRule) when is_list(Input) ->

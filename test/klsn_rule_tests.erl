@@ -150,126 +150,137 @@ enum_rule_test() ->
     ).
 
 optnl_rule_test() ->
-    ?assertEqual({valid, none}, klsn_rule:eval(optnl, none)),
-    ?assertEqual({valid, {value, 1}}, klsn_rule:eval(optnl, {value, 1})),
+    ?assertEqual({valid, none}, klsn_rule:eval({optnl, integer}, none)),
+    ?assertEqual({valid, {value, 1}}, klsn_rule:eval({optnl, integer}, {value, 1})),
+    ?assertEqual(
+        {normalized, {value, 1}, {invalid_optnl_value, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval({optnl, integer}, {value, <<"1">>})
+    ),
+    ?assertEqual(
+        {reject, {invalid_optnl_value, {invalid, integer, <<"x">>}}}
+      , klsn_rule:eval({optnl, integer}, {value, <<"x">>})
+    ),
     ?assertEqual(
         {normalized, none, {invalid, optnl, null}}
-      , klsn_rule:eval(optnl, null)
+      , klsn_rule:eval({optnl, integer}, null)
     ),
     ?assertEqual(
         {normalized, none, {invalid, optnl, nil}}
-      , klsn_rule:eval(optnl, nil)
+      , klsn_rule:eval({optnl, integer}, nil)
     ),
     ?assertEqual(
         {normalized, none, {invalid, optnl, undefined}}
-      , klsn_rule:eval(optnl, undefined)
+      , klsn_rule:eval({optnl, integer}, undefined)
     ),
     ?assertEqual(
         {normalized, none, {invalid, optnl, false}}
-      , klsn_rule:eval(optnl, false)
+      , klsn_rule:eval({optnl, integer}, false)
     ),
     ?assertEqual(
         {normalized, none, {invalid, optnl, []}}
-      , klsn_rule:eval(optnl, [])
+      , klsn_rule:eval({optnl, integer}, [])
     ),
     ?assertEqual(
         {normalized, none, {invalid, optnl, error}}
-      , klsn_rule:eval(optnl, error)
+      , klsn_rule:eval({optnl, integer}, error)
     ),
     ?assertEqual(
         {normalized, {value, 1}, {invalid, optnl, {ok, 1}}}
-      , klsn_rule:eval(optnl, {ok, 1})
+      , klsn_rule:eval({optnl, integer}, {ok, 1})
     ),
     ?assertEqual(
         {normalized, {value, 1}, {invalid, optnl, {true, 1}}}
-      , klsn_rule:eval(optnl, {true, 1})
+      , klsn_rule:eval({optnl, integer}, {true, 1})
     ),
     ?assertEqual(
         {normalized, {value, 1}, {invalid, optnl, [1]}}
-      , klsn_rule:eval(optnl, [1])
+      , klsn_rule:eval({optnl, integer}, [1])
     ),
     ?assertEqual(
-        {normalized, {value, <<"bin">>}, {invalid, optnl, <<"bin">>}}
-      , klsn_rule:eval(optnl, <<"bin">>)
+        {normalized, {value, 1}, {invalid_optnl_value, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval({optnl, integer}, <<"1">>)
     ),
     ?assertEqual(
         {normalized, {value, 123}, {invalid, optnl, 123}}
-      , klsn_rule:eval(optnl, 123)
+      , klsn_rule:eval({optnl, integer}, 123)
     ),
-    ?assertEqual({reject, {invalid, optnl, {maybe, 1}}}, klsn_rule:eval(optnl, {maybe, 1})).
+    ?assertEqual({reject, {invalid, optnl, {maybe, 1}}}, klsn_rule:eval({optnl, integer}, {maybe, 1})).
 
 nullable_integer_rule_test() ->
-    ?assertEqual({valid, null}, klsn_rule:eval(nullable_integer, null)),
+    ?assertEqual({valid, null}, klsn_rule:eval({nullable, integer}, null)),
     ?assertEqual(
-        {normalized, null, {invalid, nullable_integer, none}}
-      , klsn_rule:eval(nullable_integer, none)
+        {normalized, null, {invalid, nullable, none}}
+      , klsn_rule:eval({nullable, integer}, none)
     ),
     ?assertEqual(
-        {normalized, 1, {invalid, nullable_integer, {value, 1}}}
-      , klsn_rule:eval(nullable_integer, {value, 1})
+        {normalized, 1, {invalid, nullable, {value, 1}}}
+      , klsn_rule:eval({nullable, integer}, {value, 1})
     ),
     ?assertEqual(
-        {normalized, 1, {invalid, nullable_integer, {value, <<"1">>}}}
-      , klsn_rule:eval(nullable_integer, {value, <<"1">>})
+        {normalized, 1, {invalid_nullable_value, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval({nullable, integer}, {value, <<"1">>})
     ),
     ?assertEqual(
-        {reject, {invalid, nullable_integer, <<"x">>}}
-      , klsn_rule:eval(nullable_integer, <<"x">>)
+        {reject, {invalid_nullable_value, {invalid, integer, <<"x">>}}}
+      , klsn_rule:eval({nullable, integer}, <<"x">>)
     ).
 
 nullable_float_rule_test() ->
-    ?assertEqual({valid, null}, klsn_rule:eval(nullable_float, null)),
+    ?assertEqual({valid, null}, klsn_rule:eval({nullable, float}, null)),
     ?assertEqual(
-        {normalized, null, {invalid, nullable_float, none}}
-      , klsn_rule:eval(nullable_float, none)
+        {normalized, null, {invalid, nullable, none}}
+      , klsn_rule:eval({nullable, float}, none)
     ),
     ?assertEqual(
-        {normalized, 1.0, {invalid, nullable_float, {value, 1.0}}}
-      , klsn_rule:eval(nullable_float, {value, 1.0})
+        {normalized, 1.0, {invalid, nullable, {value, 1.0}}}
+      , klsn_rule:eval({nullable, float}, {value, 1.0})
     ),
     ?assertEqual(
-        {normalized, 1.5, {invalid, nullable_float, {value, <<"1.5">>}}}
-      , klsn_rule:eval(nullable_float, {value, <<"1.5">>})
+        {normalized, 1.5, {invalid_nullable_value, {invalid, float, <<"1.5">>}}}
+      , klsn_rule:eval({nullable, float}, {value, <<"1.5">>})
     ),
     ?assertEqual(
-        {reject, {invalid, nullable_float, <<"x">>}}
-      , klsn_rule:eval(nullable_float, <<"x">>)
+        {reject, {invalid_nullable_value, {invalid, float, <<"x">>}}}
+      , klsn_rule:eval({nullable, float}, <<"x">>)
     ).
 
 nullable_number_rule_test() ->
-    ?assertEqual({valid, null}, klsn_rule:eval(nullable_number, null)),
+    ?assertEqual({valid, null}, klsn_rule:eval({nullable, number}, null)),
     ?assertEqual(
-        {normalized, null, {invalid, nullable_number, none}}
-      , klsn_rule:eval(nullable_number, none)
+        {normalized, null, {invalid, nullable, none}}
+      , klsn_rule:eval({nullable, number}, none)
     ),
     ?assertEqual(
-        {normalized, 1, {invalid, nullable_number, {value, 1}}}
-      , klsn_rule:eval(nullable_number, {value, 1})
+        {normalized, 1, {invalid, nullable, {value, 1}}}
+      , klsn_rule:eval({nullable, number}, {value, 1})
     ),
     ?assertEqual(
-        {normalized, 1, {invalid, nullable_number, {value, <<"1">>}}}
-      , klsn_rule:eval(nullable_number, {value, <<"1">>})
+        {normalized, 1, {invalid_nullable_value, {invalid, number, <<"1">>}}}
+      , klsn_rule:eval({nullable, number}, {value, <<"1">>})
     ),
     ?assertEqual(
-        {reject, {invalid, nullable_number, <<"x">>}}
-      , klsn_rule:eval(nullable_number, <<"x">>)
+        {reject, {invalid_nullable_value, {invalid, number, <<"x">>}}}
+      , klsn_rule:eval({nullable, number}, <<"x">>)
     ).
 
 nullable_binstr_rule_test() ->
-    ?assertEqual({valid, null}, klsn_rule:eval(nullable_binstr, null)),
+    ?assertEqual({valid, null}, klsn_rule:eval({nullable, binstr}, null)),
     ?assertEqual(
-        {normalized, null, {invalid, nullable_binstr, none}}
-      , klsn_rule:eval(nullable_binstr, none)
+        {normalized, null, {invalid, nullable, none}}
+      , klsn_rule:eval({nullable, binstr}, none)
     ),
     ?assertEqual(
-        {normalized, <<"a">>, {invalid, nullable_binstr, {value, <<"a">>}}}
-      , klsn_rule:eval(nullable_binstr, {value, <<"a">>})
+        {normalized, <<"a">>, {invalid, nullable, {value, <<"a">>}}}
+      , klsn_rule:eval({nullable, binstr}, {value, <<"a">>})
     ),
     ?assertEqual(
-        {normalized, <<"a">>, {invalid, nullable_binstr, {value, "a"}}}
-      , klsn_rule:eval(nullable_binstr, {value, "a"})
+        {normalized, <<"a">>, {invalid_nullable_value, {invalid, binstr, "a"}}}
+      , klsn_rule:eval({nullable, binstr}, {value, "a"})
     ),
-    ?assertEqual({reject, {invalid, nullable_binstr, {}}}, klsn_rule:eval(nullable_binstr, {})).
+    ?assertEqual(
+        {reject, {invalid_nullable_value, {invalid, binstr, {}}}}
+      , klsn_rule:eval({nullable, binstr}, {})
+    ).
 
 list_rule_test() ->
     ?assertEqual({valid, [1, 2]}, klsn_rule:eval({list, integer}, [1, 2])),
