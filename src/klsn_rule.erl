@@ -9,15 +9,19 @@
 
 %% builtin rules
 -export([
-        any_rule/2
+        term_rule/2
+      , default_rule/2
       , boolean_rule/2
       , integer_rule/2
       , float_rule/2
       , number_rule/2
+      , range_rule/2
       , timeout_rule/2
       , binstr_rule/2
       , atom_rule/2
       , enum_rule/2
+      , any_of_rule/2
+      , all_of_rule/2
       , optnl_rule/2
       , nullable_integer_rule/2
       , nullable_float_rule/2
@@ -52,15 +56,19 @@
 -type acc() :: term().
 
 -type rule() :: {custom, name(), custom(), acc()}
-              | any
+              | term
+              | {default, {output(), rule()}}
               | boolean
               | integer
               | float
               | number
+              | {range, range_(rule())}
               | timeout
               | binstr
               | atom
               | {enum, [atom()]}
+              | {any_of, [rule()]}
+              | {all_of, [rule()]}
               | optnl
               | nullable_integer
               | nullable_float
@@ -86,6 +94,9 @@
                 | {invalid_struct_value, atom(), reason()}
                 | {missing_required_field, atom()}
                 | {struct_field_conflict, atom()}
+                | {any_of, [reason()]}
+                | {all_of, [reason()]}
+                | {invalid_range, range_(input())}
                 .
 
 -type result() :: valid
@@ -99,6 +110,11 @@
 -type strict_result() :: {valid, output()}
                        | {normalized, output(), reason()}
                        | {reject, reason()}
+                       .
+
+-type range_(Subject) :: {number(), '<' | '=<', Subject}
+                       | {Subject, '<' | '=<', number()}
+                       | {number(), '<' | '=<', Subject, '<' | '=<', number()}
                        .
 
 -spec validate(rule(), input()) -> output().
@@ -123,9 +139,22 @@ normalize(Rule, Input) ->
             error({?MODULE, Reason})
     end.
 
--spec any_rule(input(), acc()) -> result().
-any_rule(_Input, _Acc) ->
+-spec term_rule(input(), acc()) -> result().
+term_rule(_Input, _Acc) ->
     valid.
+
+-spec default_rule(input(), acc()) -> result().
+default_rule(Input, {Default, Rule}) ->
+    case eval(Rule, Input) of
+        {valid, Output} ->
+            {valid, Output};
+        {normalized, Output, Reason} ->
+            {normalized, Output, Reason};
+        {reject, Reason} ->
+            {normalized, Default, Reason}
+    end;
+default_rule(_, _) ->
+    reject.
 
 -spec boolean_rule(input(), acc()) -> result().
 boolean_rule(Input, _Acc) ->
@@ -179,6 +208,118 @@ number_rule(Input, _Acc) ->
         ]
       , Input
     ) .
+
+-spec range_rule(input(), acc()) -> result().
+range_rule(Input, {Subject, Op, Upper})
+    when (Op =:= '<' orelse Op =:= '=<'),
+         is_number(Upper),
+         is_number(Subject) =:= false ->
+    case eval(Subject, Input) of
+        {valid, Output} ->
+            case Op of
+                '<' when Output < Upper ->
+                    valid;
+                '=<' when Output =< Upper ->
+                    valid;
+                _ ->
+                    {reject, {invalid_range, {Output, Op, Upper}}}
+            end;
+        {normalized, Output, Reason} ->
+            case Op of
+                '<' when Output < Upper ->
+                    {normalized, Output, Reason};
+                '=<' when Output =< Upper ->
+                    {normalized, Output, Reason};
+                _ ->
+                    {reject, {invalid_range, {Output, Op, Upper}}}
+            end;
+        {reject, Reason} ->
+            {reject, Reason}
+    end;
+range_rule(Input, {Lower, Op, Subject})
+    when (Op =:= '<' orelse Op =:= '=<'),
+         is_number(Lower),
+         is_number(Subject) =:= false ->
+    case eval(Subject, Input) of
+        {valid, Output} ->
+            case Op of
+                '<' when Lower < Output ->
+                    valid;
+                '=<' when Lower =< Output ->
+                    valid;
+                _ ->
+                    {reject, {invalid_range, {Lower, Op, Output}}}
+            end;
+        {normalized, Output, Reason} ->
+            case Op of
+                '<' when Lower < Output ->
+                    {normalized, Output, Reason};
+                '=<' when Lower =< Output ->
+                    {normalized, Output, Reason};
+                _ ->
+                    {reject, {invalid_range, {Lower, Op, Output}}}
+            end;
+        {reject, Reason} ->
+            {reject, Reason}
+    end;
+range_rule(Input, {Lower, Op1, Subject, Op2, Upper})
+    when (Op1 =:= '<' orelse Op1 =:= '=<'),
+         (Op2 =:= '<' orelse Op2 =:= '=<'),
+         is_number(Lower),
+         is_number(Upper),
+         is_number(Subject) =:= false ->
+    case eval(Subject, Input) of
+        {valid, Output} ->
+            LowerOk = case Op1 of
+                '<' when Lower < Output ->
+                    true;
+                '=<' when Lower =< Output ->
+                    true;
+                _ ->
+                    false
+            end,
+            UpperOk = case Op2 of
+                '<' when Output < Upper ->
+                    true;
+                '=<' when Output =< Upper ->
+                    true;
+                _ ->
+                    false
+            end,
+            case LowerOk andalso UpperOk of
+                true ->
+                    valid;
+                false ->
+                    {reject, {invalid_range, {Lower, Op1, Output, Op2, Upper}}}
+            end;
+        {normalized, Output, Reason} ->
+            LowerOk = case Op1 of
+                '<' when Lower < Output ->
+                    true;
+                '=<' when Lower =< Output ->
+                    true;
+                _ ->
+                    false
+            end,
+            UpperOk = case Op2 of
+                '<' when Output < Upper ->
+                    true;
+                '=<' when Output =< Upper ->
+                    true;
+                _ ->
+                    false
+            end,
+            case LowerOk andalso UpperOk of
+                true ->
+                    {normalized, Output, Reason};
+                false ->
+                    {reject, {invalid_range, {Lower, Op1, Output, Op2, Upper}}}
+            end;
+        {reject, Reason} ->
+            {reject, Reason}
+    end;
+range_rule(_, _) ->
+    reject.
 
 -spec timeout_rule(input(), acc()) -> result().
 timeout_rule(Input, _Acc) ->
@@ -245,6 +386,94 @@ enum_rule(Input, AllowedEnums) when is_list(AllowedEnums) ->
     end;
 enum_rule(_, _) ->
     reject.
+
+-spec any_of_rule(input(), acc()) -> result().
+any_of_rule(_Input, []) ->
+    valid;
+any_of_rule(Input, Rules) when is_list(Rules) ->
+    any_of_rule_(Input, Rules, none, []);
+any_of_rule(_, _) ->
+    reject.
+
+-spec any_of_rule_(input(), [rule()], klsn:optnl(output()), [reason()]) -> result().
+any_of_rule_(_Input, [], {value, Output}, ReasonsRev) ->
+    {normalized, Output, {any_of, lists:reverse(ReasonsRev)}};
+any_of_rule_(_Input, [], none, ReasonsRev) ->
+    {reject, {any_of, lists:reverse(ReasonsRev)}};
+any_of_rule_(Input, [Rule|T], MaybeOutput0, ReasonsRev0) ->
+    case eval(Rule, Input) of
+        {valid, _} ->
+            valid;
+        {normalized, Output, Reason} ->
+            MaybeOutput = case MaybeOutput0 of
+                none ->
+                    {value, Output};
+                _ ->
+                    MaybeOutput0
+            end,
+            any_of_rule_(Input, T, MaybeOutput, [Reason|ReasonsRev0]);
+        {reject, Reason} ->
+            any_of_rule_(Input, T, MaybeOutput0, [Reason|ReasonsRev0])
+    end.
+
+-spec all_of_rule(input(), acc()) -> result().
+all_of_rule(_Input, []) ->
+    valid;
+all_of_rule(Input, Rules) when is_list(Rules) ->
+    {MaybeValidOutput, MaybeNormOutput, NormReasonsRev, RejectReasonsRev} =
+        all_of_rule_(Input, Rules, none, none, [], []),
+    case RejectReasonsRev of
+        [] ->
+            case NormReasonsRev of
+                [] ->
+                    valid;
+                _ ->
+                    Output = case MaybeValidOutput of
+                        {value, ValidOutput} ->
+                            ValidOutput;
+                        none ->
+                            {value, NormOutput} = MaybeNormOutput,
+                            NormOutput
+                    end,
+                    {normalized, Output, {all_of, lists:reverse(NormReasonsRev)}}
+            end;
+        _ ->
+            {reject, {all_of, lists:reverse(RejectReasonsRev)}}
+    end;
+all_of_rule(_, _) ->
+    reject.
+
+-spec all_of_rule_(
+        input()
+      , [rule()]
+      , klsn:optnl(output())
+      , klsn:optnl(output())
+      , [reason()]
+      , [reason()]
+    ) -> {klsn:optnl(output()), klsn:optnl(output()), [reason()], [reason()]}.
+all_of_rule_(_Input, [], MaybeValidOutput, MaybeNormOutput, NormReasonsRev, RejectReasonsRev) ->
+    {MaybeValidOutput, MaybeNormOutput, NormReasonsRev, RejectReasonsRev};
+all_of_rule_(Input, [Rule|T], MaybeValidOutput0, MaybeNormOutput0, NormReasonsRev0, RejectReasonsRev0) ->
+    case eval(Rule, Input) of
+        {valid, Output} ->
+            MaybeValidOutput = case MaybeValidOutput0 of
+                none ->
+                    {value, Output};
+                _ ->
+                    MaybeValidOutput0
+            end,
+            all_of_rule_(Input, T, MaybeValidOutput, MaybeNormOutput0, NormReasonsRev0, RejectReasonsRev0);
+        {normalized, Output, Reason} ->
+            MaybeNormOutput = case MaybeNormOutput0 of
+                none ->
+                    {value, Output};
+                _ ->
+                    MaybeNormOutput0
+            end,
+            all_of_rule_(Input, T, MaybeValidOutput0, MaybeNormOutput, [Reason|NormReasonsRev0], RejectReasonsRev0);
+        {reject, Reason} ->
+            all_of_rule_(Input, T, MaybeValidOutput0, MaybeNormOutput0, NormReasonsRev0, [Reason|RejectReasonsRev0])
+    end.
 
 -spec optnl_rule(input(), acc()) -> result().
 optnl_rule(none, _Acc) ->

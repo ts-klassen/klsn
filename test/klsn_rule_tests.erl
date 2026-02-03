@@ -1,8 +1,20 @@
 -module(klsn_rule_tests).
 -include_lib("eunit/include/eunit.hrl").
 
-any_rule_test() ->
-    ?assertEqual({valid, #{a => 1}}, klsn_rule:eval(any, #{a => 1})).
+term_rule_test() ->
+    Term = {make_ref(), self(), #{}, [], klsn_rule:module_info()},
+    ?assertEqual({valid, Term}, klsn_rule:eval(term, Term)).
+
+default_rule_test() ->
+    ?assertEqual({valid, 3}, klsn_rule:eval({default, {42, integer}}, 3)),
+    ?assertEqual(
+        {normalized, 3, {invalid, integer, <<"3">>}}
+      , klsn_rule:eval({default, {42, integer}}, <<"3">>)
+    ),
+    ?assertEqual(
+        {normalized, 42, {invalid, integer, 3.14}}
+      , klsn_rule:eval({default, {42, integer}}, 3.14)
+    ).
 
 boolean_rule_test() ->
     ?assertEqual({valid, true}, klsn_rule:eval(boolean, true)),
@@ -386,6 +398,89 @@ struct_rule_test() ->
     ?assertEqual(
         {reject, {invalid, struct, not_a_map}}
       , klsn_rule:eval({struct, #{a => {required, integer}}}, not_a_map)
+    ).
+
+any_of_rule_test() ->
+    ?assertEqual({valid, 1}, klsn_rule:eval({any_of, []}, 1)),
+    ?assertEqual({valid, 1}, klsn_rule:eval({any_of, [integer, float]}, 1)),
+    ?assertEqual(
+        {normalized, 1, {any_of, [{invalid, integer, <<"1">>}, {invalid, float, <<"1">>}]}}
+      , klsn_rule:eval({any_of, [integer, float]}, <<"1">>)
+    ),
+    ?assertEqual(
+        {normalized, 1, {any_of, [{invalid, float, <<"1">>}, {invalid, integer, <<"1">>}]}}
+      , klsn_rule:eval({any_of, [float, integer]}, <<"1">>)
+    ),
+    ?assertEqual(
+        {reject, {any_of, [{invalid, integer, <<"a">>}, {invalid, float, <<"a">>}]}}
+      , klsn_rule:eval({any_of, [integer, float]}, <<"a">>)
+    ).
+
+all_of_rule_test() ->
+    ?assertEqual({valid, 1}, klsn_rule:eval({all_of, []}, 1)),
+    ?assertEqual({valid, 1}, klsn_rule:eval({all_of, [number, integer]}, 1)),
+    ?assertEqual(
+        {normalized, 1, {all_of, [{invalid, number, <<"1">>}, {invalid, integer, <<"1">>}]}}
+      , klsn_rule:eval({all_of, [number, integer]}, <<"1">>)
+    ),
+    ?assertEqual(
+        {normalized, <<"1">>, {all_of, [{invalid, integer, <<"1">>}]}}
+      , klsn_rule:eval({all_of, [term, integer]}, <<"1">>)
+    ),
+    ?assertEqual(
+        {normalized, <<"1">>, {all_of, [{invalid, integer, <<"1">>}]}}
+      , klsn_rule:eval({all_of, [integer, term]}, <<"1">>)
+    ),
+    ?assertEqual(
+        {reject, {all_of, [{invalid, float, <<"1">>}]}}
+      , klsn_rule:eval({all_of, [number, integer, float]}, <<"1">>)
+    ).
+
+range_rule_test() ->
+    ?assertEqual({valid, 3}, klsn_rule:eval({range, {number, '=<', 3}}, 3)),
+    ?assertEqual(
+        {normalized, 3, {invalid, number, <<"3">>}}
+      , klsn_rule:eval({range, {number, '=<', 3}}, <<"3">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid_range, {3, '<', 3}}}
+      , klsn_rule:eval({range, {number, '<', 3}}, 3)
+    ),
+    ?assertEqual(
+        {valid, 2}
+      , klsn_rule:eval({range, {1, '<', number}}, 2)
+    ),
+    ?assertEqual(
+        {reject, {invalid_range, {2, '<', 1}}}
+      , klsn_rule:eval({range, {2, '<', number}}, 1)
+    ),
+    ?assertEqual(
+        {valid, 4}
+      , klsn_rule:eval({range, {1, '=<', number, '=<', 5}}, 4)
+    ),
+    ?assertEqual(
+        {reject, {invalid_range, {1, '=<', 6, '=<', 5}}}
+      , klsn_rule:eval({range, {1, '=<', number, '=<', 5}}, 6)
+    ),
+    ?assertEqual(
+        {valid, 1}
+      , klsn_rule:eval({range, {1, '=<', number, '=<', 1}}, 1)
+    ),
+    ?assertEqual(
+        {reject, {invalid_range, {1, '=<', 0, '=<', 5}}}
+      , klsn_rule:eval({range, {1, '=<', number, '=<', 5}}, 0)
+    ),
+    ?assertEqual(
+        {reject, {invalid, number, <<"x">>}}
+      , klsn_rule:eval({range, {number, '<', 0}}, <<"x">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid, range, 3}}
+      , klsn_rule:eval({range, {"a", '<', number}}, 3)
+    ),
+    ?assertEqual(
+        {reject, {invalid, range, 3}}
+      , klsn_rule:eval({range, {1, number, 5}}, 3)
     ).
 
 validate_test() ->
