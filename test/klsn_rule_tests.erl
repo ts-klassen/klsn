@@ -1,6 +1,332 @@
 -module(klsn_rule_tests).
 -include_lib("eunit/include/eunit.hrl").
 
+any_rule_test() ->
+    ?assertEqual({valid, #{a => 1}}, klsn_rule:eval(any, #{a => 1})).
+
+boolean_rule_test() ->
+    ?assertEqual({valid, true}, klsn_rule:eval(boolean, true)),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<"false">>}}
+      , klsn_rule:eval(boolean, <<"false">>)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, 0}}
+      , klsn_rule:eval(boolean, 0)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<>>}}
+      , klsn_rule:eval(boolean, <<>>)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<"False">>}}
+      , klsn_rule:eval(boolean, <<"False">>)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<"FALSE">>}}
+      , klsn_rule:eval(boolean, <<"FALSE">>)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<"０"/utf8>>}}
+      , klsn_rule:eval(boolean, <<"０"/utf8>>)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<"null">>}}
+      , klsn_rule:eval(boolean, <<"null">>)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<"Null">>}}
+      , klsn_rule:eval(boolean, <<"Null">>)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<"NULL">>}}
+      , klsn_rule:eval(boolean, <<"NULL">>)
+    ),
+    ?assertEqual(
+        {normalized, false, {invalid, boolean, <<"undefined">>}}
+      , klsn_rule:eval(boolean, <<"undefined">>)
+    ),
+    ?assertEqual(
+        {normalized, true, {invalid, boolean, <<"yes">>}}
+      , klsn_rule:eval(boolean, <<"yes">>)
+    ),
+    ?assertEqual({reject, {invalid, boolean, {}}}, klsn_rule:eval(boolean, {})).
+
+integer_rule_test() ->
+    ?assertEqual({valid, 1}, klsn_rule:eval(integer, 1)),
+    ?assertEqual(
+        {normalized, 1, {invalid, integer, <<"1">>}}
+      , klsn_rule:eval(integer, <<"1">>)
+    ),
+    ?assertEqual({reject, {invalid, integer, <<"x">>}}, klsn_rule:eval(integer, <<"x">>)).
+
+float_rule_test() ->
+    ?assertEqual({valid, 1.5}, klsn_rule:eval(float, 1.5)),
+    ?assertEqual(
+        {normalized, 1.5, {invalid, float, <<"1.5">>}}
+      , klsn_rule:eval(float, <<"1.5">>)
+    ),
+    ?assertEqual({reject, {invalid, float, <<"x">>}}, klsn_rule:eval(float, <<"x">>)).
+
+number_rule_test() ->
+    ?assertEqual({valid, 1}, klsn_rule:eval(number, 1)),
+    ?assertEqual(
+        {normalized, 1, {invalid, number, <<"1">>}}
+      , klsn_rule:eval(number, <<"1">>)
+    ),
+    ?assertEqual(
+        {normalized, 1.5, {invalid, number, <<"1.5">>}}
+      , klsn_rule:eval(number, <<"1.5">>)
+    ),
+    ?assertEqual({reject, {invalid, number, <<"x">>}}, klsn_rule:eval(number, <<"x">>)).
+
+timeout_rule_test() ->
+    ?assertEqual({valid, infinity}, klsn_rule:eval(timeout, infinity)),
+    ?assertEqual({valid, 0}, klsn_rule:eval(timeout, 0)),
+    ?assertEqual(
+        {normalized, infinity, {invalid, timeout, <<"infinity">>}}
+      , klsn_rule:eval(timeout, <<"infinity">>)
+    ),
+    ?assertEqual(
+        {normalized, infinity, {invalid, timeout, "infinity"}}
+      , klsn_rule:eval(timeout, "infinity")
+    ),
+    ?assertEqual({reject, {invalid, timeout, -1}}, klsn_rule:eval(timeout, -1)).
+
+binstr_rule_test() ->
+    ?assertEqual({valid, <<"hi">>}, klsn_rule:eval(binstr, <<"hi">>)),
+    ?assertEqual(
+        {normalized, <<"hi">>, {invalid, binstr, "hi"}}
+      , klsn_rule:eval(binstr, "hi")
+    ),
+    ?assertEqual({reject, {invalid, binstr, {}}}, klsn_rule:eval(binstr, {})).
+
+atom_rule_test() ->
+    ?assertEqual({valid, ok}, klsn_rule:eval(atom, ok)),
+    ?assertEqual(
+        {normalized, ok, {invalid, atom, <<"ok">>}}
+      , klsn_rule:eval(atom, <<"ok">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid, atom, <<"__klsn_rule_nonexistent_atom__">>}}
+      , klsn_rule:eval(atom, <<"__klsn_rule_nonexistent_atom__">>)
+    ).
+
+enum_rule_test() ->
+    Allowed = [a, b],
+    ?assertEqual({valid, a}, klsn_rule:eval({enum, Allowed}, a)),
+    ?assertEqual(
+        {normalized, a, {invalid, enum, <<"a">>}}
+      , klsn_rule:eval({enum, Allowed}, <<"a">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid_enum, Allowed, <<"c">>}}
+      , klsn_rule:eval({enum, Allowed}, <<"c">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid_enum, Allowed, {}}}
+      , klsn_rule:eval({enum, Allowed}, {})
+    ),
+    AllowedBad = [a, {}],
+    ?assertEqual(
+        {reject, {invalid_enum, AllowedBad, b}}
+      , klsn_rule:eval({enum, AllowedBad}, b)
+    ),
+    ?assertEqual(
+        {reject, {invalid, enum, a}}
+      , klsn_rule:eval({enum, not_a_list}, a)
+    ).
+
+optnl_rule_test() ->
+    ?assertEqual({valid, none}, klsn_rule:eval(optnl, none)),
+    ?assertEqual({valid, {value, 1}}, klsn_rule:eval(optnl, {value, 1})),
+    ?assertEqual(
+        {normalized, none, {invalid, optnl, null}}
+      , klsn_rule:eval(optnl, null)
+    ),
+    ?assertEqual(
+        {normalized, none, {invalid, optnl, nil}}
+      , klsn_rule:eval(optnl, nil)
+    ),
+    ?assertEqual(
+        {normalized, none, {invalid, optnl, undefined}}
+      , klsn_rule:eval(optnl, undefined)
+    ),
+    ?assertEqual(
+        {normalized, none, {invalid, optnl, false}}
+      , klsn_rule:eval(optnl, false)
+    ),
+    ?assertEqual(
+        {normalized, none, {invalid, optnl, []}}
+      , klsn_rule:eval(optnl, [])
+    ),
+    ?assertEqual(
+        {normalized, none, {invalid, optnl, error}}
+      , klsn_rule:eval(optnl, error)
+    ),
+    ?assertEqual(
+        {normalized, {value, 1}, {invalid, optnl, {ok, 1}}}
+      , klsn_rule:eval(optnl, {ok, 1})
+    ),
+    ?assertEqual(
+        {normalized, {value, 1}, {invalid, optnl, {true, 1}}}
+      , klsn_rule:eval(optnl, {true, 1})
+    ),
+    ?assertEqual(
+        {normalized, {value, 1}, {invalid, optnl, [1]}}
+      , klsn_rule:eval(optnl, [1])
+    ),
+    ?assertEqual(
+        {normalized, {value, <<"bin">>}, {invalid, optnl, <<"bin">>}}
+      , klsn_rule:eval(optnl, <<"bin">>)
+    ),
+    ?assertEqual(
+        {normalized, {value, 123}, {invalid, optnl, 123}}
+      , klsn_rule:eval(optnl, 123)
+    ),
+    ?assertEqual({reject, {invalid, optnl, {maybe, 1}}}, klsn_rule:eval(optnl, {maybe, 1})).
+
+nullable_integer_rule_test() ->
+    ?assertEqual({valid, null}, klsn_rule:eval(nullable_integer, null)),
+    ?assertEqual(
+        {normalized, null, {invalid, nullable_integer, none}}
+      , klsn_rule:eval(nullable_integer, none)
+    ),
+    ?assertEqual(
+        {normalized, 1, {invalid, nullable_integer, {value, 1}}}
+      , klsn_rule:eval(nullable_integer, {value, 1})
+    ),
+    ?assertEqual(
+        {normalized, 1, {invalid, nullable_integer, {value, <<"1">>}}}
+      , klsn_rule:eval(nullable_integer, {value, <<"1">>})
+    ),
+    ?assertEqual(
+        {reject, {invalid, nullable_integer, <<"x">>}}
+      , klsn_rule:eval(nullable_integer, <<"x">>)
+    ).
+
+nullable_float_rule_test() ->
+    ?assertEqual({valid, null}, klsn_rule:eval(nullable_float, null)),
+    ?assertEqual(
+        {normalized, null, {invalid, nullable_float, none}}
+      , klsn_rule:eval(nullable_float, none)
+    ),
+    ?assertEqual(
+        {normalized, 1.0, {invalid, nullable_float, {value, 1.0}}}
+      , klsn_rule:eval(nullable_float, {value, 1.0})
+    ),
+    ?assertEqual(
+        {normalized, 1.5, {invalid, nullable_float, {value, <<"1.5">>}}}
+      , klsn_rule:eval(nullable_float, {value, <<"1.5">>})
+    ),
+    ?assertEqual(
+        {reject, {invalid, nullable_float, <<"x">>}}
+      , klsn_rule:eval(nullable_float, <<"x">>)
+    ).
+
+nullable_number_rule_test() ->
+    ?assertEqual({valid, null}, klsn_rule:eval(nullable_number, null)),
+    ?assertEqual(
+        {normalized, null, {invalid, nullable_number, none}}
+      , klsn_rule:eval(nullable_number, none)
+    ),
+    ?assertEqual(
+        {normalized, 1, {invalid, nullable_number, {value, 1}}}
+      , klsn_rule:eval(nullable_number, {value, 1})
+    ),
+    ?assertEqual(
+        {normalized, 1, {invalid, nullable_number, {value, <<"1">>}}}
+      , klsn_rule:eval(nullable_number, {value, <<"1">>})
+    ),
+    ?assertEqual(
+        {reject, {invalid, nullable_number, <<"x">>}}
+      , klsn_rule:eval(nullable_number, <<"x">>)
+    ).
+
+nullable_binstr_rule_test() ->
+    ?assertEqual({valid, null}, klsn_rule:eval(nullable_binstr, null)),
+    ?assertEqual(
+        {normalized, null, {invalid, nullable_binstr, none}}
+      , klsn_rule:eval(nullable_binstr, none)
+    ),
+    ?assertEqual(
+        {normalized, <<"a">>, {invalid, nullable_binstr, {value, <<"a">>}}}
+      , klsn_rule:eval(nullable_binstr, {value, <<"a">>})
+    ),
+    ?assertEqual(
+        {normalized, <<"a">>, {invalid, nullable_binstr, {value, "a"}}}
+      , klsn_rule:eval(nullable_binstr, {value, "a"})
+    ),
+    ?assertEqual({reject, {invalid, nullable_binstr, {}}}, klsn_rule:eval(nullable_binstr, {})).
+
+list_rule_test() ->
+    ?assertEqual({valid, [1, 2]}, klsn_rule:eval({list, integer}, [1, 2])),
+    ?assertEqual(
+        {normalized, [1, 2], {invalid_list_element, 1, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval({list, integer}, [<<"1">>, 2])
+    ),
+    ?assertEqual(
+        {reject, {invalid_list_element, 1, {invalid, integer, <<"x">>}}}
+      , klsn_rule:eval({list, integer}, [<<"x">>])
+    ),
+    ?assertEqual(
+        {reject, {invalid, list, #{}}}
+      , klsn_rule:eval({list, integer}, #{})
+    ).
+
+tuple_rule_test() ->
+    ?assertEqual({valid, {1, 2}}, klsn_rule:eval({tuple, {integer, integer}}, {1, 2})),
+    ?assertEqual(
+        {normalized, {1, 2}, {invalid_tuple_element, 1, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval({tuple, [integer, integer]}, {<<"1">>, 2})
+    ),
+    ?assertEqual(
+        {reject, {invalid_tuple_size, 1, {1, 2}}}
+      , klsn_rule:eval({tuple, [integer]}, {1, 2})
+    ),
+    ?assertEqual(
+        {reject, {invalid_tuple_element, 1, {invalid, integer, <<"x">>}}}
+      , klsn_rule:eval({tuple, [integer]}, {<<"x">>})
+    ),
+    ?assertEqual(
+        {reject, {invalid, tuple, [1]}}
+      , klsn_rule:eval({tuple, [integer]}, [1])
+    ).
+
+map_rule_test() ->
+    ?assertEqual(
+        {valid, #{a => 1}}
+      , klsn_rule:eval({map, {atom, integer}}, #{a => 1})
+    ),
+    ?assertEqual(
+        {normalized, #{a => 1}, {invalid_map_key, {invalid, atom, <<"a">>}}}
+      , klsn_rule:eval({map, {atom, integer}}, #{<<"a">> => 1})
+    ),
+    ?assertEqual(
+        {normalized, #{a => 1}, {invalid_map_value, a, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval({map, {atom, integer}}, #{a => <<"1">>})
+    ),
+    ?assertEqual(
+        {reject, {invalid_map_key, {invalid, integer, a}}}
+      , klsn_rule:eval({map, {integer, integer}}, #{a => 1})
+    ),
+    ?assertEqual(
+        {reject, {invalid_map_value, a, {invalid, integer, <<"x">>}}}
+      , klsn_rule:eval({map, {atom, integer}}, #{a => <<"x">>})
+    ),
+    ?assertEqual(
+        {reject, {map_key_conflict, a}}
+      , klsn_rule:eval({map, {atom, integer}}, #{a => 1, <<"a">> => 1})
+    ),
+    ?assertEqual(
+        {reject, {map_key_conflict, a}}
+      , klsn_rule:eval({map, {atom, integer}}, #{a => 1, <<"a">> => 1, <<"b">> => 2})
+    ),
+    ?assertEqual(
+        {reject, {invalid, map, []}}
+      , klsn_rule:eval({map, {atom, integer}}, [])
+    ).
+
 struct_rule_test() ->
     ?assertEqual(
         {valid, #{a => 1}}
@@ -37,4 +363,137 @@ struct_rule_test() ->
     ?assertEqual(
         {normalized, #{a => 1}, {invalid_struct_field, b}}
       , klsn_rule:eval({struct, #{a => {required, integer}}}, #{a => 1, b => 2})
+    ),
+    ?assertEqual(
+        {normalized, #{a => 1}, {invalid_struct_field, {}}}
+      , klsn_rule:eval({struct, #{a => {required, integer}}}, #{a => 1, {} => 2})
+    ),
+    ?assertEqual(
+        {reject, {invalid_struct_value, a, {invalid, integer, <<"x">>}}}
+      , klsn_rule:eval({struct, #{a => {required, integer}}}, #{a => <<"x">>})
+    ),
+    ?assertEqual(
+        {normalized, #{a => 1, b => 2}, {invalid_struct_value, a, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval(
+            {struct, #{a => {required, integer}, b => {required, integer}}}
+          , #{a => <<"1">>, b => <<"2">>}
+        )
+    ),
+    ?assertEqual(
+        {reject, {invalid, struct, #{}}}
+      , klsn_rule:eval({struct, #{<<"a">> => {required, integer}}}, #{})
+    ),
+    ?assertEqual(
+        {reject, {invalid, struct, not_a_map}}
+      , klsn_rule:eval({struct, #{a => {required, integer}}}, not_a_map)
+    ).
+
+validate_test() ->
+    ?assertEqual(
+        ok
+      , klsn_rule:validate(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {valid, input}}
+          , input
+        )
+    ),
+    ?assertError(
+        {klsn_rule, {custom, normalized_reason}}
+      , klsn_rule:validate(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {normalized, output, {custom, normalized_reason}}}
+          , input
+        )
+    ),
+    ?assertError(
+        {klsn_rule, {custom, reject_reason}}
+      , klsn_rule:validate(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {reject, {custom, reject_reason}}}
+          , input
+        )
+    ).
+
+normalize_test() ->
+    ?assertEqual(
+        input
+      , klsn_rule:normalize(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {valid, input}}
+          , input
+        )
+    ),
+    ?assertEqual(
+        output
+      , klsn_rule:normalize(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {normalized, output, {custom, normalized_reason}}}
+          , input
+        )
+    ),
+    ?assertError(
+        {klsn_rule, {custom, reject_reason}}
+      , klsn_rule:normalize(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {reject, {custom, reject_reason}}}
+          , input
+        )
+    ).
+
+eval_test() ->
+    ?assertEqual(
+        {valid, input}
+      , klsn_rule:eval(
+            {custom, custom_name, fun(_, _) -> valid end, ignored_acc}
+          , input
+        )
+    ),
+    ?assertEqual(
+        {valid, input}
+      , klsn_rule:eval(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {valid, input}}
+          , input
+        )
+    ),
+    ?assertException(
+        error
+      , {invalid_custom_rule, _}
+      , klsn_rule:eval(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {valid, modified}}
+          , input
+        )
+    ),
+    ?assertEqual(
+        {normalized, output, {invalid, custom_name, input}}
+      , klsn_rule:eval(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {normalized, output}}
+          , input
+        )
+    ),
+    ?assertEqual(
+        {normalized, output, {custom, explicit_reason}}
+      , klsn_rule:eval(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {normalized, output, {custom, explicit_reason}}}
+          , input
+        )
+    ),
+    ?assertEqual(
+        {reject, {invalid, custom_name, input}}
+      , klsn_rule:eval(
+            {custom, custom_name, fun(_, _) -> reject end, ignored_acc}
+          , input
+        )
+    ),
+    ?assertEqual(
+        {reject, {custom, explicit_reject_reason}}
+      , klsn_rule:eval(
+            {custom, custom_name, fun(_, Acc) -> Acc end, {reject, {custom, explicit_reject_reason}}}
+          , input
+        )
+    ),
+    ?assertException(
+        error
+      , {invalid_custom_rule, _}
+      , klsn_rule:eval(
+            {custom, custom_name, fun(_, _) -> unexpected end, ignored_acc}
+          , input
+        )
+    ),
+    ?assertEqual(
+        {reject, {unknown_rule, unknown_rule_name}}
+      , klsn_rule:eval(unknown_rule_name, input)
     ).
