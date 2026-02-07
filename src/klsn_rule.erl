@@ -121,6 +121,22 @@
                        | {number(), '<' | '=<', Subject, '<' | '=<', number()}
                        .
 
+%% @doc
+%% Validate an input against a rule.
+%%
+%% This calls {@link eval/2} and only accepts a `{valid, Output}'
+%% result. Any normalized or reject result raises
+%% `error({klsn_rule, Reason})'.
+%%
+%% Examples:
+%% ```
+%% 1> klsn_rule:validate(integer, 10).
+%% ok
+%% 2> klsn_rule:validate(integer, <<"10">>).
+%% ** exception error: {klsn_rule,{invalid,integer,<<"10">>}}
+%% '''
+%% @see normalize/2
+%% @see eval/2
 -spec validate(rule(), input()) -> output().
 validate(Rule, Input) ->
     case eval(Rule, Input) of
@@ -132,6 +148,24 @@ validate(Rule, Input) ->
             error({?MODULE, Reason})
     end.
 
+%% @doc
+%% Normalize an input according to a rule.
+%%
+%% This calls {@link eval/2}. Valid and normalized results return the output,
+%% while reject results raise `error({klsn_rule, Reason})'.
+%% Normalization reasons are dropped; use {@link eval/2} if you need them.
+%%
+%% Examples:
+%% ```
+%% 1> klsn_rule:normalize(integer, <<"10">>).
+%% 10
+%% 2> klsn_rule:normalize({range, {0, '=<', integer, '<', 10}}, 5).
+%% 5
+%% 3> klsn_rule:normalize({range, {0, '=<', integer, '<', 10}}, 99).
+%% ** exception error: {klsn_rule,{invalid_range,{0,'=<',99,'<',10}}}
+%% '''
+%% @see validate/2
+%% @see eval/2
 -spec normalize(rule(), input()) -> output().
 normalize(Rule, Input) ->
     case eval(Rule, Input) of
@@ -143,10 +177,59 @@ normalize(Rule, Input) ->
             error({?MODULE, Reason})
     end.
 
+%% @doc
+%% Accept any input and always return valid for validate/2, normalize/2, and eval/2.
+%% Rule form: term (rule()).
+%%
+%% Result (eval/2):
+%% - valid with the input unchanged.
+%% - never normalized (no reason()).
+%% - never rejected (no reason()).
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:validate(term, {any, value}).
+%% ok
+%% 2> klsn_rule:normalize(term, 123).
+%% 123
+%% 3> klsn_rule:eval(term, [a, b]).
+%% {valid, [a, b]}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec term_rule(input(), acc()) -> result().
 term_rule(_Input, _Acc) ->
     valid.
 
+%% @doc
+%% Match an input against the exact accumulator value.
+%%
+%% Rule form: {exact, Exact}.
+%%
+%% When evaluated via {@link eval/2}:
+%% - valid: {valid, Input} when Input =:= Exact
+%% - reject: {reject, {invalid_exact, Exact, Input}}
+%%
+%% This rule never produces a normalized result. {@link normalize/2} either
+%% returns the original input or raises with {klsn_rule, {invalid_exact, Exact, Input}}.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({exact, 42}, 42).
+%% {valid, 42}
+%% 2> klsn_rule:eval({exact, 42}, 7).
+%% {reject, {invalid_exact, 42, 7}}
+%% 3> klsn_rule:normalize({exact, ok}, ok).
+%% ok
+%% 4> klsn_rule:normalize({exact, ok}, error).
+%% ** exception error: {klsn_rule,{invalid_exact,ok,error}}
+%% 5> klsn_rule:validate({exact, ok}, ok).
+%% ok
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec exact_rule(input(), acc()) -> result().
 exact_rule(Input, Exact) ->
     case Input =:= Exact of
@@ -156,6 +239,45 @@ exact_rule(Input, Exact) ->
             {reject, {invalid_exact, Exact, Input}}
     end.
 
+%% @doc
+%% Apply Rule and fall back to Default when it rejects.
+%%
+%% Rule form: {default, {Default, Rule}} where Default is output() and
+%% Rule is rule().
+%%
+%% When evaluated via {@link eval/2}:
+%% - valid: {valid, Output} when Rule returns {valid, Output}.
+%% - normalized: {normalized, Output, Reason} when Rule returns
+%%   {normalized, Output, Reason}.
+%% - normalized: {normalized, Default, Reason} when Rule returns
+%%   {reject, Reason}.
+%% - reject: {reject, {invalid, default, Input}} when the accumulator is not
+%%   {Default, Rule}.
+%%
+%% Reason handling:
+%% - Reasons are passed through from Rule (including {unknown_rule, Rule}).
+%% - If Rule normalizes without a reason, {@link eval/2} uses
+%%   {invalid, RuleName, Input} where RuleName is the inner rule name.
+%% - {@link normalize/2} returns Output or Default and drops the reason.
+%% - {@link validate/2} raises error({klsn_rule, Reason}) on normalized or
+%%   reject results.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({default, {ok, {exact, ok}}}, ok).
+%% {valid, ok}
+%% 2> klsn_rule:eval({default, {ok, {exact, ok}}}, error).
+%% {normalized, ok, {invalid_exact, ok, error}}
+%% 3> klsn_rule:normalize({default, {0, {exact, 0}}}, 1).
+%% 0
+%% 4> klsn_rule:validate({default, {0, {exact, 0}}}, 1).
+%% ** exception error: {klsn_rule,{invalid_exact,0,1}}
+%% 5> klsn_rule:eval({default, []}, 1).
+%% {reject, {invalid, default, 1}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec default_rule(input(), acc()) -> result().
 default_rule(Input, {Default, Rule}) ->
     case eval(Rule, Input) of
@@ -169,6 +291,46 @@ default_rule(Input, {Default, Rule}) ->
 default_rule(_, _) ->
     reject.
 
+%% @doc
+%% Normalize booleans from common boolean-like inputs.
+%%
+%% Rule form: boolean.
+%%
+%% Accepted as-is: true and false.
+%% Otherwise, values are coerced by:
+%% - returning false for numbers with -1 &lt; N &lt; 1;
+%% - converting via klsn_binstr:from_any/1 and treating
+%%   &lt;&lt;&gt;&gt;, "false"/"False"/"FALSE", "null"/"Null"/"NULL", the
+%%   lowercase "undefined", and the Unicode fullwidth zero (U+FF10)
+%%   as false; everything else is true.
+%%
+%% When evaluated via {@link eval/2}:
+%% - valid: {valid, Input} when Input is boolean
+%% - normalized: {normalized, Bool, {invalid, boolean, Input}} when coerced
+%% - reject: {reject, {invalid, boolean, Input}} when not coercible
+%%
+%% validate/2 only accepts literal booleans; any coercion or reject
+%% yields error({klsn_rule, {invalid, boolean, Input}}). Use
+%% normalize/2 to allow coercion.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval(boolean, true).
+%% {valid, true}
+%% 2> klsn_rule:eval(boolean, &lt;&lt;"false"&gt;&gt;).
+%% {normalized, false, {invalid, boolean, &lt;&lt;"false"&gt;&gt;}}
+%% 3> klsn_rule:normalize(boolean, 0).
+%% false
+%% 4> klsn_rule:eval(boolean, &lt;&lt;"0"&gt;&gt;).
+%% {normalized, true, {invalid, boolean, &lt;&lt;"0"&gt;&gt;}}
+%% 5> klsn_rule:eval(boolean, #{}).
+%% {reject, {invalid, boolean, #{}}}
+%% 6> klsn_rule:validate(boolean, &lt;&lt;"false"&gt;&gt;).
+%% ** exception error: {klsn_rule,{invalid,boolean,&lt;&lt;"false"&gt;&gt;}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec boolean_rule(input(), acc()) -> result().
 boolean_rule(Input, _Acc) ->
     do(
@@ -193,6 +355,31 @@ boolean_rule(Input, _Acc) ->
       , Input
     ) .
 
+%% @doc
+%% Validate integer input for use with validate/2, normalize/2, and eval/2.
+%% Rule form: integer.
+%%
+%% Result (eval/2):
+%% - valid when Input is an integer.
+%% - normalized when Input is a list or binary that parses via
+%%   binary_to_integer/1 or list_to_integer/1.
+%% - reject when Input is neither an integer nor a parseable list/binary.
+%%
+%% Reason (eval/2):
+%% - {invalid, integer, Input} on normalize and reject.
+%%   validate/2 raises error({klsn_rule, {invalid, integer, Input}}) when
+%%   normalization or rejection occurs.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval(integer, 10).
+%% 2> klsn_rule:eval(integer, "10").
+%% 3> klsn_rule:normalize(integer, "10").
+%% 4> klsn_rule:eval(integer, "nope").
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec integer_rule(input(), acc()) -> result().
 integer_rule(Input, _Acc) ->
     do(
@@ -201,6 +388,34 @@ integer_rule(Input, _Acc) ->
       , Input
     ) .
 
+%% @doc
+%% Validate float input for validate/2, normalize/2, and eval/2.
+%% Rule form: float.
+%%
+%% Result (eval/2):
+%% - valid when Input is a float.
+%% - normalized when Input is a binary or list that parses via binary_to_float/1
+%%   or list_to_float/1; reason is {invalid, float, Input}.
+%% - reject when Input cannot be converted; reason is {invalid, float, Input}.
+%%
+%% normalize/2 returns the float output (original or parsed) and drops the reason.
+%% validate/2 accepts only valid results; normalized or reject raise
+%% error({klsn_rule, {invalid, float, Input}}).
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval(float, 1.25).
+%% {valid, 1.25}
+%% 2> klsn_rule:eval(float, &lt;&lt;"1.25"&gt;&gt;).
+%% {normalized, 1.25, {invalid, float, &lt;&lt;"1.25"&gt;&gt;}}
+%% 3> klsn_rule:normalize(float, "1.25").
+%% 1.25
+%% 4> klsn_rule:eval(float, &lt;&lt;"nope"&gt;&gt;).
+%% {reject, {invalid, float, &lt;&lt;"nope"&gt;&gt;}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec float_rule(input(), acc()) -> result().
 float_rule(Input, _Acc) ->
     do(
@@ -209,6 +424,38 @@ float_rule(Input, _Acc) ->
       , Input
     ) .
 
+%% @doc
+%% Validate numeric input for validate/2, normalize/2, and eval/2.
+%% Rule form: number (or {number, Acc}; Acc is ignored).
+%%
+%% Result (eval/2):
+%% - valid when Input is a number (integer or float).
+%% - normalized when Input is a binary or list that parses as an integer/float;
+%%   parsing order is binary_to_integer/1, binary_to_float/1,
+%%   list_to_integer/1, list_to_float/1.
+%% - reject when Input is not numeric and cannot be parsed.
+%%
+%% Reason (eval/2):
+%% - {invalid, number, Input} on normalize or reject.
+%%
+%% normalize/2 returns the parsed number (or original) or raises with
+%% {klsn_rule, {invalid, number, Input}}. validate/2 returns ok only for
+%% already-numeric input and raises for normalized/reject results.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval(number, 10).
+%% {valid, 10}
+%% 2> klsn_rule:eval(number, &lt;&lt;"10"&gt;&gt;).
+%% {normalized, 10, {invalid, number, &lt;&lt;"10"&gt;&gt;}}
+%% 3> klsn_rule:normalize(number, "1.5").
+%% 1.5
+%% 4> klsn_rule:eval(number, &lt;&lt;"nope"&gt;&gt;).
+%% {reject, {invalid, number, &lt;&lt;"nope"&gt;&gt;}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec number_rule(input(), acc()) -> result().
 number_rule(Input, _Acc) ->
     do(
@@ -222,6 +469,31 @@ number_rule(Input, _Acc) ->
       , Input
     ) .
 
+%% @doc
+%% Validate a range rule used by validate/2, normalize/2, and eval/2.
+%% Rule form: {range, range_(Rule)} where Rule is rule() and range_(Rule)
+%% is one of:
+%%   {Rule, Op, Upper} | {Lower, Op, Rule} | {Lower, Op1, Rule, Op2, Upper}
+%% Op/Op1/Op2 are '&lt;' or '=&lt;'. Lower/Upper are numbers.
+%%
+%% Result (eval/2):
+%% - valid when Rule validates and the output satisfies the bound(s).
+%% - normalized with the same Reason when Rule normalizes and the output
+%%   satisfies the bound(s).
+%% - reject with {invalid_range, RangeOutput} when the bound check fails.
+%% - reject with the underlying Reason when Rule rejects.
+%%
+%% normalize/2 returns Output for valid/normalized results and raises with
+%% {klsn_rule, Reason} on reject. validate/2 returns ok only for valid results.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({range, {integer, '=&lt;', 10}}, &lt;&lt;"10"&gt;&gt;).
+%% 2> klsn_rule:eval({range, {0, '=&lt;', integer, '&lt;', 10}}, 5).
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec range_rule(input(), acc()) -> result().
 range_rule(Input, {Subject, Op, Upper})
     when (Op =:= '<' orelse Op =:= '=<'),
@@ -334,6 +606,35 @@ range_rule(Input, {Lower, Op1, Subject, Op2, Upper})
 range_rule(_, _) ->
     reject.
 
+%% @doc
+%% Validate timeout input for validate/2, normalize/2, and eval/2.
+%% Rule form: timeout.
+%%
+%% Result (eval/2):
+%% - valid when Input is infinity or a non-negative integer.
+%% - normalized when Input is a list/binary that parses via binary_to_integer/1,
+%%   binary_to_float/1, list_to_integer/1, list_to_float/1, or the string
+%%   "infinity".
+%% - reject when Input cannot be converted.
+%%
+%% Reason (eval/2):
+%% - {invalid, timeout, Input} on normalize or reject.
+%%
+%% normalize/2 returns the converted timeout (or original) or raises with
+%% {klsn_rule, {invalid, timeout, Input}}. validate/2 returns ok only when the
+%% input is already valid and raises on normalization or reject.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval(timeout, infinity).
+%% 2> klsn_rule:eval(timeout, 0).
+%% 3> klsn_rule:eval(timeout, &lt;&lt;"15"&gt;&gt;).
+%% 4> klsn_rule:normalize(timeout, "1.5").
+%% 5> klsn_rule:eval(timeout, foo).
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec timeout_rule(input(), acc()) -> result().
 timeout_rule(Input, _Acc) ->
     do(
@@ -360,13 +661,63 @@ timeout_rule(Input, _Acc) ->
       , Input
     ) .
 
+%% @doc
+%% Validate binary strings used by validate/2, normalize/2, and eval/2.
+%% Rule form: binstr.
+%%
+%% Accepts binaries as-is (klsn:binstr()); otherwise converts integers,
+%% floats, atoms, and iolists via klsn_binstr:from_any/1.
+%%
+%% Result:
+%% - valid when Input is already a binary.
+%% - normalized when Input converts to a binary; reason is {invalid, binstr, Input}.
+%% - reject when conversion fails; reason is {invalid, binstr, Input}.
+%%
+%% {@link normalize/2} returns the binary (original or converted) or raises
+%% error({klsn_rule, {invalid, binstr, Input}}). {@link validate/2} returns
+%% ok only when the input is already a binary, otherwise it raises with
+%% the same reason.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval(binstr, &lt;&lt;"ok"&gt;&gt;).
+%% 2> klsn_rule:eval(binstr, 42).
+%% 3> klsn_rule:normalize(binstr, [&lt;&lt;"a"&gt;&gt;, "b"]).
+%% 4> klsn_rule:eval(binstr, #{}).
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec binstr_rule(input(), acc()) -> result().
 binstr_rule(Input, _Acc) ->
     do(
         [fun klsn_binstr:from_any/1]
       , Input
     ) .
-    
+
+%% @doc
+%% Validate atoms used by validate/2, normalize/2, and eval/2.
+%% Rule form: atom.
+%% Accepts atoms; otherwise converts input via klsn_binstr:from_any/1 and
+%% binary_to_existing_atom/1 (existing atoms only).
+%%
+%% Result:
+%% - valid when Input is an atom.
+%% - normalized when Input converts to an existing atom;
+%%   reason is {invalid, atom, Input}.
+%% - reject when Input cannot be converted to an existing atom;
+%%   reason is {invalid, atom, Input}.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:validate(atom, ok).
+%% 2> klsn_rule:normalize(atom, &lt;&lt;"ok"&gt;&gt;).
+%% 3> klsn_rule:eval(atom, &lt;&lt;"not_an_atom"&gt;&gt;).
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
+-spec atom_rule(input(), acc()) -> result().
 atom_rule(Input, _Acc) ->
     do(
         fun is_atom/1
@@ -376,6 +727,33 @@ atom_rule(Input, _Acc) ->
       , Input
     ) .
 
+%% @doc
+%% Validate enums used by validate/2, normalize/2, and eval/2.
+%% Rule form: {enum, [atom()]}.
+%% Matching compares klsn_binstr:from_any/1 for the input and each allowed enum.
+%% Exact =:= matches are valid; otherwise the input normalizes to the matched enum.
+%%
+%% Result (eval/2):
+%% - valid when Input matches an allowed enum exactly (Input =:= Enum).
+%% - normalized when Input matches by binary conversion but is not =:=;
+%%   reason is {invalid, enum, Input}.
+%% - reject when no allowed enum matches; reason is {invalid_enum, AllowedEnums, Input}.
+%% - reject when AllowedEnums is not a list; reason is {invalid, enum, Input}.
+%%
+%% normalize/2 returns the matched enum and discards the reason; use eval/2 to
+%% inspect the normalization reason.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({enum, [foo, bar]}, foo).
+%% 2> klsn_rule:eval({enum, [foo, bar]}, &lt;&lt;"foo"&gt;&gt;).
+%% 3> klsn_rule:eval({enum, [foo, bar]}, baz).
+%% 4> klsn_rule:normalize({enum, [foo, bar]}, &lt;&lt;"bar"&gt;&gt;).
+%% 5> klsn_rule:validate({enum, [foo, bar]}, baz).
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec enum_rule(input(), acc()) -> result().
 enum_rule(Input, AllowedEnums) when is_list(AllowedEnums) ->
     InputBinary = try klsn_binstr:from_any(Input) catch
@@ -400,6 +778,39 @@ enum_rule(Input, AllowedEnums) when is_list(AllowedEnums) ->
 enum_rule(_, _) ->
     reject.
 
+%% @doc
+%% Validate against a list of rules for validate/2, normalize/2, and eval/2.
+%% Rule form: {any_of, [rule()]}.
+%%
+%% Result (eval/2):
+%% - valid when any rule validates (short-circuit).
+%% - normalized when no rule validates and at least one normalizes; output is
+%%   from the first normalized rule; reason is {any_of, [reason()]}.
+%% - reject when no rule validates or normalizes; reason is {any_of, [reason()]}.
+%% - valid when the rule list is empty.
+%%
+%% Reasons are collected from each attempted rule (normalized or reject) in
+%% rule order.
+%%
+%% normalize/2 returns the first normalized output when present; validate/2
+%% accepts only the valid case and errors otherwise.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({any_of, [integer, {exact, ok}]}, 3).
+%% {valid,3}
+%% 2> klsn_rule:eval({any_of, [integer, {exact, ok}]}, &lt;&lt;"10"&gt;&gt;).
+%% {normalized,10,{any_of,[{invalid,integer,&lt;&lt;"10"&gt;&gt;},{invalid_exact,ok,&lt;&lt;"10"&gt;&gt;}]}}
+%% 3> klsn_rule:eval({any_of, [integer, {exact, ok}]}, &lt;&lt;"nope"&gt;&gt;).
+%% {reject,{any_of,[{invalid,integer,&lt;&lt;"nope"&gt;&gt;},{invalid_exact,ok,&lt;&lt;"nope"&gt;&gt;}]}}
+%% 4> klsn_rule:normalize({any_of, [integer, {exact, ok}]}, &lt;&lt;"10"&gt;&gt;).
+%% 10
+%% 5> klsn_rule:validate({any_of, [integer, {exact, ok}]}, 3).
+%% ok
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec any_of_rule(input(), acc()) -> result().
 any_of_rule(_Input, []) ->
     valid;
@@ -429,6 +840,35 @@ any_of_rule_(Input, [Rule|T], MaybeOutput0, ReasonsRev0) ->
             any_of_rule_(Input, T, MaybeOutput0, [Reason|ReasonsRev0])
     end.
 
+%% @doc
+%% Apply all Rules; used by validate/2, normalize/2, and eval/2.
+%%
+%% Rule form: {all_of, [rule()]}.
+%% Each rule is evaluated against the same Input in list order.
+%%
+%% Result (eval/2):
+%% - valid when every rule returns valid (or Rules is empty).
+%% - normalized when no rule rejects and at least one rule normalizes; output is
+%%   the first valid output if present, otherwise the first normalized output;
+%%   reason is {all_of, [reason()]} from the normalizing rules in list order.
+%% - reject when any rule rejects; reason is {all_of, [reason()]} from the
+%%   rejecting rules in list order (normalization reasons are discarded).
+%%
+%% normalize/2 returns the output and drops the reason; validate/2 errors on
+%% normalized or reject results.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({all_of, [integer, {range, {0, '=&lt;', integer, '&lt;', 10}}]}, 5).
+%% {valid, 5}
+%% 2> klsn_rule:eval({all_of, [integer, {range, {0, '=&lt;', integer, '&lt;', 10}}]}, &lt;&lt;"5"&gt;&gt;).
+%% {normalized, 5, {all_of, [{invalid, integer, &lt;&lt;"5"&gt;&gt;}, {invalid, integer, &lt;&lt;"5"&gt;&gt;}]}}
+%% 3> klsn_rule:eval({all_of, [integer, {range, {0, '=&lt;', integer, '&lt;', 10}}]}, 20).
+%% {reject, {all_of, [{invalid_range, {0, '=&lt;', 20, '&lt;', 10}}]}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec all_of_rule(input(), acc()) -> result().
 all_of_rule(_Input, []) ->
     valid;
@@ -488,6 +928,31 @@ all_of_rule_(Input, [Rule|T], MaybeValidOutput0, MaybeNormOutput0, NormReasonsRe
             all_of_rule_(Input, T, MaybeValidOutput0, MaybeNormOutput0, NormReasonsRev0, [Reason|RejectReasonsRev0])
     end.
 
+%% @doc
+%% Apply rules left-to-right, feeding each output into the next rule.
+%% Rule form: {foldl, [rule()]}.
+%%
+%% Result (eval/2):
+%% - valid when every rule returns valid (output stays the original input).
+%% - normalized when the first rule that normalizes succeeds; output is from the
+%%   last rule and the reason is from the first normalization. Later
+%%   normalizations keep the original reason.
+%% - reject with the Reason from the first rule that rejects.
+%%
+%% normalize/2 returns the last output; validate/2 raises on normalize/reject.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({foldl, [atom, {exact, ok}]}, ok).
+%% {valid, ok}
+%% 2> klsn_rule:eval({foldl, [atom, {exact, ok}]}, "ok").
+%% {normalized, ok, {invalid, atom, "ok"}}
+%% 3> klsn_rule:eval({foldl, [atom, {exact, nope}]}, "ok").
+%% {reject, {invalid_exact, nope, ok}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec foldl_rule(input(), acc()) -> result().
 foldl_rule(Input, Rules) when is_list(Rules) ->
     lists:foldl(fun(Rule, Acc) ->
@@ -510,6 +975,49 @@ foldl_rule(Input, Rules) when is_list(Rules) ->
 foldl_rule(_, _) ->
     reject.
 
+%% @doc
+%% Optional rule wrapper; use as {optnl, Rule} in rule() with validate/2,
+%% normalize/2, or eval/2. Output is klsn:optnl(Output)
+%% ({value, Output} or none).
+%%
+%% Input handling:
+%% - none is valid and stays none.
+%% - {value, V} validates V with Rule.
+%% - null | nil | undefined | false | [] | error normalize to none.
+%% - {ok, V} | {true, V} | [V] | binary() | number() are treated as values,
+%%   evaluated with Rule, and wrapped as {value, Output}.
+%%
+%% Result conditions (eval/2):
+%% - valid when Input is none or {value, V} and Rule validates V.
+%% - normalized when a wrapper/marker is converted or Rule normalizes V.
+%% - reject when Input is unrecognized or Rule rejects V.
+%%
+%% Reasons (eval/2):
+%% - {invalid, optnl, Input} when optnl_rule/2 normalizes without a rule reason
+%%   (markers/wrappers that validate) or when Input is unrecognized.
+%% - {invalid_optnl_value, Reason} when Rule normalizes or rejects V.
+%%
+%% validate/2 only accepts valid; normalize/2 returns the output and drops
+%% the reason.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({optnl, integer}, none).
+%% {valid, none}
+%% 2> klsn_rule:eval({optnl, integer}, null).
+%% {normalized, none, {invalid, optnl, null}}
+%% 3> klsn_rule:eval({optnl, integer}, {ok, 3}).
+%% {normalized, {value, 3}, {invalid, optnl, {ok, 3}}}
+%% 4> klsn_rule:eval({optnl, integer}, {value, 3}).
+%% {valid, {value, 3}}
+%% 5> klsn_rule:eval({optnl, integer}, {value, foo}).
+%% {reject, {invalid_optnl_value, {invalid, integer, foo}}}
+%% 6> klsn_rule:normalize({optnl, integer}, {ok, 3}).
+%% {value, 3}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec optnl_rule(input(), acc()) -> result().
 optnl_rule(none, _Rule) ->
     valid;
@@ -540,6 +1048,33 @@ optnl_rule(Value, Rule) when is_number(Value) ->
 optnl_rule(_, _Rule) ->
     reject.
 
+%% @doc
+%% Validate a nullable rule used by validate/2, normalize/2, and eval/2.
+%% Rule form: {nullable, Rule} where Rule is a rule().
+%%
+%% Result (eval/2):
+%% - valid when Input is null.
+%% - normalized to null when Input is none.
+%% - valid when Input is Value and Rule validates.
+%% - normalized when Input is {value, Value} and Rule validates.
+%% - normalized with {invalid_nullable_value, Reason} when Rule normalizes.
+%% - reject with {invalid_nullable_value, Reason} when Rule rejects.
+%%
+%% Reasons (eval/2):
+%% - {invalid, nullable, Input} when nullable_rule/2 normalizes without a rule
+%%   reason (none or {value, Value} when Rule validates).
+%% - {invalid_nullable_value, Reason} when Rule normalizes or rejects Value.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({nullable, integer}, null).
+%% 2> klsn_rule:eval({nullable, integer}, none).
+%% 3> klsn_rule:eval({nullable, integer}, &lt;&lt;"12"&gt;&gt;).
+%% 4> klsn_rule:eval({nullable, integer}, {value, &lt;&lt;"12"&gt;&gt;}).
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec nullable_rule(input(), acc()) -> result().
 nullable_rule(null, _Rule) ->
     valid;
@@ -550,6 +1085,28 @@ nullable_rule({value, Value}, Rule) ->
 nullable_rule(Value, Rule) ->
     nullable_eval_value_(Value, Rule, valid).
 
+%% @doc
+%% Enforce strict evaluation when used as {strict, Rule}.
+%% Rule form: {strict, Rule} where Rule :: rule().
+%%
+%% Result (eval/2):
+%% - valid when Rule returns {valid, Output}.
+%% - normalized is never returned; when Rule normalizes with
+%%   {normalized, Output, Reason}, this rule rejects with {strict, Reason}.
+%% - reject when Rule rejects; the Reason passes through unchanged.
+%%
+%% validate/2 and normalize/2 only succeed on valid. When strict rejects,
+%% they raise error({klsn_rule, Reason}) where Reason is the reject reason above.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({strict, integer}, 42).
+%% 2> klsn_rule:eval({strict, integer}, &lt;&lt;"42"&gt;&gt;).
+%% 3> klsn_rule:normalize({strict, integer}, 42).
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec strict_rule(input(), acc()) -> result().
 strict_rule(Input, Rule) ->
     case eval(Rule, Input) of
@@ -593,6 +1150,41 @@ nullable_eval_value_(Value, Rule, Validity) ->
             {reject, {invalid_nullable_value, Reason}}
     end.
 
+%% @doc
+%% Validate list inputs by applying an element rule to each entry.
+%%
+%% Rule form: <code>{list, ElementRule}</code> where <code>ElementRule :: rule()</code>.
+%%
+%% Result (eval/2):
+%% - valid when Input is a list and every element validates (no normalization).
+%% - normalized when Input is a list, no element rejects, and the first
+%%   normalized element is at Index (1-based); output is a list of element
+%%   outputs; reason is {invalid_list_element, Index, Reason}.
+%% - reject when Input is not a list; reason is {invalid, list, Input}.
+%% - reject when the first rejecting element is at Index; reason is
+%%   {invalid_list_element, Index, Reason}.
+%%
+%% normalize/2 returns the output list on valid/normalized and raises on reject.
+%% validate/2 returns ok only on valid; it raises on normalized/reject.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({list, integer}, [1, 2]).
+%% {valid, [1, 2]}
+%% 2> klsn_rule:eval({list, integer}, [&lt;&lt;"1">>, &lt;&lt;"2">>]).
+%% {normalized, [1, 2], {invalid_list_element, 1, {invalid, integer, &lt;&lt;"1">>}}}
+%% 3> klsn_rule:eval({list, integer}, [1, &lt;&lt;"bad">>]).
+%% {reject, {invalid_list_element, 2, {invalid, integer, &lt;&lt;"bad">>}}}
+%% 4> klsn_rule:eval({list, integer}, &lt;&lt;"1">>).
+%% {reject, {invalid, list, &lt;&lt;"1">>}}
+%% 5> klsn_rule:normalize({list, integer}, [&lt;&lt;"1">>]).
+%% [1]
+%% 6> klsn_rule:validate({list, integer}, [&lt;&lt;"1">>]).
+%% ** exception error: {klsn_rule,{invalid_list_element,1,{invalid,integer,&lt;&lt;"1">>}}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec list_rule(input(), acc()) -> result().
 list_rule(Input, ElementRule) when is_list(Input) ->
     List0 = lists:map(fun(Elem) ->
@@ -631,6 +1223,42 @@ list_rule(Input, ElementRule) when is_list(Input) ->
 list_rule(_, _) ->
     reject.
 
+%% @doc
+%% Validate tuple inputs against element rules.
+%%
+%% Rule form: {tuple, Rules} where Rules is a list or tuple of rule().
+%%
+%% Result (eval/2):
+%% - valid when Input is a tuple, arity matches Rules, and all elements validate.
+%% - normalized when Input is a tuple, no element rejects, and the first
+%%   normalized element is at Index; output is a tuple of element outputs; reason
+%%   is {invalid_tuple_element, Index, Reason}.
+%% - reject when Input is not a tuple; reason is {invalid, tuple, Input}.
+%% - reject when arity mismatches; reason is {invalid_tuple_size, Expected, Input}.
+%% - reject when the first element to reject is at Index; reason is
+%%   {invalid_tuple_element, Index, Reason}.
+%%
+%% normalize/2 returns the tuple output on valid/normalized and raises on reject.
+%% validate/2 returns ok only for valid results (normalized counts as invalid).
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({tuple, [integer, atom]}, {1, ok}).
+%% {valid, {1, ok}}
+%% 2> klsn_rule:eval({tuple, [integer, atom]}, {"1", ok}).
+%% {normalized, {1, ok}, {invalid_tuple_element, 1, {invalid, integer, "1"}}}
+%% 3> klsn_rule:eval({tuple, {integer, atom}}, {1, ok}).
+%% {valid, {1, ok}}
+%% 4> klsn_rule:eval({tuple, [integer, atom]}, {1}).
+%% {reject, {invalid_tuple_size, 2, {1}}}
+%% 5> klsn_rule:eval({tuple, [integer, atom]}, [1, ok]).
+%% {reject, {invalid, tuple, [1, ok]}}
+%% 6> klsn_rule:normalize({tuple, [integer, atom]}, {ok, ok}).
+%% exception error: {klsn_rule,{invalid_tuple_element,1,{invalid,integer,ok}}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec tuple_rule(input(), acc()) -> result().
 tuple_rule(Input, Rules) when is_tuple(Input), is_tuple(Rules) ->
     tuple_rule(Input, tuple_to_list(Rules));
@@ -674,6 +1302,45 @@ tuple_rule(Input, Rules) when is_tuple(Input), is_list(Rules) ->
 tuple_rule(_, _) ->
     reject.
 
+%% @doc
+%% Validate map input for validate/2, normalize/2, and eval/2.
+%% Rule form: {map, {KeyRule, ValueRule}} where KeyRule and ValueRule are rule().
+%%
+%% Result (eval/2):
+%% - valid when Input is a map and all keys/values validate without normalization.
+%% - normalized when Input is a map, no key/value rejects, and at least one
+%%   key or value normalizes; output is a map with normalized keys/values.
+%% - reject when Input is not a map, when a key or value rejects, when
+%%   normalized keys collide, or when the accumulator is not {KeyRule, ValueRule}.
+%%
+%% Reason (eval/2):
+%% - {invalid, map, Input} when Input is not a map or the accumulator is invalid.
+%% - {invalid_map_key, Reason} when a key rejects or normalizes.
+%% - {invalid_map_value, Key, Reason} when a value rejects or normalizes
+%%   (Key is the original input key).
+%% - {map_key_conflict, Key} when key normalization produces duplicates.
+%%
+%% normalize/2 returns the (possibly normalized) map and drops the reason.
+%% validate/2 returns ok only for valid results; it raises on normalized or reject.
+%%
+%% Examples:
+%% <pre>
+%% 1> klsn_rule:eval({map, {integer, integer}}, #{1 => 2}).
+%% {valid, #{1 => 2}}
+%% 2> klsn_rule:eval({map, {integer, integer}}, #{1 => "2"}).
+%% {normalized, #{1 => 2}, {invalid_map_value, 1, {invalid, integer, "2"}}}
+%% 3> klsn_rule:eval({map, {integer, integer}}, #{"nope" => 1}).
+%% {reject, {invalid_map_key, {invalid, integer, "nope"}}}
+%% 4> klsn_rule:eval({map, {integer, term}}, #{"1" => a, 1 => b}).
+%% {reject, {map_key_conflict, 1}}
+%% 5> klsn_rule:eval({map, {integer, integer}}, [1, 2]).
+%% {reject, {invalid, map, [1, 2]}}
+%% 6> klsn_rule:normalize({map, {integer, integer}}, #{"1" => "2"}).
+%% #{1 => 2}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec map_rule(input(), acc()) -> result().
 map_rule(Input, {KeyRule, ValueRule}) when is_map(Input) ->
     List0 = lists:map(fun({Key, Value}) ->
@@ -759,6 +1426,57 @@ map_rule(Input, {KeyRule, ValueRule}) when is_map(Input) ->
 map_rule(_, _) ->
     reject.
 
+%% @doc
+%% Validate struct maps against a field spec for use with validate/2, normalize/2,
+%% and eval/2.
+%%
+%% Rule form: {struct, #{Field => {required | optional, rule()}}}.
+%% Field must be an atom; Input must be a map. Keys are matched by comparing
+%% klsn_binstr:from_any(Key) and klsn_binstr:from_any(Field), so Field,
+%% &lt;&lt;"field"&gt;&gt;, and "field" are treated as the same field.
+%%
+%% Output normalization:
+%% - extra keys are dropped,
+%% - matched keys are normalized to their atom field names,
+%% - field values are normalized when their rule normalizes.
+%%
+%% When evaluated via {@link eval/2}:
+%% - valid when all required fields are present, no extra or duplicate keys
+%%   exist, and all field rules return valid.
+%% - normalized when extra keys are removed, keys are normalized, or any field
+%%   value normalizes. Reasons are:
+%%   {invalid_struct_field, Key} for extra keys or key normalization, and
+%%   {invalid_struct_value, Field, Reason} for value normalization.
+%% When multiple normalization causes exist, the reason reports extra keys
+%% first, then key normalization, then value normalization.
+%% - reject when required fields are missing, a field has duplicate keys, or a
+%%   field rule rejects. Reasons are:
+%%   {missing_required_field, Field},
+%%   {struct_field_conflict, Field},
+%%   {invalid_struct_value, Field, Reason}.
+%% - reject with {invalid, struct, Input} when Input or the spec is malformed.
+%%
+%% normalize/2 returns the output map and drops the reason.
+%% validate/2 raises error({klsn_rule, Reason}) on normalized or reject.
+%%
+%% Examples:
+%% <pre>
+%% 1> Rule = {struct, #{name => {required, binstr}, age => {optional, integer}}}.
+%% 2> klsn_rule:eval(Rule, #{name => &lt;&lt;"Ada"&gt;&gt;, age => 32}).
+%% {valid, #{name => &lt;&lt;"Ada"&gt;&gt;, age => 32}}
+%% 3> klsn_rule:eval(Rule, #{&lt;&lt;"name"&gt;&gt; => &lt;&lt;"Ada"&gt;&gt;, age => &lt;&lt;"42"&gt;&gt;}).
+%% {normalized, #{name => &lt;&lt;"Ada"&gt;&gt;, age => 42},
+%%  {invalid_struct_field, &lt;&lt;"name"&gt;&gt;}}
+%% 4> klsn_rule:normalize(Rule, #{&lt;&lt;"name"&gt;&gt; => &lt;&lt;"Ada"&gt;&gt;, extra => 1}).
+%% #{name => &lt;&lt;"Ada"&gt;&gt;}
+%% 5> klsn_rule:eval(Rule, #{age => 32}).
+%% {reject, {missing_required_field, name}}
+%% 6> klsn_rule:eval(Rule, #{name => &lt;&lt;"Ada"&gt;&gt;, &lt;&lt;"name"&gt;&gt; => &lt;&lt;"Ada"&gt;&gt;}).
+%% {reject, {struct_field_conflict, name}}
+%% </pre>
+%% @see validate/2
+%% @see normalize/2
+%% @see eval/2
 -spec struct_rule(input(), acc()) -> result().
 struct_rule(Input, StructSpec) when is_map(Input), is_map(StructSpec) ->
     SpecList0 = maps:to_list(StructSpec),
@@ -914,6 +1632,44 @@ do([H|T], Input) ->
     end.
 
 
+%% @doc
+%% Evaluate a rule against an input and return a strict result.
+%%
+%% Builtin rules may be passed as atoms (for example, `integer') or
+%% tuples; they are dispatched to `name_rule/2' functions. Unknown
+%% rules return `{reject, {unknown_rule, Rule}}'.
+%%
+%% Custom rules use `{custom, Name, Fun, Acc}' where
+%% `Fun(Input, Acc) -> result()'. Return handling:
+%% - `valid' or `{valid, Input}' maps to `{valid, Input}'
+%% - `{valid, Output}' with `Output =/= Input' raises
+%%   `error({invalid_custom_rule, ...})'
+%% - `{normalized, Output}' maps to
+%%   `{normalized, Output, {invalid, Name, Input}}'
+%% - `reject' maps to `{reject, {invalid, Name, Input}}'
+%% - `{normalized, Output, Reason}' and `{reject, Reason}'
+%%   pass through unchanged
+%%
+%% Custom reasons are expected to use `{custom, term()}' so they do
+%% not conflict with reasons from builtin rules.
+%%
+%% Examples:
+%% ```
+%% 1> klsn_rule:eval(integer, <<"10">>).
+%% {normalized,10,{invalid,integer,<<"10">>}}
+%% 2> Unwrap = fun({ok, V}, _Acc) ->
+%%        {normalized, V, {custom, unwrapped}};
+%%    (_, _Acc) ->
+%%        {reject, {custom, unexpected}}
+%% end.
+%% 3> Rule = {custom, unwrap_ok, Unwrap, []}.
+%% 4> klsn_rule:eval(Rule, {ok, 5}).
+%% {normalized,5,{custom,unwrapped}}
+%% 5> klsn_rule:eval(Rule, error).
+%% {reject,{custom,unexpected}}
+%% '''
+%% @see validate/2
+%% @see normalize/2
 -spec eval(rule(), input()) -> strict_result().
 eval({custom, Name, Custom, Acc}=Arg1, Input) ->
     case Custom(Input, Acc) of
