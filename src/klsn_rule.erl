@@ -137,7 +137,7 @@
 %% '''
 %% @see normalize/2
 %% @see eval/2
--spec validate(rule(), input()) -> output().
+-spec validate(rule(), input()) -> ok.
 validate(Rule, Input) ->
     case eval(Rule, Input) of
         {valid, _} ->
