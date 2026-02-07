@@ -37,7 +37,7 @@ Use `klsn_rule:validate/2` when you want an exception on invalid input, or
 
 Example
 ```
-ok = klsn_rule:validate(integer, <<"42">>),
+ok = klsn_rule:validate(integer, 42),
 Value = klsn_rule:normalize({list, integer}, [<<"1">>, <<"2">>]).
 ```
 
