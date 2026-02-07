@@ -26,6 +26,7 @@
       , foldl_rule/2
       , optnl_rule/2
       , nullable_rule/2
+      , strict_rule/2
       , list_rule/2
       , tuple_rule/2
       , map_rule/2
@@ -72,6 +73,7 @@
               | {foldl, [rule()]}
               | {optnl, rule()}
               | {nullable, rule()}
+              | {strict, rule()}
               | {list, rule()}
               | {tuple, [rule()] | tuple()} % {rule(), rule(), ...}
               | {map, {KeyRule::rule(), ValueRule::rule()}}
@@ -97,6 +99,7 @@
                 | {struct_field_conflict, atom()}
                 | {any_of, [reason()]}
                 | {all_of, [reason()]}
+                | {strict, reason()}
                 | {invalid_range, range_(input())}
                 .
 
@@ -546,6 +549,17 @@ nullable_rule({value, Value}, Rule) ->
     nullable_eval_value_(Value, Rule, normalized);
 nullable_rule(Value, Rule) ->
     nullable_eval_value_(Value, Rule, valid).
+
+-spec strict_rule(input(), acc()) -> result().
+strict_rule(Input, Rule) ->
+    case eval(Rule, Input) of
+        {valid, Output} ->
+            {valid, Output};
+        {normalized, _Output, Reason} ->
+            {reject, {strict, Reason}};
+        {reject, Reason} ->
+            {reject, Reason}
+    end.
 
 -spec optnl_eval_value_(input(), rule(), valid | normalized) -> result().
 optnl_eval_value_(Value, Rule, Validity) ->

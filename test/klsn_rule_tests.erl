@@ -289,6 +289,17 @@ nullable_binstr_rule_test() ->
       , klsn_rule:eval({nullable, binstr}, {})
     ).
 
+strict_rule_test() ->
+    ?assertEqual({valid, 1}, klsn_rule:eval({strict, integer}, 1)),
+    ?assertEqual(
+        {reject, {strict, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval({strict, integer}, <<"1">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid, integer, <<"x">>}}
+      , klsn_rule:eval({strict, integer}, <<"x">>)
+    ).
+
 list_rule_test() ->
     ?assertEqual({valid, [1, 2]}, klsn_rule:eval({list, integer}, [1, 2])),
     ?assertEqual(
