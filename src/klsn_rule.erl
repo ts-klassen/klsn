@@ -22,6 +22,7 @@
       , enum_rule/2
       , any_of_rule/2
       , all_of_rule/2
+      , foldl_rule/2
       , optnl_rule/2
       , nullable_rule/2
       , list_rule/2
@@ -66,6 +67,7 @@
               | {enum, [atom()]}
               | {any_of, [rule()]}
               | {all_of, [rule()]}
+              | {foldl, [rule()]}
               | {optnl, rule()}
               | {nullable, rule()}
               | {list, rule()}
@@ -470,6 +472,28 @@ all_of_rule_(Input, [Rule|T], MaybeValidOutput0, MaybeNormOutput0, NormReasonsRe
         {reject, Reason} ->
             all_of_rule_(Input, T, MaybeValidOutput0, MaybeNormOutput0, NormReasonsRev0, [Reason|RejectReasonsRev0])
     end.
+
+-spec foldl_rule(input(), acc()) -> result().
+foldl_rule(Input, Rules) when is_list(Rules) ->
+    lists:foldl(fun(Rule, Acc) ->
+        case Acc of
+            {reject, _} ->
+                Acc;
+            {valid, Value} ->
+                eval(Rule, Value);
+            {normalized, Value, Reason} ->
+                case eval(Rule, Value) of
+                    {valid, Output} ->
+                        {normalized, Output, Reason};
+                    {normalized, Output, _Reason} ->
+                        {normalized, Output, Reason};
+                    {reject, RejectReason} ->
+                        {reject, RejectReason}
+                end
+        end
+    end, {valid, Input}, Rules);
+foldl_rule(_, _) ->
+    reject.
 
 -spec optnl_rule(input(), acc()) -> result().
 optnl_rule(none, _Rule) ->

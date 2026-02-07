@@ -447,6 +447,29 @@ all_of_rule_test() ->
       , klsn_rule:eval({all_of, [number, integer, float]}, <<"1">>)
     ).
 
+foldl_rule_test() ->
+    ?assertEqual({valid, input}, klsn_rule:eval({foldl, []}, input)),
+    ?assertEqual(
+        {valid, 1}
+      , klsn_rule:eval({foldl, [integer, number]}, 1)
+    ),
+    ?assertEqual(
+        {normalized, 1, {invalid, integer, <<"1">>}}
+      , klsn_rule:eval({foldl, [integer, {range, {number, '=<', 3}}]}, <<"1">>)
+    ),
+    ?assertEqual(
+        {normalized, 1, {invalid, binstr, "1"}}
+      , klsn_rule:eval({foldl, [binstr, integer]}, "1")
+    ),
+    ?assertEqual(
+        {reject, {invalid_range, {1, '<', 1}}}
+      , klsn_rule:eval({foldl, [integer, {range, {number, '<', 1}}]}, <<"1">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid, foldl, input}}
+      , klsn_rule:eval({foldl, not_a_list}, input)
+    ).
+
 range_rule_test() ->
     ?assertEqual({valid, 3}, klsn_rule:eval({range, {number, '=<', 3}}, 3)),
     ?assertEqual(
