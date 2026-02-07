@@ -5,6 +5,13 @@ term_rule_test() ->
     Term = {make_ref(), self(), #{}, [], klsn_rule:module_info()},
     ?assertEqual({valid, Term}, klsn_rule:eval(term, Term)).
 
+exact_rule_test() ->
+    ?assertEqual({valid, my_value}, klsn_rule:eval({exact, my_value}, my_value)),
+    ?assertEqual(
+        {reject, {invalid_exact, my_value, other_value}}
+      , klsn_rule:eval({exact, my_value}, other_value)
+    ).
+
 default_rule_test() ->
     ?assertEqual({valid, 3}, klsn_rule:eval({default, {42, integer}}, 3)),
     ?assertEqual(

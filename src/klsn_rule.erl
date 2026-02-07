@@ -10,6 +10,7 @@
 %% builtin rules
 -export([
         term_rule/2
+      , exact_rule/2
       , default_rule/2
       , boolean_rule/2
       , integer_rule/2
@@ -55,6 +56,7 @@
 
 -type rule() :: {custom, name(), custom(), acc()}
               | term
+              | {exact, term()}
               | {default, {output(), rule()}}
               | boolean
               | integer
@@ -79,6 +81,7 @@
 -type reason() :: {custom, term()}
                 | {unknown_rule, rule()}
                 | {invalid, name(), input()}
+                | {invalid_exact, term(), input()}
                 | {invalid_enum, [atom()], input()}
                 | {invalid_list_element, pos_integer(), reason()}
                 | {invalid_tuple_size, non_neg_integer(), input()}
@@ -140,6 +143,15 @@ normalize(Rule, Input) ->
 -spec term_rule(input(), acc()) -> result().
 term_rule(_Input, _Acc) ->
     valid.
+
+-spec exact_rule(input(), acc()) -> result().
+exact_rule(Input, Exact) ->
+    case Input =:= Exact of
+        true ->
+            valid;
+        false ->
+            {reject, {invalid_exact, Exact, Input}}
+    end.
 
 -spec default_rule(input(), acc()) -> result().
 default_rule(Input, {Default, Rule}) ->
