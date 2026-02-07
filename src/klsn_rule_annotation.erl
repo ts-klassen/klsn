@@ -1,3 +1,6 @@
+%% @doc
+%% Parse transform for -klsn_input_rule and -klsn_output_rule attributes.
+%% Include "klsn/include/klsn_rule_annotation.hrl" to enable.
 -module(klsn_rule_annotation).
 
 -export([parse_transform/2]).
@@ -7,6 +10,7 @@
       , output = none
     }).
 
+%% @doc Apply the rule annotations to the following function form.
 -spec parse_transform([term()], list()) -> [term()].
 parse_transform(Forms, _Options) ->
     Module = module_name_(Forms),

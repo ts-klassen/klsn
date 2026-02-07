@@ -4,9 +4,9 @@
 
 -klsn_input_rule([integer, float]).
 -klsn_output_rule(integer).
-give_me_integer(0, _) ->
+halve_even_or_float(0, _) ->
     <<"0">>;
-give_me_integer(Integer, Float) ->
+halve_even_or_float(Integer, Float) ->
     case Integer rem 2 of
         0 ->
             Integer div 2;
@@ -14,19 +14,19 @@ give_me_integer(Integer, Float) ->
             Float
     end.
 
-give_me_integer_test() ->
-    ?assertEqual(3, give_me_integer(6, 3.14)),
-    ?assertEqual(3, give_me_integer(<<"6">>, 3.14)),
-    ?assertEqual(0, give_me_integer(0, 3.14)),
+halve_even_or_float_test() ->
+    ?assertEqual(3, halve_even_or_float(6, 3.14)),
+    ?assertEqual(3, halve_even_or_float(<<"6">>, 3.14)),
+    ?assertEqual(0, halve_even_or_float(0, 3.14)),
     ?assertError(
-        {klsn_input_rule, {klsn_rule_annotation_tests, give_me_integer, [<<"a">>, <<"b">>]}, 1, {invalid, integer, <<"a">>}},
-        give_me_integer(<<"a">>, <<"b">>)
+        {klsn_input_rule, {klsn_rule_annotation_tests, halve_even_or_float, [<<"a">>, <<"b">>]}, 1, {invalid, integer, <<"a">>}},
+        halve_even_or_float(<<"a">>, <<"b">>)
     ),
     ?assertError(
-        {klsn_input_rule, {klsn_rule_annotation_tests, give_me_integer, [6, <<"b">>]}, 2, {invalid, float, <<"b">>}},
-        give_me_integer(6, <<"b">>)
+        {klsn_input_rule, {klsn_rule_annotation_tests, halve_even_or_float, [6, <<"b">>]}, 2, {invalid, float, <<"b">>}},
+        halve_even_or_float(6, <<"b">>)
     ),
     ?assertError(
-        {klsn_output_rule, {klsn_rule_annotation_tests, give_me_integer, [5, 3.14]}, 3.14, {invalid, integer, 3.14}},
-        give_me_integer(5, 3.14)
+        {klsn_output_rule, {klsn_rule_annotation_tests, halve_even_or_float, [5, 3.14]}, 3.14, {invalid, integer, 3.14}},
+        halve_even_or_float(5, 3.14)
     ).
