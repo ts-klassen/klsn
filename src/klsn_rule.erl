@@ -612,9 +612,8 @@ range_rule(_, _) ->
 %%
 %% Result (eval/2):
 %% - valid when Input is infinity or a non-negative integer.
-%% - normalized when Input is a list/binary that parses via binary_to_integer/1,
-%%   binary_to_float/1, list_to_integer/1, list_to_float/1, or the string
-%%   "infinity".
+%% - normalized when Input is a list/binary that parses via
+%%   binary_to_integer/1 or list_to_integer/1, or the string "infinity".
 %% - reject when Input cannot be converted.
 %%
 %% Reason (eval/2):
@@ -629,7 +628,7 @@ range_rule(_, _) ->
 %% 1> klsn_rule:eval(timeout, infinity).
 %% 2> klsn_rule:eval(timeout, 0).
 %% 3> klsn_rule:eval(timeout, &lt;&lt;"15"&gt;&gt;).
-%% 4> klsn_rule:normalize(timeout, "1.5").
+%% 4> klsn_rule:normalize(timeout, "15").
 %% 5> klsn_rule:eval(timeout, foo).
 %% </pre>
 %% @see validate/2
@@ -648,9 +647,7 @@ timeout_rule(Input, _Acc) ->
         end
       , [
             fun binary_to_integer/1
-          , fun binary_to_float/1
           , fun list_to_integer/1
-          , fun list_to_float/1
           , fun
                 (<<"infinity">>) ->
                     infinity;
