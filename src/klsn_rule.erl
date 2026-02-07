@@ -636,27 +636,15 @@ range_rule(_, _) ->
 %% @see eval/2
 -spec timeout_rule(input(), acc()) -> result().
 timeout_rule(Input, _Acc) ->
-    do(
-        fun
-            (infinity) ->
-                true;
-            (I) when is_integer(I), I >= 0 ->
-                true;
-            (_) ->
-                false
-        end
-      , [
-            fun binary_to_integer/1
-          , fun list_to_integer/1
-          , fun
-                (<<"infinity">>) ->
-                    infinity;
-                ("infinity") ->
-                    infinity
-            end
-        ]
-      , Input
-    ) .
+    Rule = {any_of, [{enum, [infinity]}, {range, {0, '=<', integer}}]},
+    case eval(Rule, Input) of
+        {valid, _Output} ->
+            valid;
+        {normalized, Output, _Reason} ->
+            {normalized, Output};
+        {reject, _Reason} ->
+            reject
+    end.
 
 %% @doc
 %% Validate binary strings used by validate/2, normalize/2, and eval/2.

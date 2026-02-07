@@ -114,6 +114,14 @@ timeout_rule_test() ->
         {reject, {invalid, timeout, <<"1.5">>}}
       , klsn_rule:eval(timeout, <<"1.5">>)
     ),
+    ?assertEqual(
+        {reject, {invalid, timeout, <<"-1">>}}
+      , klsn_rule:eval(timeout, <<"-1">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid, timeout, "-1"}}
+      , klsn_rule:eval(timeout, "-1")
+    ),
     ?assertEqual({reject, {invalid, timeout, -1}}, klsn_rule:eval(timeout, -1)).
 
 binstr_rule_test() ->
