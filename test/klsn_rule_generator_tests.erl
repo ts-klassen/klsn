@@ -7,6 +7,16 @@ integer_schema_generates_integer_rule_test() ->
     ?assertEqual(integer, FromJsonRule),
     ?assertEqual(integer, ToJsonRule).
 
+boolean_schema_true_generates_term_rule_test() ->
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(true),
+    ?assertEqual(term, FromJsonRule),
+    ?assertEqual(term, ToJsonRule).
+
+boolean_schema_false_generates_reject_rule_test() ->
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(false),
+    ?assertEqual({enum, []}, FromJsonRule),
+    ?assertEqual({enum, []}, ToJsonRule).
+
 string_schema_generates_binstr_rule_test() ->
     Schema = #{<<"type">> => <<"string">>},
     #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
@@ -30,6 +40,18 @@ float_schema_generates_float_rule_test() ->
     #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
     ?assertEqual(float, FromJsonRule),
     ?assertEqual(float, ToJsonRule).
+
+array_schema_generates_list_rule_test() ->
+    Schema = #{<<"type">> => <<"array">>, <<"items">> => #{<<"type">> => <<"integer">>}},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({list, integer}, FromJsonRule),
+    ?assertEqual({list, integer}, ToJsonRule).
+
+array_schema_defaults_to_term_items_test() ->
+    Schema = #{<<"type">> => <<"array">>},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({list, term}, FromJsonRule),
+    ?assertEqual({list, term}, ToJsonRule).
 
 null_schema_generates_null_rule_test() ->
     Schema = #{<<"type">> => <<"null">>},

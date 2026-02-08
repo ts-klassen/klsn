@@ -7,16 +7,21 @@
 
 -klsn_rule_alias([
         {json_schema, {any_of, [
+            {alias, {?MODULE, json_schema_true}},
+            {alias, {?MODULE, json_schema_false}},
             {alias, {?MODULE, json_schema_integer}},
             {alias, {?MODULE, json_schema_string}},
             {alias, {?MODULE, json_schema_boolean}},
             {alias, {?MODULE, json_schema_number}},
             {alias, {?MODULE, json_schema_float}},
             {alias, {?MODULE, json_schema_null}},
+            {alias, {?MODULE, json_schema_array}},
             {alias, {?MODULE, json_schema_const}},
             {alias, {?MODULE, json_schema_enum}},
             {alias, {?MODULE, json_schema_object}}
         ]}}
+      , {json_schema_true, {exact, true}}
+      , {json_schema_false, {exact, false}}
       , {json_value, {any_of, [
             {exact, null},
             boolean,
@@ -47,6 +52,11 @@
         }}}
       , {json_schema_null, {struct, #{
             type => {required, {enum, [null]}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_array, {struct, #{
+            type => {required, {enum, [array]}},
+            items => {optional, {alias, {?MODULE, json_schema}}},
             default => {optional, {alias, {?MODULE, json_value}}}
         }}}
       , {json_schema_const, {struct, #{
@@ -83,6 +93,10 @@
 %% Not for production use: generating rules at runtime is for development only.
 %% Generate rules ahead of time and include them in releases.
 -spec from_json_schema(json_schema()) -> #{from_json := klsn_rule:rule(), to_json := klsn_rule:rule()}.
+from_json_schema(true) ->
+    json_rules_from_rule_(term);
+from_json_schema(false) ->
+    json_rules_from_rule_({enum, []});
 from_json_schema(#{type := integer}=Schema) ->
     json_rules_from_rule_(with_default_(Schema, integer));
 from_json_schema(#{type := string}=Schema) ->
@@ -95,6 +109,15 @@ from_json_schema(#{type := float}=Schema) ->
     json_rules_from_rule_(with_default_(Schema, float));
 from_json_schema(#{type := null}=Schema) ->
     json_rules_from_rule_(with_default_(Schema, {exact, null}));
+from_json_schema(#{type := array}=Schema) ->
+    case klsn_map:lookup([items], Schema) of
+        {value, Items} ->
+            #{from_json := FromItem, to_json := ToItem} = from_json_schema(Items),
+            #{from_json => with_default_(Schema, {list, FromItem}),
+              to_json => with_default_(Schema, {list, ToItem})};
+        none ->
+            json_rules_from_rule_(with_default_(Schema, {list, term}))
+    end;
 from_json_schema(#{const := Const}=Schema) ->
     json_rules_from_rule_(with_default_(Schema, {exact, Const}));
 from_json_schema(#{enum := Enum}=Schema) ->
