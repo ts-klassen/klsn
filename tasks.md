@@ -22,10 +22,10 @@ Done definition: we have a test that generates JSON map -> erlang term and erlan
   - [x] Create generator entrypoint that reads a schema and emits rule terms
   - [x] Support type=integer and object with one integer property
   - [x] Add tiny golden tests for JSON to term and term to JSON
-- [ ] Expand rule mapping to cover codex needs
+- [x] Expand rule mapping to cover codex needs
   - [x] Add primitives: string, boolean, number/float, null, enum, const, default
-  - [ ] Add arrays and objects: items, properties, required, additionalProperties policy
-  - [ ] Add combinators: anyOf, allOf, oneOf (custom exact-one rule)
+  - [x] Add arrays and objects: items, properties, required, additionalProperties policy
+  - [x] Add combinators: anyOf, allOf, oneOf (custom exact-one rule)
 - [ ] Validate on codex schema set
   - [ ] Run generator across codex schema files and resolve errors
   - [ ] Add targeted tests for tricky schemas (unions, nested objects, optional fields)

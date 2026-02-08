@@ -17,6 +17,39 @@ boolean_schema_false_generates_reject_rule_test() ->
     ?assertEqual({enum, []}, FromJsonRule),
     ?assertEqual({enum, []}, ToJsonRule).
 
+any_of_schema_generates_any_of_rule_test() ->
+    Schema = #{
+        <<"anyOf">> => [
+            #{<<"type">> => <<"integer">>},
+            #{<<"type">> => <<"string">>}
+        ]
+    },
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({any_of, [integer, binstr]}, FromJsonRule),
+    ?assertEqual({any_of, [integer, binstr]}, ToJsonRule).
+
+all_of_schema_generates_all_of_rule_test() ->
+    Schema = #{
+        <<"allOf">> => [
+            #{<<"type">> => <<"integer">>},
+            #{<<"type">> => <<"number">>}
+        ]
+    },
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({all_of, [integer, number]}, FromJsonRule),
+    ?assertEqual({all_of, [integer, number]}, ToJsonRule).
+
+one_of_schema_generates_any_of_rule_test() ->
+    Schema = #{
+        <<"oneOf">> => [
+            #{<<"type">> => <<"integer">>},
+            #{<<"type">> => <<"string">>}
+        ]
+    },
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({any_of, [integer, binstr]}, FromJsonRule),
+    ?assertEqual({any_of, [integer, binstr]}, ToJsonRule).
+
 string_schema_generates_binstr_rule_test() ->
     Schema = #{<<"type">> => <<"string">>},
     #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
