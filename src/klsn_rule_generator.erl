@@ -3,6 +3,7 @@
 
 -export([
         from_json_schema/1
+      , from_json_schema/2
     ]).
 
 -klsn_rule_alias([
@@ -90,66 +91,75 @@
         }}}
     ]).
 -type json_schema() :: klsn_rule:alias(json_schema).
+-type opts() :: #{}.
 
--klsn_rule_alias({json_schema_rules, {struct, #{
-        from_json => {required, term}
-      , to_json => {required, term}
-    }}}).
+-klsn_rule_alias([
+        {opts_rule, {struct, #{}}}
+      , {json_schema_rules, {struct, #{
+            from_json => {required, term}
+          , to_json => {required, term}
+        }}}
+    ]).
 -type json_schema_rules() :: #{
         from_json => klsn_rule:rule()
       , to_json => klsn_rule:rule()
     }.
 
--klsn_input_rule([{alias, {?MODULE, json_schema}}]).
--klsn_output_rule({alias, {?MODULE, json_schema_rules}}).
 %% @doc
 %% Do not accept JSON Schema from user input; this function uses binary_to_atom/2
 %% when converting property names, which can exhaust the atom table.
 %% Not for production use: generating rules at runtime is for development only.
 %% Generate rules ahead of time and include them in releases.
 -spec from_json_schema(json_schema()) -> #{from_json := klsn_rule:rule(), to_json := klsn_rule:rule()}.
-from_json_schema(true) ->
+from_json_schema(Schema) ->
+    from_json_schema(Schema, #{}).
+
+-klsn_input_rule([{alias, {?MODULE, json_schema}}, {alias, {?MODULE, opts_rule}}]).
+-klsn_output_rule({alias, {?MODULE, json_schema_rules}}).
+-spec from_json_schema(json_schema(), opts()) ->
+    #{from_json := klsn_rule:rule(), to_json := klsn_rule:rule()}.
+from_json_schema(true, _Opts) ->
     json_rules_from_rule_(term);
-from_json_schema(false) ->
+from_json_schema(false, _Opts) ->
     json_rules_from_rule_({enum, []});
-from_json_schema(#{anyOf := Schemas}=Schema) ->
-    {FromRules, ToRules} = json_rule_list_(Schemas),
+from_json_schema(#{anyOf := Schemas}=Schema, Opts) ->
+    {FromRules, ToRules} = json_rule_list_(Schemas, Opts),
     #{from_json => with_default_(Schema, {any_of, FromRules}),
       to_json => with_default_(Schema, {any_of, ToRules})};
-from_json_schema(#{allOf := Schemas}=Schema) ->
-    {FromRules, ToRules} = json_rule_list_(Schemas),
+from_json_schema(#{allOf := Schemas}=Schema, Opts) ->
+    {FromRules, ToRules} = json_rule_list_(Schemas, Opts),
     #{from_json => with_default_(Schema, {all_of, FromRules}),
       to_json => with_default_(Schema, {all_of, ToRules})};
-from_json_schema(#{oneOf := Schemas}=Schema) ->
-    {FromRules, ToRules} = json_rule_list_(Schemas),
+from_json_schema(#{oneOf := Schemas}=Schema, Opts) ->
+    {FromRules, ToRules} = json_rule_list_(Schemas, Opts),
     #{from_json => with_default_(Schema, {any_of, FromRules}),
       to_json => with_default_(Schema, {any_of, ToRules})};
-from_json_schema(#{type := integer}=Schema) ->
+from_json_schema(#{type := integer}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, integer));
-from_json_schema(#{type := string}=Schema) ->
+from_json_schema(#{type := string}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, binstr));
-from_json_schema(#{type := boolean}=Schema) ->
+from_json_schema(#{type := boolean}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, boolean));
-from_json_schema(#{type := number}=Schema) ->
+from_json_schema(#{type := number}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, number));
-from_json_schema(#{type := float}=Schema) ->
+from_json_schema(#{type := float}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, float));
-from_json_schema(#{type := null}=Schema) ->
+from_json_schema(#{type := null}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, {exact, null}));
-from_json_schema(#{type := array}=Schema) ->
+from_json_schema(#{type := array}=Schema, Opts) ->
     case klsn_map:lookup([items], Schema) of
         {value, Items} ->
-            #{from_json := FromItem, to_json := ToItem} = from_json_schema(Items),
+            #{from_json := FromItem, to_json := ToItem} = from_json_schema(Items, Opts),
             #{from_json => with_default_(Schema, {list, FromItem}),
               to_json => with_default_(Schema, {list, ToItem})};
         none ->
             json_rules_from_rule_(with_default_(Schema, {list, term}))
     end;
-from_json_schema(#{const := Const}=Schema) ->
+from_json_schema(#{const := Const}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, {exact, Const}));
-from_json_schema(#{enum := Enum}=Schema) ->
+from_json_schema(#{enum := Enum}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, {enum, Enum}));
-from_json_schema(#{type := object, properties := Properties}=Schema) ->
+from_json_schema(#{type := object, properties := Properties}=Schema, Opts) ->
     Required = maps:get(required, Schema, []),
     PropList = maps:to_list(Properties),
     MissingRequired = lists:filter(fun(Key) ->
@@ -158,7 +168,7 @@ from_json_schema(#{type := object, properties := Properties}=Schema) ->
     case MissingRequired of
         [] ->
             {FromMap, ToMap} = lists:foldl(fun({PropName, PropSchema}, {FromAcc, ToAcc}) ->
-                #{from_json := FromJson, to_json := ToJson} = from_json_schema(PropSchema),
+                #{from_json := FromJson, to_json := ToJson} = from_json_schema(PropSchema, Opts),
                 ReqOpt = case lists:member(PropName, Required) of
                     true -> required;
                     false -> optional
@@ -172,15 +182,15 @@ from_json_schema(#{type := object, properties := Properties}=Schema) ->
         _ ->
             error({klsn_rule_generator, unsupported_schema, Schema})
     end;
-from_json_schema(Schema) ->
+from_json_schema(Schema, _Opts) ->
     error({klsn_rule_generator, unsupported_schema, Schema}).
 
 json_rules_from_rule_(Rule) ->
     #{from_json => Rule, to_json => Rule}.
 
-json_rule_list_(Schemas) ->
+json_rule_list_(Schemas, Opts) ->
     {FromRev, ToRev} = lists:foldl(fun(ItemSchema, {FromAcc, ToAcc}) ->
-        #{from_json := FromRule, to_json := ToRule} = from_json_schema(ItemSchema),
+        #{from_json := FromRule, to_json := ToRule} = from_json_schema(ItemSchema, Opts),
         {[FromRule|FromAcc], [ToRule|ToAcc]}
     end, {[], []}, Schemas),
     {lists:reverse(FromRev), lists:reverse(ToRev)}.
