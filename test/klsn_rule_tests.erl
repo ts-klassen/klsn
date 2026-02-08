@@ -223,7 +223,7 @@ optnl_rule_test() ->
         {normalized, {value, 123}, {invalid, optnl, 123}}
       , klsn_rule:eval({optnl, integer}, 123)
     ),
-    ?assertEqual({reject, {invalid, optnl, {maybe, 1}}}, klsn_rule:eval({optnl, integer}, {maybe, 1})).
+    ?assertEqual({reject, {invalid, optnl, {my_maybe_monad, 1}}}, klsn_rule:eval({optnl, integer}, {my_maybe_monad, 1})).
 
 nullable_integer_rule_test() ->
     ?assertEqual({valid, null}, klsn_rule:eval({nullable, integer}, null)),
