@@ -1,15 +1,27 @@
 -module(klsn_rule_generator).
-
--export([from_json_schema/1]).
-
 -include_lib("klsn/include/klsn_rule_annotation.hrl").
 
--define(JSON_SCHEMA_RULE, {struct, #{type => {required, {enum, [integer]}}}}).
+-export([
+        from_json_schema/1
+    ]).
 
--type json_schema() :: map().
+-klsn_rule_alias({json_schema, {struct, #{
+        type => {required, {enum, [integer]}}
+    }}}).
+-type json_schema() :: klsn_rule:alias(json_schema).
 
+-klsn_rule_alias({json_schema_rules, {struct, #{
+        from_json => {required, term}
+      , to_json => {required, term}
+    }}}).
+-type json_schema_rules() :: #{
+        from_json => klsn_rule:rule()
+      , to_json => klsn_rule:rule()
+    }.
+
+-klsn_input_rule([{alias, {?MODULE, json_schema}}]).
+-klsn_output_rule({alias, {?MODULE, json_schema_rules}}).
 -spec from_json_schema(json_schema()) -> #{from_json := klsn_rule:rule(), to_json := klsn_rule:rule()}.
--klsn_input_rule([?JSON_SCHEMA_RULE]).
 from_json_schema(#{type := integer}) ->
     #{from_json => integer, to_json => integer};
 from_json_schema(Schema) ->

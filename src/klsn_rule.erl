@@ -40,6 +40,8 @@
       , input/0
       , output/0
       , alias/0
+      , alias/1
+      , alias/2
       , alias_ref/0
       , custom/0
       , acc/0
@@ -56,6 +58,10 @@
 -type output() :: term().
 
 -type alias() :: atom().
+
+%% Just to define a type by using an rule alias.
+-type alias(_AliasName) :: term().
+-type alias(_Module, _AliasName) :: term().
 
 -type alias_ref() :: {module(), alias()}.
 
