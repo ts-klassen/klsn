@@ -19,8 +19,8 @@ Done definition: we have a test that generates JSON map -> erlang term and erlan
   - [ ] Add registry/caching for named schemas and cycle detection
   - [ ] Inventory codex schemas for used features and edge cases
 - [ ] Implement minimal generator (integer-only milestone)
-  - [ ] Create generator entrypoint that reads a schema and emits rule terms
-  - [ ] Support type=integer and object with one integer property
+  - [x] Create generator entrypoint that reads a schema and emits rule terms
+  - [x] Support type=integer and object with one integer property
   - [ ] Add tiny golden tests for JSON to term and term to JSON
 - [ ] Expand rule mapping to cover codex needs
   - [ ] Add primitives: string, boolean, number/float, null, enum, const, default
