@@ -18,6 +18,7 @@
       , float_rule/2
       , number_rule/2
       , range_rule/2
+      , type_rule/2
       , timeout_rule/2
       , binstr_rule/2
       , atom_rule/2
@@ -38,6 +39,7 @@
         name/0
       , input/0
       , output/0
+      , type_ref/0
       , custom/0
       , acc/0
       , rule/0
@@ -52,6 +54,8 @@
 
 -type output() :: term().
 
+-type type_ref() :: {module(), atom(), non_neg_integer()}.
+
 -type custom() :: fun( (input(), acc()) -> result() ).
 
 -type acc() :: term().
@@ -65,6 +69,7 @@
               | float
               | number
               | {range, range_(rule())}
+              | {type, {type_ref(), [term()]}}
               | timeout
               | binstr
               | atom
@@ -94,6 +99,8 @@
                 | {invalid_map_key, reason()}
                 | {invalid_map_value, Key::term(), reason()}
                 | {map_key_conflict, Key::term()}
+                | {invalid_type, type_ref(), reason()}
+                | {undefined_type, type_ref(), input()}
                 | {invalid_struct_field, term()}
                 | {invalid_struct_value, atom(), reason()}
                 | {missing_required_field, atom()}
@@ -647,6 +654,54 @@ range_rule(Input, {Lower, Op1, Subject, Op2, Upper})
     end;
 range_rule(_, _) ->
     reject.
+
+%% @doc
+%% Resolve and evaluate a named type rule declared via -klsn_type_rule.
+%%
+%% Rule form: {type, {TypeRef, Args}} where TypeRef is {Module, Name, Arity}
+%% and Args are currently ignored but reserved for future use.
+%%
+%% Result (eval/2):
+%% - valid when the named rule validates.
+%% - normalized when the named rule normalizes; reason is
+%%   {invalid_type, TypeRef, Reason}.
+%% - reject when the named rule rejects; reason is
+%%   {invalid_type, TypeRef, Reason}.
+%% - reject with {undefined_type, TypeRef, Input} when missing.
+%% - reject with {invalid, type, Input} when TypeSpec is malformed.
+%%
+%% Examples:
+%% ```
+%% 1> MyType = {my_mod, my_type, 0}.
+%% 2> klsn_rule:eval({type, {MyType, []}}, 42).
+%% {valid, 42}
+%% 3> klsn_rule:eval({type, {MyType, []}}, <<"42">>).
+%% {normalized, 42, {invalid_type, MyType, {invalid, integer, <<"42">>}}}
+%% '''
+%% @see lookup_type/1
+%% @see eval/2
+-spec type_rule(input(), acc()) -> result().
+type_rule(Input, {{Module, Name, Arity}=TypeRef, Args})
+    when is_atom(Module), is_atom(Name), is_integer(Arity), is_list(Args) ->
+    type_rule_eval_(Input, TypeRef);
+type_rule(_, _) ->
+    reject.
+
+-spec type_rule_eval_(input(), term()) -> result().
+type_rule_eval_(Input, TypeRef) ->
+    case lookup_type(TypeRef) of
+        {value, Rule} ->
+            case eval(Rule, Input) of
+                {valid, Output} ->
+                    {valid, Output};
+                {normalized, Output, Reason} ->
+                    {normalized, Output, {invalid_type, TypeRef, Reason}};
+                {reject, Reason} ->
+                    {reject, {invalid_type, TypeRef, Reason}}
+            end;
+        none ->
+            {reject, {undefined_type, TypeRef, Input}}
+    end.
 
 %% @doc
 %% Validate timeout input for validate/2, normalize/2, and eval/2.

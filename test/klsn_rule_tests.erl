@@ -8,40 +8,10 @@
 
 -klsn_type_rule([
         {my_type3, binstr}
-      , {my_type4, {optnl, {type, {klsn_rule_tests, my_type1, 0}}}}
+      , {my_type4, {optnl, {type, {{klsn_rule_tests, my_type1, 0}, []}}}}
     ]).
 
 -klsn_type_rule({my_type5, boolean}).
-
-lookup_type_test() ->
-    ?assertEqual(
-        {value, integer}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type1, 0})
-    ),
-    ?assertEqual(
-        {value, float}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type2, 0})
-    ),
-    ?assertEqual(
-        {value, binstr}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type3, 0})
-    ),
-    ?assertEqual(
-        {value, {optnl, {type, {klsn_rule_tests, my_type1, 0}}}}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type4, 0})
-    ),
-    ?assertEqual(
-        {value, boolean}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type5, 0})
-    ),
-    ?assertEqual(
-        none
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type6, 0})
-    ),
-    ?assertEqual(
-        none
-      , klsn_rule:lookup_type(invalid_input)
-    ).
 
 term_rule_test() ->
     Term = {make_ref(), self(), #{}, [], klsn_rule:module_info()},
@@ -587,6 +557,72 @@ range_rule_test() ->
     ?assertEqual(
         {reject, {invalid, range, 3}}
       , klsn_rule:eval({range, {1, number, 5}}, 3)
+    ).
+
+klsn_type_rule_test() ->
+    MyType1 = {klsn_rule_tests, my_type1, 0},
+    MyType4 = {klsn_rule_tests, my_type4, 0},
+    ?assertEqual(
+        {valid, 42}
+      , klsn_rule:eval({type, {MyType1, []}}, 42)
+    ),
+    ?assertEqual(
+        {normalized, 42, {invalid_type, MyType1, {invalid, integer, <<"42">>}}}
+      , klsn_rule:eval({type, {MyType1, []}}, <<"42">>)
+    ),
+    ?assertEqual(
+        {reject, {invalid_type, MyType1, {invalid, integer, <<"a">>}}}
+      , klsn_rule:eval({type, {MyType1, []}}, <<"a">>)
+    ),
+    ?assertEqual(
+        {valid, {value, 42}}
+      , klsn_rule:eval({type, {MyType4, []}}, {value, 42})
+    ),
+    ?assertEqual(
+        {normalized, {value, 42}, {invalid_type, MyType4, {invalid_optnl_value, {invalid_type, MyType1, {invalid, integer, <<"42">>}}}}}
+      , klsn_rule:eval({type, {MyType4, []}}, {value, <<"42">>})
+    ),
+    ?assertEqual(
+        {reject, {invalid_type, MyType4, {invalid_optnl_value, {invalid_type, MyType1, {invalid, integer, <<"a">>}}}}}
+      , klsn_rule:eval({type, {MyType4, []}}, {value, <<"a">>})
+    ),
+    ?assertEqual(
+        {reject, {undefined_type, {non_a_type, missing, 0}, 42}}
+      , klsn_rule:eval({type, {{non_a_type, missing, 0}, []}}, 42)
+    ),
+    ?assertEqual(
+        {reject, {invalid, type, 42}}
+      , klsn_rule:eval({type, bad_type}, 42)
+    ).
+
+lookup_type_test() ->
+    ?assertEqual(
+        {value, integer}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type1, 0})
+    ),
+    ?assertEqual(
+        {value, float}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type2, 0})
+    ),
+    ?assertEqual(
+        {value, binstr}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type3, 0})
+    ),
+    ?assertEqual(
+        {value, {optnl, {type, {{klsn_rule_tests, my_type1, 0}, []}}}}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type4, 0})
+    ),
+    ?assertEqual(
+        {value, boolean}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type5, 0})
+    ),
+    ?assertEqual(
+        none
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type6, 0})
+    ),
+    ?assertEqual(
+        none
+      , klsn_rule:lookup_type(invalid_input)
     ).
 
 validate_test() ->
