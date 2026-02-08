@@ -5,7 +5,7 @@
         validate/2
       , normalize/2
       , eval/2
-      , lookup_type/1
+      , lookup_alias/1
     ]).
 
 %% builtin rules
@@ -18,7 +18,7 @@
       , float_rule/2
       , number_rule/2
       , range_rule/2
-      , type_rule/2
+      , alias_rule/2
       , timeout_rule/2
       , binstr_rule/2
       , atom_rule/2
@@ -39,7 +39,8 @@
         name/0
       , input/0
       , output/0
-      , type_ref/0
+      , alias/0
+      , alias_ref/0
       , custom/0
       , acc/0
       , rule/0
@@ -54,7 +55,9 @@
 
 -type output() :: term().
 
--type type_ref() :: {module(), atom(), non_neg_integer()}.
+-type alias() :: atom().
+
+-type alias_ref() :: {module(), alias()}.
 
 -type custom() :: fun( (input(), acc()) -> result() ).
 
@@ -69,7 +72,7 @@
               | float
               | number
               | {range, range_(rule())}
-              | {type, {type_ref(), [term()]}}
+              | {alias, alias_ref()}
               | timeout
               | binstr
               | atom
@@ -99,8 +102,8 @@
                 | {invalid_map_key, reason()}
                 | {invalid_map_value, Key::term(), reason()}
                 | {map_key_conflict, Key::term()}
-                | {invalid_type, type_ref(), reason()}
-                | {undefined_type, type_ref(), input()}
+                | {invalid_alias, alias_ref(), reason()}
+                | {undefined_alias, alias_ref(), input()}
                 | {invalid_struct_field, term()}
                 | {invalid_struct_value, atom(), reason()}
                 | {missing_required_field, atom()}
@@ -130,35 +133,35 @@
                        .
 
 %% @doc
-%% Lookup a named type rule declared via -klsn_type_rule in a module.
+%% Lookup a named rule alias declared via -klsn_rule_alias in a module.
 %%
 %% Returns {value, Rule} when found, otherwise none.
 %%
 %% Examples:
 %% ```
-%% 1> klsn_rule:lookup_type({my_mod, my_type, 0}).
+%% 1> klsn_rule:lookup_alias({my_mod, my_alias}).
 %% {value, integer}
-%% 2> klsn_rule:lookup_type({my_mod, missing, 0}).
+%% 2> klsn_rule:lookup_alias({my_mod, missing}).
 %% none
 %% '''
--spec lookup_type({atom(), atom(), non_neg_integer()}) -> klsn:optnl(rule()).
-lookup_type({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
+-spec lookup_alias(alias_ref()) -> klsn:optnl(rule()).
+lookup_alias({Module, Alias}) when is_atom(Module), is_atom(Alias) ->
     try Module:module_info(attributes) of
         Attrs ->
-            TypeRules0 = proplists:lookup_all(klsn_type_rule, Attrs),
-            TypeRules1 = lists:map(fun
+            AliasRules0 = proplists:lookup_all(klsn_rule_alias, Attrs),
+            AliasRules1 = lists:map(fun
                 ({_, RuleEntries}) when is_list(RuleEntries) ->
                     RuleEntries;
                 ({_, RuleEntry}) ->
                     [RuleEntry]
-            end, TypeRules0),
-            TypeRules = lists:concat(TypeRules1),
+            end, AliasRules0),
+            AliasRules = lists:concat(AliasRules1),
             case lists:search(fun
-                ({RuleName0, _Rule0}) when RuleName0 =:= Name ->
+                ({RuleName0, _Rule0}) when RuleName0 =:= Alias ->
                     true;
                 (_) ->
                     false
-            end, TypeRules) of
+            end, AliasRules) of
                 {value, {_, RuleValue}} ->
                     {value, RuleValue};
                 false ->
@@ -167,7 +170,7 @@ lookup_type({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integ
     catch _:_ ->
         none
     end;
-lookup_type(_Arg1) ->
+lookup_alias(_Arg1) ->
     none.
 
 %% @doc
@@ -656,51 +659,50 @@ range_rule(_, _) ->
     reject.
 
 %% @doc
-%% Resolve and evaluate a named type rule declared via -klsn_type_rule.
+%% Resolve and evaluate a named rule alias declared via -klsn_rule_alias.
 %%
-%% Rule form: {type, {TypeRef, Args}} where TypeRef is {Module, Name, Arity}
-%% and Args are currently ignored but reserved for future use.
+%% Rule form: {alias, AliasRef} where AliasRef is {Module, Alias}.
 %%
 %% Result (eval/2):
 %% - valid when the named rule validates.
 %% - normalized when the named rule normalizes; reason is
-%%   {invalid_type, TypeRef, Reason}.
+%%   {invalid_alias, AliasRef, Reason}.
 %% - reject when the named rule rejects; reason is
-%%   {invalid_type, TypeRef, Reason}.
-%% - reject with {undefined_type, TypeRef, Input} when missing.
-%% - reject with {invalid, type, Input} when TypeSpec is malformed.
+%%   {invalid_alias, AliasRef, Reason}.
+%% - reject with {undefined_alias, AliasRef, Input} when missing.
+%% - reject with {invalid, alias, Input} when AliasRef is malformed.
 %%
 %% Examples:
 %% ```
-%% 1> MyType = {my_mod, my_type, 0}.
-%% 2> klsn_rule:eval({type, {MyType, []}}, 42).
+%% 1> MyAlias = {my_mod, my_alias}.
+%% 2> klsn_rule:eval({alias, MyAlias}, 42).
 %% {valid, 42}
-%% 3> klsn_rule:eval({type, {MyType, []}}, <<"42">>).
-%% {normalized, 42, {invalid_type, MyType, {invalid, integer, <<"42">>}}}
+%% 3> klsn_rule:eval({alias, MyAlias}, <<"42">>).
+%% {normalized, 42, {invalid_alias, MyAlias, {invalid, integer, <<"42">>}}}
 %% '''
-%% @see lookup_type/1
+%% @see lookup_alias/1
 %% @see eval/2
--spec type_rule(input(), acc()) -> result().
-type_rule(Input, {{Module, Name, Arity}=TypeRef, Args})
-    when is_atom(Module), is_atom(Name), is_integer(Arity), is_list(Args) ->
-    type_rule_eval_(Input, TypeRef);
-type_rule(_, _) ->
+-spec alias_rule(input(), acc()) -> result().
+alias_rule(Input, {Module, Alias}=AliasRef)
+    when is_atom(Module), is_atom(Alias) ->
+    alias_rule_eval_(Input, AliasRef);
+alias_rule(_, _) ->
     reject.
 
--spec type_rule_eval_(input(), term()) -> result().
-type_rule_eval_(Input, TypeRef) ->
-    case lookup_type(TypeRef) of
+-spec alias_rule_eval_(input(), alias_ref()) -> result().
+alias_rule_eval_(Input, AliasRef) ->
+    case lookup_alias(AliasRef) of
         {value, Rule} ->
             case eval(Rule, Input) of
                 {valid, Output} ->
                     {valid, Output};
                 {normalized, Output, Reason} ->
-                    {normalized, Output, {invalid_type, TypeRef, Reason}};
+                    {normalized, Output, {invalid_alias, AliasRef, Reason}};
                 {reject, Reason} ->
-                    {reject, {invalid_type, TypeRef, Reason}}
+                    {reject, {invalid_alias, AliasRef, Reason}}
             end;
         none ->
-            {reject, {undefined_type, TypeRef, Input}}
+            {reject, {undefined_alias, AliasRef, Input}}
     end.
 
 %% @doc

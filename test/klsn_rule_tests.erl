@@ -1,17 +1,17 @@
 -module(klsn_rule_tests).
 -include_lib("eunit/include/eunit.hrl").
 
--klsn_type_rule([
-        {my_type1, integer}
-      , {my_type2, float}
+-klsn_rule_alias([
+        {my_alias1, integer}
+      , {my_alias2, float}
     ]).
 
--klsn_type_rule([
-        {my_type3, binstr}
-      , {my_type4, {optnl, {type, {{klsn_rule_tests, my_type1, 0}, []}}}}
+-klsn_rule_alias([
+        {my_alias3, binstr}
+      , {my_alias4, {optnl, {alias, {klsn_rule_tests, my_alias1}}}}
     ]).
 
--klsn_type_rule({my_type5, boolean}).
+-klsn_rule_alias({my_alias5, boolean}).
 
 term_rule_test() ->
     Term = {make_ref(), self(), #{}, [], klsn_rule:module_info()},
@@ -559,70 +559,70 @@ range_rule_test() ->
       , klsn_rule:eval({range, {1, number, 5}}, 3)
     ).
 
-klsn_type_rule_test() ->
-    MyType1 = {klsn_rule_tests, my_type1, 0},
-    MyType4 = {klsn_rule_tests, my_type4, 0},
+klsn_rule_alias_test() ->
+    MyAlias1 = {klsn_rule_tests, my_alias1},
+    MyAlias4 = {klsn_rule_tests, my_alias4},
     ?assertEqual(
         {valid, 42}
-      , klsn_rule:eval({type, {MyType1, []}}, 42)
+      , klsn_rule:eval({alias, MyAlias1}, 42)
     ),
     ?assertEqual(
-        {normalized, 42, {invalid_type, MyType1, {invalid, integer, <<"42">>}}}
-      , klsn_rule:eval({type, {MyType1, []}}, <<"42">>)
+        {normalized, 42, {invalid_alias, MyAlias1, {invalid, integer, <<"42">>}}}
+      , klsn_rule:eval({alias, MyAlias1}, <<"42">>)
     ),
     ?assertEqual(
-        {reject, {invalid_type, MyType1, {invalid, integer, <<"a">>}}}
-      , klsn_rule:eval({type, {MyType1, []}}, <<"a">>)
+        {reject, {invalid_alias, MyAlias1, {invalid, integer, <<"a">>}}}
+      , klsn_rule:eval({alias, MyAlias1}, <<"a">>)
     ),
     ?assertEqual(
         {valid, {value, 42}}
-      , klsn_rule:eval({type, {MyType4, []}}, {value, 42})
+      , klsn_rule:eval({alias, MyAlias4}, {value, 42})
     ),
     ?assertEqual(
-        {normalized, {value, 42}, {invalid_type, MyType4, {invalid_optnl_value, {invalid_type, MyType1, {invalid, integer, <<"42">>}}}}}
-      , klsn_rule:eval({type, {MyType4, []}}, {value, <<"42">>})
+        {normalized, {value, 42}, {invalid_alias, MyAlias4, {invalid_optnl_value, {invalid_alias, MyAlias1, {invalid, integer, <<"42">>}}}}}
+      , klsn_rule:eval({alias, MyAlias4}, {value, <<"42">>})
     ),
     ?assertEqual(
-        {reject, {invalid_type, MyType4, {invalid_optnl_value, {invalid_type, MyType1, {invalid, integer, <<"a">>}}}}}
-      , klsn_rule:eval({type, {MyType4, []}}, {value, <<"a">>})
+        {reject, {invalid_alias, MyAlias4, {invalid_optnl_value, {invalid_alias, MyAlias1, {invalid, integer, <<"a">>}}}}}
+      , klsn_rule:eval({alias, MyAlias4}, {value, <<"a">>})
     ),
     ?assertEqual(
-        {reject, {undefined_type, {non_a_type, missing, 0}, 42}}
-      , klsn_rule:eval({type, {{non_a_type, missing, 0}, []}}, 42)
+        {reject, {undefined_alias, {non_a_module, missing_alias}, 42}}
+      , klsn_rule:eval({alias, {non_a_module, missing_alias}}, 42)
     ),
     ?assertEqual(
-        {reject, {invalid, type, 42}}
-      , klsn_rule:eval({type, bad_type}, 42)
+        {reject, {invalid, alias, 42}}
+      , klsn_rule:eval({alias, bad_alias}, 42)
     ).
 
-lookup_type_test() ->
+lookup_alias_test() ->
     ?assertEqual(
         {value, integer}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type1, 0})
+      , klsn_rule:lookup_alias({klsn_rule_tests, my_alias1})
     ),
     ?assertEqual(
         {value, float}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type2, 0})
+      , klsn_rule:lookup_alias({klsn_rule_tests, my_alias2})
     ),
     ?assertEqual(
         {value, binstr}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type3, 0})
+      , klsn_rule:lookup_alias({klsn_rule_tests, my_alias3})
     ),
     ?assertEqual(
-        {value, {optnl, {type, {{klsn_rule_tests, my_type1, 0}, []}}}}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type4, 0})
+        {value, {optnl, {alias, {klsn_rule_tests, my_alias1}}}}
+      , klsn_rule:lookup_alias({klsn_rule_tests, my_alias4})
     ),
     ?assertEqual(
         {value, boolean}
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type5, 0})
+      , klsn_rule:lookup_alias({klsn_rule_tests, my_alias5})
     ),
     ?assertEqual(
         none
-      , klsn_rule:lookup_type({klsn_rule_tests, my_type6, 0})
+      , klsn_rule:lookup_alias({klsn_rule_tests, my_alias6})
     ),
     ?assertEqual(
         none
-      , klsn_rule:lookup_type(invalid_input)
+      , klsn_rule:lookup_alias(invalid_input)
     ).
 
 validate_test() ->
