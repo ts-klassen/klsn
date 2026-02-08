@@ -7,6 +7,54 @@ integer_schema_generates_integer_rule_test() ->
     ?assertEqual(integer, FromJsonRule),
     ?assertEqual(integer, ToJsonRule).
 
+string_schema_generates_binstr_rule_test() ->
+    Schema = #{<<"type">> => <<"string">>},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual(binstr, FromJsonRule),
+    ?assertEqual(binstr, ToJsonRule).
+
+boolean_schema_generates_boolean_rule_test() ->
+    Schema = #{<<"type">> => <<"boolean">>},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual(boolean, FromJsonRule),
+    ?assertEqual(boolean, ToJsonRule).
+
+number_schema_generates_number_rule_test() ->
+    Schema = #{<<"type">> => <<"number">>},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual(number, FromJsonRule),
+    ?assertEqual(number, ToJsonRule).
+
+float_schema_generates_float_rule_test() ->
+    Schema = #{<<"type">> => <<"float">>},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual(float, FromJsonRule),
+    ?assertEqual(float, ToJsonRule).
+
+null_schema_generates_null_rule_test() ->
+    Schema = #{<<"type">> => <<"null">>},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({exact, null}, FromJsonRule),
+    ?assertEqual({exact, null}, ToJsonRule).
+
+enum_schema_generates_enum_rule_test() ->
+    Schema = #{<<"enum">> => [<<"a">>, <<"b">>]},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({enum, [<<"a">>, <<"b">>]}, FromJsonRule),
+    ?assertEqual({enum, [<<"a">>, <<"b">>]}, ToJsonRule).
+
+const_schema_generates_exact_rule_test() ->
+    Schema = #{<<"const">> => <<"ok">>},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({exact, <<"ok">>}, FromJsonRule),
+    ?assertEqual({exact, <<"ok">>}, ToJsonRule).
+
+default_schema_wraps_rule_test() ->
+    Schema = #{<<"type">> => <<"boolean">>, <<"default">> => false},
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    ?assertEqual({default, {false, boolean}}, FromJsonRule),
+    ?assertEqual({default, {false, boolean}}, ToJsonRule).
+
 object_schema_generates_struct_rule_test() ->
     Schema = #{
         <<"type">> => <<"object">>,

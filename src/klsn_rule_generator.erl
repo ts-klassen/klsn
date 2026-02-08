@@ -8,15 +8,60 @@
 -klsn_rule_alias([
         {json_schema, {any_of, [
             {alias, {?MODULE, json_schema_integer}},
+            {alias, {?MODULE, json_schema_string}},
+            {alias, {?MODULE, json_schema_boolean}},
+            {alias, {?MODULE, json_schema_number}},
+            {alias, {?MODULE, json_schema_float}},
+            {alias, {?MODULE, json_schema_null}},
+            {alias, {?MODULE, json_schema_const}},
+            {alias, {?MODULE, json_schema_enum}},
             {alias, {?MODULE, json_schema_object}}
         ]}}
+      , {json_value, {any_of, [
+            {exact, null},
+            boolean,
+            number,
+            binstr,
+            {list, {alias, {?MODULE, json_value}}},
+            {map, {binstr, {alias, {?MODULE, json_value}}}}
+        ]}}
       , {json_schema_integer, {struct, #{
-            type => {required, {enum, [integer]}}
+            type => {required, {enum, [integer]}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_string, {struct, #{
+            type => {required, {enum, [string]}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_boolean, {struct, #{
+            type => {required, {enum, [boolean]}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_number, {struct, #{
+            type => {required, {enum, [number]}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_float, {struct, #{
+            type => {required, {enum, [float]}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_null, {struct, #{
+            type => {required, {enum, [null]}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_const, {struct, #{
+            const => {required, {any_of, [{exact, null}, boolean, number, binstr]}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_enum, {struct, #{
+            enum => {required, {list, binstr}},
+            default => {optional, {alias, {?MODULE, json_value}}}
         }}}
       , {json_schema_object, {struct, #{
             type => {required, {enum, [object]}}
           , properties => {required, {map, {binstr, {alias, {?MODULE, json_schema}}}}}
           , required => {optional, {list, binstr}}
+          , default => {optional, {alias, {?MODULE, json_value}}}
         }}}
     ]).
 -type json_schema() :: klsn_rule:alias(json_schema).
@@ -38,8 +83,22 @@
 %% Not for production use: generating rules at runtime is for development only.
 %% Generate rules ahead of time and include them in releases.
 -spec from_json_schema(json_schema()) -> #{from_json := klsn_rule:rule(), to_json := klsn_rule:rule()}.
-from_json_schema(#{type := integer}) ->
-    #{from_json => integer, to_json => integer};
+from_json_schema(#{type := integer}=Schema) ->
+    json_rules_from_rule_(with_default_(Schema, integer));
+from_json_schema(#{type := string}=Schema) ->
+    json_rules_from_rule_(with_default_(Schema, binstr));
+from_json_schema(#{type := boolean}=Schema) ->
+    json_rules_from_rule_(with_default_(Schema, boolean));
+from_json_schema(#{type := number}=Schema) ->
+    json_rules_from_rule_(with_default_(Schema, number));
+from_json_schema(#{type := float}=Schema) ->
+    json_rules_from_rule_(with_default_(Schema, float));
+from_json_schema(#{type := null}=Schema) ->
+    json_rules_from_rule_(with_default_(Schema, {exact, null}));
+from_json_schema(#{const := Const}=Schema) ->
+    json_rules_from_rule_(with_default_(Schema, {exact, Const}));
+from_json_schema(#{enum := Enum}=Schema) ->
+    json_rules_from_rule_(with_default_(Schema, {enum, Enum}));
 from_json_schema(#{type := object, properties := Properties}=Schema) ->
     Required = maps:get(required, Schema, []),
     PropList = maps:to_list(Properties),
@@ -58,9 +117,21 @@ from_json_schema(#{type := object, properties := Properties}=Schema) ->
                 {maps:put(Field, {ReqOpt, FromJson}, FromAcc),
                  maps:put(Field, {ReqOpt, ToJson}, ToAcc)}
             end, {#{}, #{}}, PropList),
-            #{from_json => {struct, FromMap}, to_json => {struct, ToMap}};
+            #{from_json => with_default_(Schema, {struct, FromMap}),
+              to_json => with_default_(Schema, {struct, ToMap})};
         _ ->
             error({klsn_rule_generator, unsupported_schema, Schema})
     end;
 from_json_schema(Schema) ->
     error({klsn_rule_generator, unsupported_schema, Schema}).
+
+json_rules_from_rule_(Rule) ->
+    #{from_json => Rule, to_json => Rule}.
+
+with_default_(Schema, Rule) ->
+    case klsn_map:lookup([default], Schema) of
+        {value, Default} ->
+            {default, {Default, Rule}};
+        none ->
+            Rule
+    end.

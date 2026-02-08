@@ -23,7 +23,7 @@ Done definition: we have a test that generates JSON map -> erlang term and erlan
   - [x] Support type=integer and object with one integer property
   - [x] Add tiny golden tests for JSON to term and term to JSON
 - [ ] Expand rule mapping to cover codex needs
-  - [ ] Add primitives: string, boolean, number/float, null, enum, const, default
+  - [x] Add primitives: string, boolean, number/float, null, enum, const, default
   - [ ] Add arrays and objects: items, properties, required, additionalProperties policy
   - [ ] Add combinators: anyOf, allOf, oneOf (custom exact-one rule)
 - [ ] Validate on codex schema set
