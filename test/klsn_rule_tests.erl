@@ -1,6 +1,48 @@
 -module(klsn_rule_tests).
 -include_lib("eunit/include/eunit.hrl").
 
+-klsn_type_rule([
+        {my_type1, integer}
+      , {my_type2, float}
+    ]).
+
+-klsn_type_rule([
+        {my_type3, binstr}
+      , {my_type4, {optnl, {type, {klsn_rule_tests, my_type1, 0}}}}
+    ]).
+
+-klsn_type_rule({my_type5, boolean}).
+
+lookup_type_test() ->
+    ?assertEqual(
+        {value, integer}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type1, 0})
+    ),
+    ?assertEqual(
+        {value, float}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type2, 0})
+    ),
+    ?assertEqual(
+        {value, binstr}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type3, 0})
+    ),
+    ?assertEqual(
+        {value, {optnl, {type, {klsn_rule_tests, my_type1, 0}}}}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type4, 0})
+    ),
+    ?assertEqual(
+        {value, boolean}
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type5, 0})
+    ),
+    ?assertEqual(
+        none
+      , klsn_rule:lookup_type({klsn_rule_tests, my_type6, 0})
+    ),
+    ?assertEqual(
+        none
+      , klsn_rule:lookup_type(invalid_input)
+    ).
+
 term_rule_test() ->
     Term = {make_ref(), self(), #{}, [], klsn_rule:module_info()},
     ?assertEqual({valid, Term}, klsn_rule:eval(term, Term)).

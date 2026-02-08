@@ -5,6 +5,7 @@
         validate/2
       , normalize/2
       , eval/2
+      , lookup_type/1
     ]).
 
 %% builtin rules
@@ -120,6 +121,47 @@
                        | {Subject, '<' | '=<', number()}
                        | {number(), '<' | '=<', Subject, '<' | '=<', number()}
                        .
+
+%% @doc
+%% Lookup a named type rule declared via -klsn_type_rule in a module.
+%%
+%% Returns {value, Rule} when found, otherwise none.
+%%
+%% Examples:
+%% ```
+%% 1> klsn_rule:lookup_type({my_mod, my_type, 0}).
+%% {value, integer}
+%% 2> klsn_rule:lookup_type({my_mod, missing, 0}).
+%% none
+%% '''
+-spec lookup_type({atom(), atom(), non_neg_integer()}) -> klsn:optnl(rule()).
+lookup_type({Module, Name, Arity}) when is_atom(Module), is_atom(Name), is_integer(Arity) ->
+    try Module:module_info(attributes) of
+        Attrs ->
+            TypeRules0 = proplists:lookup_all(klsn_type_rule, Attrs),
+            TypeRules1 = lists:map(fun
+                ({_, RuleEntries}) when is_list(RuleEntries) ->
+                    RuleEntries;
+                ({_, RuleEntry}) ->
+                    [RuleEntry]
+            end, TypeRules0),
+            TypeRules = lists:concat(TypeRules1),
+            case lists:search(fun
+                ({RuleName0, _Rule0}) when RuleName0 =:= Name ->
+                    true;
+                (_) ->
+                    false
+            end, TypeRules) of
+                {value, {_, RuleValue}} ->
+                    {value, RuleValue};
+                false ->
+                    none
+            end
+    catch _:_ ->
+        none
+    end;
+lookup_type(_Arg1) ->
+    none.
 
 %% @doc
 %% Validate an input against a rule.
