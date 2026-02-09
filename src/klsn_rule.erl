@@ -44,7 +44,7 @@
       , alias/2
       , alias_ref/0
       , custom/0
-      , acc/0
+      , rule_param/0
       , rule/0
       , reason/0
       , result/0
@@ -65,11 +65,11 @@
 
 -type alias_ref() :: {module(), alias()}.
 
--type custom() :: fun( (input(), acc()) -> result() ).
+-type custom() :: fun( (input(), rule_param()) -> result() ).
 
--type acc() :: term().
+-type rule_param() :: term().
 
--type rule() :: {custom, name(), custom(), acc()}
+-type rule() :: {custom, name(), custom(), rule_param()}
               | term
               | {exact, term()}
               | {default, {output(), rule()}}
@@ -256,12 +256,12 @@ normalize(Rule, Input) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec term_rule(input(), acc()) -> result().
-term_rule(_Input, _Acc) ->
+-spec term_rule(input(), rule_param()) -> result().
+term_rule(_Input, _Param) ->
     valid.
 
 %% @doc
-%% Match an input against the exact accumulator value.
+%% Match an input against the exact rule parameter value.
 %%
 %% Rule form: {exact, Exact}.
 %%
@@ -288,7 +288,7 @@ term_rule(_Input, _Acc) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec exact_rule(input(), acc()) -> result().
+-spec exact_rule(input(), rule_param()) -> result().
 exact_rule(Input, Exact) ->
     case Input =:= Exact of
         true ->
@@ -309,7 +309,7 @@ exact_rule(Input, Exact) ->
 %%   {normalized, Output, Reason}.
 %% - normalized: {normalized, Default, Reason} when Rule returns
 %%   {reject, Reason}.
-%% - reject: {reject, {invalid, default, Input}} when the accumulator is not
+%% - reject: {reject, {invalid, default, Input}} when the rule parameter is not
 %%   {Default, Rule}.
 %%
 %% Reason handling:
@@ -336,7 +336,7 @@ exact_rule(Input, Exact) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec default_rule(input(), acc()) -> result().
+-spec default_rule(input(), rule_param()) -> result().
 default_rule(Input, {Default, Rule}) ->
     case eval(Rule, Input) of
         {valid, Output} ->
@@ -389,8 +389,8 @@ default_rule(_, _) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec boolean_rule(input(), acc()) -> result().
-boolean_rule(Input, _Acc) ->
+-spec boolean_rule(input(), rule_param()) -> result().
+boolean_rule(Input, _Param) ->
     do(
         fun is_boolean/1
       , [fun
@@ -438,8 +438,8 @@ boolean_rule(Input, _Acc) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec integer_rule(input(), acc()) -> result().
-integer_rule(Input, _Acc) ->
+-spec integer_rule(input(), rule_param()) -> result().
+integer_rule(Input, _Param) ->
     do(
         fun is_integer/1
       , [fun binary_to_integer/1, fun list_to_integer/1]
@@ -474,8 +474,8 @@ integer_rule(Input, _Acc) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec float_rule(input(), acc()) -> result().
-float_rule(Input, _Acc) ->
+-spec float_rule(input(), rule_param()) -> result().
+float_rule(Input, _Param) ->
     do(
         fun is_float/1
       , [fun binary_to_float/1, fun list_to_float/1]
@@ -484,7 +484,7 @@ float_rule(Input, _Acc) ->
 
 %% @doc
 %% Validate numeric input for validate/2, normalize/2, and eval/2.
-%% Rule form: number (or {number, Acc}; Acc is ignored).
+%% Rule form: number (or {number, Param}; Param is ignored).
 %%
 %% Result (eval/2):
 %% - valid when Input is a number (integer or float).
@@ -514,8 +514,8 @@ float_rule(Input, _Acc) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec number_rule(input(), acc()) -> result().
-number_rule(Input, _Acc) ->
+-spec number_rule(input(), rule_param()) -> result().
+number_rule(Input, _Param) ->
     do(
         fun is_number/1
       , [
@@ -552,7 +552,7 @@ number_rule(Input, _Acc) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec range_rule(input(), acc()) -> result().
+-spec range_rule(input(), rule_param()) -> result().
 range_rule(Input, {Subject, Op, Upper})
     when (Op =:= '<' orelse Op =:= '=<'),
          is_number(Upper),
@@ -688,7 +688,7 @@ range_rule(_, _) ->
 %% '''
 %% @see lookup_alias/1
 %% @see eval/2
--spec alias_rule(input(), acc()) -> result().
+-spec alias_rule(input(), rule_param()) -> result().
 alias_rule(Input, {Module, Alias}=AliasRef)
     when is_atom(Module), is_atom(Alias) ->
     alias_rule_eval_(Input, AliasRef);
@@ -739,8 +739,8 @@ alias_rule_eval_(Input, AliasRef) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec timeout_rule(input(), acc()) -> result().
-timeout_rule(Input, _Acc) ->
+-spec timeout_rule(input(), rule_param()) -> result().
+timeout_rule(Input, _Param) ->
     Rule = {any_of, [{enum, [infinity]}, {range, {0, '=<', integer}}]},
     case eval(Rule, Input) of
         {valid, _Output} ->
@@ -778,8 +778,8 @@ timeout_rule(Input, _Acc) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec binstr_rule(input(), acc()) -> result().
-binstr_rule(Input, _Acc) ->
+-spec binstr_rule(input(), rule_param()) -> result().
+binstr_rule(Input, _Param) ->
     do(
         [fun klsn_binstr:from_any/1]
       , Input
@@ -807,8 +807,8 @@ binstr_rule(Input, _Acc) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec atom_rule(input(), acc()) -> result().
-atom_rule(Input, _Acc) ->
+-spec atom_rule(input(), rule_param()) -> result().
+atom_rule(Input, _Param) ->
     do(
         fun is_atom/1
       , [fun(I) ->
@@ -844,7 +844,7 @@ atom_rule(Input, _Acc) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec enum_rule(input(), acc()) -> result().
+-spec enum_rule(input(), rule_param()) -> result().
 enum_rule(Input, AllowedEnums) when is_list(AllowedEnums) ->
     InputBinary = try klsn_binstr:from_any(Input) catch
         _:_ ->
@@ -901,7 +901,7 @@ enum_rule(_, _) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec any_of_rule(input(), acc()) -> result().
+-spec any_of_rule(input(), rule_param()) -> result().
 any_of_rule(_Input, []) ->
     valid;
 any_of_rule(Input, Rules) when is_list(Rules) ->
@@ -959,7 +959,7 @@ any_of_rule_(Input, [Rule|T], MaybeOutput0, ReasonsRev0) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec all_of_rule(input(), acc()) -> result().
+-spec all_of_rule(input(), rule_param()) -> result().
 all_of_rule(_Input, []) ->
     valid;
 all_of_rule(Input, Rules) when is_list(Rules) ->
@@ -1043,7 +1043,7 @@ all_of_rule_(Input, [Rule|T], MaybeValidOutput0, MaybeNormOutput0, NormReasonsRe
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec foldl_rule(input(), acc()) -> result().
+-spec foldl_rule(input(), rule_param()) -> result().
 foldl_rule(Input, Rules) when is_list(Rules) ->
     lists:foldl(fun(Rule, Acc) ->
         case Acc of
@@ -1108,7 +1108,7 @@ foldl_rule(_, _) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec optnl_rule(input(), acc()) -> result().
+-spec optnl_rule(input(), rule_param()) -> result().
 optnl_rule(none, _Rule) ->
     valid;
 optnl_rule({value, Value}, Rule) ->
@@ -1165,7 +1165,7 @@ optnl_rule(_, _Rule) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec nullable_rule(input(), acc()) -> result().
+-spec nullable_rule(input(), rule_param()) -> result().
 nullable_rule(null, _Rule) ->
     valid;
 nullable_rule(none, _Rule) ->
@@ -1197,7 +1197,7 @@ nullable_rule(Value, Rule) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec strict_rule(input(), acc()) -> result().
+-spec strict_rule(input(), rule_param()) -> result().
 strict_rule(Input, Rule) ->
     case eval(Rule, Input) of
         {valid, Output} ->
@@ -1275,7 +1275,7 @@ nullable_eval_value_(Value, Rule, Validity) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec list_rule(input(), acc()) -> result().
+-spec list_rule(input(), rule_param()) -> result().
 list_rule(Input, ElementRule) when is_list(Input) ->
     List0 = lists:map(fun(Elem) ->
         eval(ElementRule, Elem)
@@ -1349,7 +1349,7 @@ list_rule(_, _) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec tuple_rule(input(), acc()) -> result().
+-spec tuple_rule(input(), rule_param()) -> result().
 tuple_rule(Input, Rules) when is_tuple(Input), is_tuple(Rules) ->
     tuple_rule(Input, tuple_to_list(Rules));
 tuple_rule(Input, Rules) when is_tuple(Input), is_list(Rules), length(Rules) =/= tuple_size(Input) ->
@@ -1401,10 +1401,10 @@ tuple_rule(_, _) ->
 %% - normalized when Input is a map, no key/value rejects, and at least one
 %%   key or value normalizes; output is a map with normalized keys/values.
 %% - reject when Input is not a map, when a key or value rejects, when
-%%   normalized keys collide, or when the accumulator is not {KeyRule, ValueRule}.
+%%   normalized keys collide, or when the rule parameter is not {KeyRule, ValueRule}.
 %%
 %% Reason (eval/2):
-%% - {invalid, map, Input} when Input is not a map or the accumulator is invalid.
+%% - {invalid, map, Input} when Input is not a map or the rule parameter is invalid.
 %% - {invalid_map_key, Reason} when a key rejects or normalizes.
 %% - {invalid_map_value, Key, Reason} when a value rejects or normalizes
 %%   (Key is the original input key).
@@ -1431,7 +1431,7 @@ tuple_rule(_, _) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec map_rule(input(), acc()) -> result().
+-spec map_rule(input(), rule_param()) -> result().
 map_rule(Input, {KeyRule, ValueRule}) when is_map(Input) ->
     List0 = lists:map(fun({Key, Value}) ->
         {Key, eval(KeyRule, Key), eval(ValueRule, Value)}
@@ -1567,7 +1567,7 @@ map_rule(_, _) ->
 %% @see validate/2
 %% @see normalize/2
 %% @see eval/2
--spec struct_rule(input(), acc()) -> result().
+-spec struct_rule(input(), rule_param()) -> result().
 struct_rule(Input, StructSpec) when is_map(Input), is_map(StructSpec) ->
     SpecList0 = maps:to_list(StructSpec),
     SpecList = lists:map(fun
@@ -1729,8 +1729,8 @@ do([H|T], Input) ->
 %% tuples; they are dispatched to `name_rule/2' functions. Unknown
 %% rules return `{reject, {unknown_rule, Rule}}'.
 %%
-%% Custom rules use `{custom, Name, Fun, Acc}' where
-%% `Fun(Input, Acc) -> result()'. Return handling:
+%% Custom rules use `{custom, Name, Fun, Param}' where
+%% `Fun(Input, Param) -> result()'. Return handling:
 %% - `valid' or `{valid, Input}' maps to `{valid, Input}'
 %% - `{valid, Output}' with `Output =/= Input' raises
 %%   `error({invalid_custom_rule, ...})'
@@ -1747,9 +1747,9 @@ do([H|T], Input) ->
 %% ```
 %% 1> klsn_rule:eval(integer, <<"10">>).
 %% {normalized,10,{invalid,integer,<<"10">>}}
-%% 2> Unwrap = fun({ok, V}, _Acc) ->
+%% 2> Unwrap = fun({ok, V}, _Param) ->
 %%        {normalized, V, {custom, unwrapped}};
-%%    (_, _Acc) ->
+%%    (_, _Param) ->
 %%        {reject, {custom, unexpected}}
 %% end.
 %% 3> Rule = {custom, unwrap_ok, Unwrap, []}.
@@ -1761,8 +1761,8 @@ do([H|T], Input) ->
 %% @see validate/2
 %% @see normalize/2
 -spec eval(rule(), input()) -> strict_result().
-eval({custom, Name, Custom, Acc}=Arg1, Input) ->
-    case Custom(Input, Acc) of
+eval({custom, Name, Custom, Param}=Arg1, Input) ->
+    case Custom(Input, Param) of
         valid ->
             {valid, Input};
         {valid, Input} ->
@@ -1796,11 +1796,11 @@ eval(Rule, Input) ->
     end.
 
 
--spec rule_to_custom_(rule()) -> klsn:optnl({custom, name(), custom(), acc()}).
-rule_to_custom_({custom, Name, Custom, Acc}) ->
-    {value, {custom, Name, Custom, Acc}};
+-spec rule_to_custom_(rule()) -> klsn:optnl({custom, name(), custom(), rule_param()}).
+rule_to_custom_({custom, Name, Custom, Param}) ->
+    {value, {custom, Name, Custom, Param}};
 rule_to_custom_(Rule) ->
-    {Name, Acc} = case Rule of
+    {Name, Param} = case Rule of
         {_, _} ->
             Rule;
         Name0 ->
@@ -1818,7 +1818,7 @@ rule_to_custom_(Rule) ->
     end, ?MODULE:module_info(exports)),
     case MaybeRule of
         {value, {Function, Arity}} ->
-            {value, {custom, Name, fun ?MODULE:Function/Arity, Acc}};
+            {value, {custom, Name, fun ?MODULE:Function/Arity, Param}};
         _ ->
             none
     end.

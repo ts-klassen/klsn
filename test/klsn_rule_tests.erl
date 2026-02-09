@@ -629,21 +629,21 @@ validate_test() ->
     ?assertEqual(
         ok
       , klsn_rule:validate(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {valid, input}}
+            {custom, custom_name, fun(_, Param) -> Param end, {valid, input}}
           , input
         )
     ),
     ?assertError(
         {klsn_rule, {custom, normalized_reason}}
       , klsn_rule:validate(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {normalized, output, {custom, normalized_reason}}}
+            {custom, custom_name, fun(_, Param) -> Param end, {normalized, output, {custom, normalized_reason}}}
           , input
         )
     ),
     ?assertError(
         {klsn_rule, {custom, reject_reason}}
       , klsn_rule:validate(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {reject, {custom, reject_reason}}}
+            {custom, custom_name, fun(_, Param) -> Param end, {reject, {custom, reject_reason}}}
           , input
         )
     ).
@@ -652,21 +652,21 @@ normalize_test() ->
     ?assertEqual(
         input
       , klsn_rule:normalize(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {valid, input}}
+            {custom, custom_name, fun(_, Param) -> Param end, {valid, input}}
           , input
         )
     ),
     ?assertEqual(
         output
       , klsn_rule:normalize(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {normalized, output, {custom, normalized_reason}}}
+            {custom, custom_name, fun(_, Param) -> Param end, {normalized, output, {custom, normalized_reason}}}
           , input
         )
     ),
     ?assertError(
         {klsn_rule, {custom, reject_reason}}
       , klsn_rule:normalize(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {reject, {custom, reject_reason}}}
+            {custom, custom_name, fun(_, Param) -> Param end, {reject, {custom, reject_reason}}}
           , input
         )
     ).
@@ -682,7 +682,7 @@ eval_test() ->
     ?assertEqual(
         {valid, input}
       , klsn_rule:eval(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {valid, input}}
+            {custom, custom_name, fun(_, Param) -> Param end, {valid, input}}
           , input
         )
     ),
@@ -690,21 +690,21 @@ eval_test() ->
         error
       , {invalid_custom_rule, _}
       , klsn_rule:eval(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {valid, modified}}
+            {custom, custom_name, fun(_, Param) -> Param end, {valid, modified}}
           , input
         )
     ),
     ?assertEqual(
         {normalized, output, {invalid, custom_name, input}}
       , klsn_rule:eval(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {normalized, output}}
+            {custom, custom_name, fun(_, Param) -> Param end, {normalized, output}}
           , input
         )
     ),
     ?assertEqual(
         {normalized, output, {custom, explicit_reason}}
       , klsn_rule:eval(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {normalized, output, {custom, explicit_reason}}}
+            {custom, custom_name, fun(_, Param) -> Param end, {normalized, output, {custom, explicit_reason}}}
           , input
         )
     ),
@@ -718,7 +718,7 @@ eval_test() ->
     ?assertEqual(
         {reject, {custom, explicit_reject_reason}}
       , klsn_rule:eval(
-            {custom, custom_name, fun(_, Acc) -> Acc end, {reject, {custom, explicit_reject_reason}}}
+            {custom, custom_name, fun(_, Param) -> Param end, {reject, {custom, explicit_reject_reason}}}
           , input
         )
     ),
