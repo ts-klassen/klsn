@@ -32,17 +32,17 @@ Rebar3 deps
 Rules
 -----
 klsn_rule provides validation and normalization rules for common Erlang types.
-Use `klsn_rule:validate/2` when you want an exception on invalid input, or
-`klsn_rule:normalize/2` when you want a normalized value back.
+Use `klsn_rule:validate(Input, Rule)` when you want an exception on invalid input, or
+`klsn_rule:normalize(Input, Rule)` when you want a normalized value back.
 
 Example
 ```
-ok = klsn_rule:validate(integer, 42),
-Value = klsn_rule:normalize({list, integer}, [<<"1">>, <<"2">>]).
+ok = klsn_rule:validate(42, integer),
+Value = klsn_rule:normalize([<<"1">>, <<"2">>], {list, integer}).
 ```
 
-Custom rules can be provided using `{custom, Name, Fun, Acc}`, where `Fun` has
-the signature `fun((Input, Acc) -> klsn_rule:result())`.
+Custom rules can be provided using `{custom, Name, Fun, Param}`, where `Fun` has
+the signature `fun((Input, Param, State) -> klsn_rule:result())`.
 
 Rule annotations
 ----------------
@@ -68,7 +68,7 @@ Notes:
 - `-klsn_input_rule/1` takes a list with one rule per argument. Use `[]` for
   a zero-arity function.
 - `-klsn_output_rule/1` takes a single rule.
-- Rules are evaluated via `klsn_rule:eval/2`, so normalized values are accepted.
+- Rules are evaluated via `klsn_rule:eval/3` with `State = #{}`, so normalized values are accepted.
 - Invalid inputs raise `erlang:error({klsn_input_rule, {Mod, Fun, Args}, Index, Reason})`.
 - Invalid outputs raise `erlang:error({klsn_output_rule, {Mod, Fun, Args}, Output, Reason})`.
 - The original function is renamed to `__klsn_rule_annotation__orig__<name>`,

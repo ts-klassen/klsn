@@ -135,7 +135,12 @@ build_input_exprs_(Line, Module, Name, ArgsListExpr,
     ).
 
 input_match_expr_(Line, Module, Name, ArgsListExpr, Index, Rule, ArgVar, NormVar) ->
-    EvalCall = call_remote_(Line, klsn_rule, eval, [erl_parse:abstract(Rule, Line), ArgVar]),
+    EvalCall = call_remote_(
+        Line,
+        klsn_rule,
+        eval,
+        [ArgVar, erl_parse:abstract(Rule, Line), erl_parse:abstract(#{}, Line)]
+    ),
     NormValueVar = var_(Line, list_to_atom("NormValue" ++ integer_to_list(Index))),
     ReasonVar = var_(Line, list_to_atom("Reason" ++ integer_to_list(Index))),
     ErrorTuple = tuple_ast_(Line, [
@@ -153,7 +158,12 @@ input_match_expr_(Line, Module, Name, ArgsListExpr, Index, Rule, ArgVar, NormVar
     {match, Line, NormVar, CaseExpr}.
 
 build_output_validation_(Line, Module, Name, ArgsListExpr, ResultVar, Rule) ->
-    EvalCall = call_remote_(Line, klsn_rule, eval, [erl_parse:abstract(Rule, Line), ResultVar]),
+    EvalCall = call_remote_(
+        Line,
+        klsn_rule,
+        eval,
+        [ResultVar, erl_parse:abstract(Rule, Line), erl_parse:abstract(#{}, Line)]
+    ),
     NormValueVar = var_(Line, 'NormValueOut'),
     ReasonVar = var_(Line, 'ReasonOut'),
     ErrorTuple = tuple_ast_(Line, [

@@ -126,7 +126,7 @@ object_schema_generates_struct_rule_test() ->
 schema_rule_normalizes_integer_test() ->
     Schema = #{<<"type">> => <<"integer">>},
     Rule = {struct, #{type => {required, {enum, [integer]}}}},
-    ?assertEqual(#{type => integer}, klsn_rule:normalize(Rule, Schema)).
+    ?assertEqual(#{type => integer}, klsn_rule:normalize(Schema, Rule)).
 
 json_to_term_and_back_golden_test() ->
     Schema = #{
@@ -139,8 +139,8 @@ json_to_term_and_back_golden_test() ->
     #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
     Json = <<"{\"count\":10}">>,
     JsonMap = jsone:decode(Json),
-    Term = klsn_rule:normalize(FromJsonRule, JsonMap),
+    Term = klsn_rule:normalize(JsonMap, FromJsonRule),
     ?assertEqual(#{count => 10}, Term),
-    BackTerm = klsn_rule:normalize(ToJsonRule, Term),
+    BackTerm = klsn_rule:normalize(Term, ToJsonRule),
     ?assertEqual(#{count => 10}, BackTerm),
     ?assertEqual(Json, jsone:encode(BackTerm)).
