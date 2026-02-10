@@ -17,6 +17,39 @@ boolean_schema_false_generates_reject_rule_test() ->
     ?assertEqual({enum, []}, FromJsonRule),
     ?assertEqual({enum, []}, ToJsonRule).
 
+ref_schema_generates_with_defs_rule_test() ->
+    Schema = #{
+        <<"$ref">> => <<"#/definitions/sample">>,
+        <<"definitions">> => #{
+            <<"sample">> => #{<<"type">> => <<"integer">>}
+        }
+    },
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    Expected = {with_defs, {#{<<"sample">> => integer}, {ref, <<"sample">>}}},
+    ?assertEqual(Expected, FromJsonRule),
+    ?assertEqual(Expected, ToJsonRule),
+    RecursiveSchema = #{
+        <<"$ref">> => <<"#/definitions/node">>,
+        <<"definitions">> => #{
+            <<"node">> => #{
+                <<"anyOf">> => [
+                    #{<<"type">> => <<"integer">>},
+                    #{
+                        <<"type">> => <<"array">>,
+                        <<"items">> => #{<<"$ref">> => <<"#/definitions/node">>}
+                    }
+                ]
+            }
+        }
+    },
+    #{from_json := RecursiveFrom, to_json := RecursiveTo} =
+        klsn_rule_generator:from_json_schema(RecursiveSchema),
+    RecursiveExpected = {with_defs, {#{
+        <<"node">> => {any_of, [integer, {list, {ref, <<"node">>}}]}
+    }, {ref, <<"node">>}}},
+    ?assertEqual(RecursiveExpected, RecursiveFrom),
+    ?assertEqual(RecursiveExpected, RecursiveTo).
+
 any_of_schema_generates_any_of_rule_test() ->
     Schema = #{
         <<"anyOf">> => [

@@ -19,6 +19,8 @@
       , number_rule/3
       , range_rule/3
       , alias_rule/3
+      , with_defs_rule/3
+      , ref_rule/3
       , timeout_rule/3
       , binstr_rule/3
       , atom_rule/3
@@ -63,7 +65,12 @@
       , module() => term()
     }.
 -type state_() :: #{
+        definitions => definitions()
     }.
+
+-type ref_key() :: klsn:binstr().
+
+-type definitions() :: #{ref_key() => rule()}.
 
 -type alias() :: atom().
 
@@ -87,6 +94,8 @@
               | number
               | {range, range_(rule())}
               | {alias, alias_ref()}
+              | {with_defs, {definitions(), rule()}}
+              | {ref, ref_key()}
               | timeout
               | binstr
               | atom
@@ -118,6 +127,8 @@
                 | {map_key_conflict, Key::term()}
                 | {invalid_alias, alias_ref(), reason()}
                 | {undefined_alias, alias_ref(), input()}
+                | {invalid_ref, ref_key(), reason()}
+                | {undefined_ref, ref_key(), input()}
                 | {invalid_struct_field, term()}
                 | {invalid_struct_value, atom(), reason()}
                 | {missing_required_field, atom()}
@@ -717,6 +728,69 @@ alias_rule_eval_(Input, AliasRef, State) ->
             end;
         none ->
             {reject, {undefined_alias, AliasRef, Input}}
+    end.
+
+%% @doc
+%% Evaluate a rule with a definitions map stored in the evaluation state.
+%%
+%% Rule form: {with_defs, {Definitions, Rule}} where Definitions is a map of
+%% reference name to rule().
+%%
+%% Result (eval/3):
+%% - valid/normalized/reject according to Rule evaluated with the updated state.
+%%
+%% Examples:
+%% ```
+%% 1> Defs = #{<<"n">> => integer}.
+%% 2> klsn_rule:eval(1, {with_defs, {Defs, {ref, <<"n">>}}}, #{}).
+%% {valid, 1}
+%% '''
+%% @see ref_rule/3
+%% @see eval/3
+-spec with_defs_rule(input(), rule_param(), state()) -> result().
+with_defs_rule(Input, {Defs, Rule}, State) when is_map(Defs) ->
+    Defs0 = klsn_map:get([?MODULE, definitions], State, #{}),
+    State1 = klsn_map:upsert([?MODULE, definitions], maps:merge(Defs0, Defs), State),
+    eval(Input, Rule, State1);
+with_defs_rule(_, _, _State) ->
+    reject.
+
+%% @doc
+%% Resolve and evaluate a rule from the current definition set.
+%%
+%% Rule form: {ref, RefName} where RefName is a binary name that maps to a rule
+%% stored by {@link with_defs_rule/3}.
+%%
+%% Result (eval/3):
+%% - valid when the referenced rule validates.
+%% - normalized when the referenced rule normalizes; reason is
+%%   {invalid_ref, RefName, Reason}.
+%% - reject when the referenced rule rejects; reason is
+%%   {invalid_ref, RefName, Reason}.
+%% - reject with {undefined_ref, RefName, Input} when missing.
+%%
+%% Examples:
+%% ```
+%% 1> Defs = #{<<"n">> => integer}.
+%% 2> klsn_rule:eval(<<"1">>, {with_defs, {Defs, {ref, <<"n">>}}}, #{}).
+%% {normalized, 1, {invalid_ref, <<"n">>, {invalid, integer, <<"1">>}}}
+%% '''
+%% @see with_defs_rule/3
+%% @see eval/3
+-spec ref_rule(input(), rule_param(), state()) -> result().
+ref_rule(Input, Ref, State) ->
+    case klsn_map:lookup([?MODULE, definitions, Ref], State) of
+        {value, Rule} ->
+            case eval(Input, Rule, State) of
+                {valid, Output} ->
+                    {valid, Output};
+                {normalized, Output, Reason} ->
+                    {normalized, Output, {invalid_ref, Ref, Reason}};
+                {reject, Reason} ->
+                    {reject, {invalid_ref, Ref, Reason}}
+            end;
+        none ->
+            {reject, {undefined_ref, Ref, Input}}
     end.
 
 %% @doc

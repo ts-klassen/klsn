@@ -680,6 +680,34 @@ range_rule_test() ->
       , klsn_rule:eval(1, {range, {state_test_rule(), '=<', 5}}, state_test_state(StateValue))
     ).
 
+with_defs_rule_test() ->
+    Defs = #{<<"sample">> => {any_of, [
+        {tuple, {{exact, nest}, {ref, <<"sample">>}}},
+        integer
+    ]}},
+    Rule = {with_defs, {Defs, {ref, <<"sample">>}}},
+    ?assertEqual(
+        {valid, 1}
+      , klsn_rule:eval(1, Rule, #{})
+    ),
+    ?assertEqual(
+        {valid, {nest, 1}}
+      , klsn_rule:eval({nest, 1}, Rule, #{})
+    ),
+    ?assertEqual(
+        {valid, {nest, {nest, 1}}}
+      , klsn_rule:eval({nest, {nest, 1}}, Rule, #{})
+    ),
+    ReasonRule = {with_defs, {#{<<"n">> => integer}, {ref, <<"n">>}}},
+    ?assertEqual(
+        {normalized, 1, {invalid_ref, <<"n">>, {invalid, integer, <<"1">>}}}
+      , klsn_rule:eval(<<"1">>, ReasonRule, #{})
+    ),
+    ?assertEqual(
+        {reject, {undefined_ref, <<"missing">>, 1}}
+      , klsn_rule:eval(1, {with_defs, {#{}, {ref, <<"missing">>}}}, #{})
+    ).
+
 klsn_rule_alias_test() ->
     MyAlias1 = {klsn_rule_tests, my_alias1},
     MyAlias4 = {klsn_rule_tests, my_alias4},

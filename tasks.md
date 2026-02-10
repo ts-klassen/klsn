@@ -14,10 +14,8 @@ Done definition: we have a test that generates JSON map -> erlang term and erlan
   - [ ] Define JSON map key type and term map key type (binary in, atom out)
   - [ ] Lock normalization behavior (string to integer, enum normalization) and extra field policy
   - [ ] Decide how to treat format hints (e.g., int64) and boolean schemas
-- [ ] Build schema resolution and inventory
-  - [ ] Implement local $ref resolution (JSON Pointer into definitions)
-  - [ ] Add registry/caching for named schemas and cycle detection
-  - [ ] Inventory codex schemas for used features and edge cases
+- [x] Build schema resolution
+  - [x] Implement local $ref resolution (JSON Pointer into definitions)
 - [x] Implement minimal generator (integer-only milestone)
   - [x] Create generator entrypoint that reads a schema and emits rule terms
   - [x] Support type=integer and object with one integer property
