@@ -1,0 +1,4 @@
+{with_defs, {#{<<"RequestId">> => {any_of, [binstr, integer]}},
+             {struct, #{id => {required, {ref, <<"RequestId">>}},
+                        method => {required, binstr},
+                        params => {optional, term}}}}}.

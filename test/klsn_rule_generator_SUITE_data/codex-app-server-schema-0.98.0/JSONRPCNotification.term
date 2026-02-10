@@ -1,0 +1,2 @@
+{struct, #{method => {required, binstr},
+           params => {optional, term}}}.
