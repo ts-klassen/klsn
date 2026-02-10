@@ -2,13 +2,19 @@
 
 -export([
         run/2
+      , open/2
+      , send/2
+      , send_eof/1
+      , stop/1
     ]).
 
 -export_type([
         command/0
       , opts/0
+      , open_opts/0
       , bwrap_opt/0
       , result/0
+      , stream/0
     ]).
 
 %% argv-style command where each element is a single argument.
@@ -86,11 +92,26 @@
       , timeout => timeout() % Default: infinity
     }.
 
+%% Options for open/2.
+%%
+%% - bwrap: required list of bubblewrap options
+%% - stdin: binary to write without closing stdin
+-type open_opts() :: #{
+        bwrap := [bwrap_opt()]
+      , stdin => binary() % Unspecified: No stdin
+    }.
+
 %% Result of run/2.
 -type result() :: #{
         exit_code := non_neg_integer()
       , stdout := binary()
       , stderr := binary()
+    }.
+
+%% Stream handle returned from open/2.
+-type stream() :: #{
+        os_pid := integer()
+      , exec_pid := pid()
     }.
 
 -spec run(command(), opts()) -> result().
@@ -131,6 +152,72 @@ run(Command, Opts) when is_list(Command), is_map(Opts) ->
     end;
 run(Command, Opts) ->
     erlang:error(badarg, [Command, Opts]).
+
+%% @doc
+%% Start a bubblewrap sandbox and keep stdin/stdout open for streaming.
+-spec open(command(), open_opts()) -> stream().
+open(Command, Opts) when is_list(Command), is_map(Opts) ->
+    ensure_erlexec_started(),
+
+    BwrapOpts = maps:get(bwrap, Opts),
+
+    Argv0 = [
+        bwrap_executable()
+      | bwrap_opts_to_argv(BwrapOpts)
+    ],
+    Argv = Argv0 ++ [<<"--">>] ++ Command,
+
+    ExecOpts = [stdout, stderr, monitor, stdin],
+    MaybeStdin = case klsn_map:lookup([stdin], Opts) of
+        none ->
+            none;
+        {value, StdinBinary0} when is_binary(StdinBinary0) ->
+            {value, StdinBinary0};
+        {value, _} ->
+            erlang:error(badarg, [Command, Opts])
+    end,
+
+    case exec:run(Argv, ExecOpts) of
+        {ok, Pid, OsPid} ->
+            case MaybeStdin of
+                {value, StdinBinary1} ->
+                    ok = send_stdin_chunked(OsPid, StdinBinary1);
+                none ->
+                    ok
+            end,
+            #{
+                os_pid => OsPid
+              , exec_pid => Pid
+            };
+        {error, Reason} ->
+            erlang:error(Reason, [Command, Opts])
+    end;
+open(Command, Opts) ->
+    erlang:error(badarg, [Command, Opts]).
+
+%% @doc
+%% Send a binary chunk to a streaming sandbox.
+-spec send(stream(), binary()) -> ok.
+send(#{os_pid := OsPid}, Data) when is_integer(OsPid), is_binary(Data) ->
+    ok = send_stdin_chunked(OsPid, Data);
+send(Handle, Data) ->
+    erlang:error(badarg, [Handle, Data]).
+
+%% @doc
+%% Close stdin for a streaming sandbox.
+-spec send_eof(stream()) -> ok.
+send_eof(#{os_pid := OsPid}) when is_integer(OsPid) ->
+    ok = exec:send(OsPid, eof);
+send_eof(Handle) ->
+    erlang:error(badarg, [Handle]).
+
+%% @doc
+%% Stop a streaming sandbox.
+-spec stop(stream()) -> ok.
+stop(#{os_pid := OsPid}) when is_integer(OsPid) ->
+    ok = exec:stop(OsPid);
+stop(Handle) ->
+    erlang:error(badarg, [Handle]).
 
 ensure_erlexec_started() ->
     case whereis(exec) of
