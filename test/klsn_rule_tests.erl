@@ -220,6 +220,10 @@ optnl_rule_test() ->
       , klsn_rule:eval({ok, 1}, {optnl, integer}, #{})
     ),
     ?assertEqual(
+        {normalized, {value, 1}, {invalid, optnl, {<<"search_key">>, 1}}}
+      , klsn_rule:eval({<<"search_key">>, 1}, {optnl, integer}, #{})
+    ),
+    ?assertEqual(
         {normalized, {value, 1}, {invalid, optnl, {true, 1}}}
       , klsn_rule:eval({true, 1}, {optnl, integer}, #{})
     ),
@@ -228,14 +232,54 @@ optnl_rule_test() ->
       , klsn_rule:eval([1], {optnl, integer}, #{})
     ),
     ?assertEqual(
-        {normalized, {value, 1}, {invalid_optnl_value, {invalid, integer, <<"1">>}}}
+        {normalized, {value, 1}, {invalid, optnl, <<"1">>}}
       , klsn_rule:eval(<<"1">>, {optnl, integer}, #{})
     ),
     ?assertEqual(
         {normalized, {value, 123}, {invalid, optnl, 123}}
       , klsn_rule:eval(123, {optnl, integer}, #{})
     ),
-    ?assertEqual({reject, {invalid, optnl, {my_maybe_monad, 1}}}, klsn_rule:eval({my_maybe_monad, 1}, {optnl, integer}, #{})).
+    ?assertEqual(
+        {reject, {invalid, optnl, my_special_none}}
+      , klsn_rule:eval(my_special_none, {optnl, integer}, #{})
+    ),
+    ?assertEqual(
+        {reject, {invalid, optnl, raw_value}}
+      , klsn_rule:eval(raw_value, {optnl, atom}, #{})
+    ),
+    ?assertEqual(
+        {reject, {invalid, optnl, raw_value}}
+      , klsn_rule:eval(raw_value, {optnl, binstr}, #{})
+    ),
+    ?assertEqual(
+        {normalized, {value, <<"raw_value">>}, {invalid, optnl, <<"raw_value">>}}
+      , klsn_rule:eval(<<"raw_value">>, {optnl, binstr}, #{})
+    ),
+    ?assertEqual(
+        {normalized, none, {invalid, optnl, <<"null">>}}
+      , klsn_rule:eval(<<"null">>, {optnl, integer}, #{})
+    ),
+    ?assertEqual(
+        {normalized, {value, 1}, {invalid, optnl, {ok, <<"1">>}}}
+      , klsn_rule:eval({ok, <<"1">>}, {optnl, integer}, #{})
+    ),
+    ?assertEqual(
+        {normalized, {value, {1, 1}}, {invalid, optnl, {<<"1">>, {1, 1}}}}
+      , klsn_rule:eval({<<"1">>, {1, 1}}, {optnl, {tuple, {integer, term}}}, #{})
+    ),
+    ?assertEqual(
+        {normalized, {value, []}, {invalid, optnl, []}}
+      , klsn_rule:eval([], {optnl, {list, integer}}, #{})
+    ),
+    ?assertEqual(
+        {reject, {invalid, optnl, []}}
+      , klsn_rule:eval([], {optnl, {default, {[], integer}}}, #{})
+    ),
+    ?assertEqual(
+        {normalized, none, {invalid, optnl, []}}
+      , klsn_rule:eval([], {optnl, {default, {1, integer}}}, #{})
+    ),
+    ok.
 
 nullable_integer_rule_test() ->
     ?assertEqual({valid, null}, klsn_rule:eval(null, {nullable, integer}, #{})),

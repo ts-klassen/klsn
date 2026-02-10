@@ -1118,34 +1118,79 @@ foldl_rule(_, _, _State) ->
 %% @see normalize/2
 %% @see eval/3
 -spec optnl_rule(input(), rule_param(), state()) -> result().
-optnl_rule(none, _Rule, _State) ->
-    valid;
-optnl_rule({value, Value}, Rule, State) ->
-    optnl_eval_value_(Value, Rule, valid, State);
-optnl_rule(null, _Rule, _State) ->
-    {normalized, none};
-optnl_rule(nil, _Rule, _State) ->
-    {normalized, none};
-optnl_rule(undefined, _Rule, _State) ->
-    {normalized, none};
-optnl_rule(false, _Rule, _State) ->
-    {normalized, none};
-optnl_rule([], _Rule, _State) ->
-    {normalized, none};
-optnl_rule(error, _Rule, _State) ->
-    {normalized, none};
-optnl_rule({ok, Value}, Rule, State) ->
-    optnl_eval_value_(Value, Rule, normalized, State);
-optnl_rule({true, Value}, Rule, State) ->
-    optnl_eval_value_(Value, Rule, normalized, State);
-optnl_rule([Value], Rule, State) ->
-    optnl_eval_value_(Value, Rule, normalized, State);
-optnl_rule(Value, Rule, State) when is_binary(Value) ->
-    optnl_eval_value_(Value, Rule, normalized, State);
-optnl_rule(Value, Rule, State) when is_number(Value) ->
-    optnl_eval_value_(Value, Rule, normalized, State);
-optnl_rule(_, _Rule, _State) ->
-    reject.
+optnl_rule(Input, Rule, State) ->
+    case Input of
+        {value, Value0} ->
+            case eval(Value0, Rule, State) of
+                {valid, _} ->
+                    valid;
+                {normalized, Value, Reason} ->
+                    {normalized, {value, Value}, {invalid_optnl_value, Reason}};
+                {reject, Reason} ->
+                    {reject, {invalid_optnl_value, Reason}}
+            end;
+        none ->
+            valid;
+        _ ->
+            optnl_rule_(Input, Rule, State)
+    end.
+optnl_rule_(Input, Rule, State) ->
+    InputResult = eval(Input, Rule, State),
+    NoneCanary = case eval(none, Rule, State) of
+        {valid, _} ->
+            %% We can't trust Rule to tell if it's optnl or raw value
+            valid;
+        {normalized, _, _} ->
+            %% We can't trust normalized result, but we can trust valid as raw value.
+            normalized;
+        {reject, _} ->
+            %% We can trust valid and normalized result as raw value
+            reject
+    end,
+    NoneAlt = case eval(Input, {enum, [undefined, null, nil, error, false]}, State) of
+        {valid, _} ->
+            valid;
+        {normalized, _, _} ->
+            normalized;
+        {reject, _} ->
+            reject
+    end,
+    ValueAltResult = case Input of
+        {_, Value0} ->
+            {value, eval(Value0, Rule, State)};
+        [Value0] ->
+            {value, eval(Value0, Rule, State)};
+        _ ->
+            none
+    end,
+    case {NoneCanary, NoneAlt, InputResult, ValueAltResult, Input} of
+        {valid, _, _, _, _} ->
+            reject;
+        {_, valid, _, _, _} ->
+            {normalized, none};
+        {reject, normalized, _, _, _} ->
+            {normalized, none};
+        {_, _, {reject, _}, {value, {valid, Value}}, _} ->
+            {normalized, {value, Value}};
+        {_, _, {reject, _}, {value, {normalized, Value, _}}, _} ->
+            {normalized, {value, Value}};
+        {_, _, {normalized, _, _}, {value, {valid, Value}}, _} ->
+            {normalized, {value, Value}};
+        {_, _, {reject, _}, _, []} ->
+            {normalized, none};
+        {_, _, {normalized, [], _}, _, _} ->
+            reject;
+        {_, _, {normalized, _, _}, _, []} ->
+            {normalized, none};
+        {reject, _, {valid, Value}, _, _} ->
+            {normalized, {value, Value}};
+        {reject, _, {normalized, Value, _}, _, _} ->
+            {normalized, {value, Value}};
+        {normalized, _, {valid, Value}, _, _} ->
+            {normalized, {value, Value}};
+        _ ->
+            reject
+    end.
 
 %% @doc
 %% Validate a nullable rule used by validate/2, normalize/2, and eval/3.
@@ -1215,22 +1260,6 @@ strict_rule(Input, Rule, State) ->
             {reject, {strict, Reason}};
         {reject, Reason} ->
             {reject, Reason}
-    end.
-
--spec optnl_eval_value_(input(), rule(), valid | normalized, state()) -> result().
-optnl_eval_value_(Value, Rule, Validity, State) ->
-    case eval(Value, Rule, State) of
-        {valid, Output} ->
-            case Validity of
-                valid ->
-                    {valid, {value, Output}};
-                normalized ->
-                    {normalized, {value, Output}}
-            end;
-        {normalized, Output, Reason} ->
-            {normalized, {value, Output}, {invalid_optnl_value, Reason}};
-        {reject, Reason} ->
-            {reject, {invalid_optnl_value, Reason}}
     end.
 
 -spec nullable_eval_value_(input(), rule(), valid | normalized, state()) -> result().
