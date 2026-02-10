@@ -13,6 +13,17 @@
 
 -klsn_rule_alias({my_alias5, boolean}).
 
+state_test_rule() ->
+    {custom, state_test, fun
+        (_, state_test_arg, #{ ?MODULE := #{ state_test := Ref}}) ->
+            {normalized, Ref};
+        (_, state_test_arg, _) ->
+            {reject, {custom, state_test_ref_undefined}}
+    end, state_test_arg}.
+
+state_test_state(Ref) ->
+    #{ ?MODULE => #{ state_test => Ref } }.
+
 term_rule_test() ->
     Term = {make_ref(), self(), #{}, [], klsn_rule:module_info()},
     ?assertEqual({valid, Term}, klsn_rule:eval(Term, term, #{})).
@@ -33,6 +44,11 @@ default_rule_test() ->
     ?assertEqual(
         {normalized, 42, {invalid, integer, 3.14}}
       , klsn_rule:eval(3.14, {default, {42, integer}}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, Ref, {invalid, state_test, 1}}
+      , klsn_rule:eval(1, {default, {0, state_test_rule()}}, state_test_state(Ref))
     ).
 
 boolean_rule_test() ->
@@ -279,6 +295,11 @@ optnl_rule_test() ->
         {normalized, none, {invalid, optnl, []}}
       , klsn_rule:eval([], {optnl, {default, {1, integer}}}, #{})
     ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, {value, Ref}, {invalid_optnl_value,{invalid,state_test,1}}}
+      , klsn_rule:eval({value, 1}, {optnl, state_test_rule()}, state_test_state(Ref))
+    ),
     ok.
 
 nullable_integer_rule_test() ->
@@ -298,6 +319,11 @@ nullable_integer_rule_test() ->
     ?assertEqual(
         {reject, {invalid_nullable_value, {invalid, integer, <<"x">>}}}
       , klsn_rule:eval(<<"x">>, {nullable, integer}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, Ref, {invalid_nullable_value, {invalid, state_test, 1}}}
+      , klsn_rule:eval(1, {nullable, state_test_rule()}, state_test_state(Ref))
     ).
 
 nullable_float_rule_test() ->
@@ -366,6 +392,11 @@ strict_rule_test() ->
     ?assertEqual(
         {reject, {invalid, integer, <<"x">>}}
       , klsn_rule:eval(<<"x">>, {strict, integer}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {reject, {strict, {invalid, state_test, 1}}}
+      , klsn_rule:eval(1, {strict, state_test_rule()}, state_test_state(Ref))
     ).
 
 list_rule_test() ->
@@ -381,6 +412,11 @@ list_rule_test() ->
     ?assertEqual(
         {reject, {invalid, list, #{}}}
       , klsn_rule:eval(#{}, {list, integer}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, [Ref], {invalid_list_element, 1, {invalid, state_test, 1}}}
+      , klsn_rule:eval([1], {list, state_test_rule()}, state_test_state(Ref))
     ).
 
 tuple_rule_test() ->
@@ -400,6 +436,11 @@ tuple_rule_test() ->
     ?assertEqual(
         {reject, {invalid, tuple, [1]}}
       , klsn_rule:eval([1], {tuple, [integer]}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, {Ref}, {invalid_tuple_element, 1, {invalid, state_test, 1}}}
+      , klsn_rule:eval({1}, {tuple, [state_test_rule()]}, state_test_state(Ref))
     ).
 
 map_rule_test() ->
@@ -434,6 +475,16 @@ map_rule_test() ->
     ?assertEqual(
         {reject, {invalid, map, []}}
       , klsn_rule:eval([], {map, {atom, integer}}, #{})
+    ),
+    KeyRef = make_ref(),
+    ?assertEqual(
+        {normalized, #{KeyRef => 1}, {invalid_map_key, {invalid, state_test, a}}}
+      , klsn_rule:eval(#{a => 1}, {map, {state_test_rule(), term}}, state_test_state(KeyRef))
+    ),
+    ValueRef = make_ref(),
+    ?assertEqual(
+        {normalized, #{a => ValueRef}, {invalid_map_value, a, {invalid, state_test, 1}}}
+      , klsn_rule:eval(#{a => 1}, {map, {atom, state_test_rule()}}, state_test_state(ValueRef))
     ).
 
 struct_rule_test() ->
@@ -496,6 +547,11 @@ struct_rule_test() ->
     ?assertEqual(
         {reject, {invalid, struct, not_a_map}}
       , klsn_rule:eval(not_a_map, {struct, #{a => {required, integer}}}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, #{a => Ref}, {invalid_struct_value, a, {invalid, state_test, 1}}}
+      , klsn_rule:eval(#{a => 1}, {struct, #{a => {required, state_test_rule()}}}, state_test_state(Ref))
     ).
 
 any_of_rule_test() ->
@@ -512,6 +568,11 @@ any_of_rule_test() ->
     ?assertEqual(
         {reject, {any_of, [{invalid, integer, <<"a">>}, {invalid, float, <<"a">>}]}}
       , klsn_rule:eval(<<"a">>, {any_of, [integer, float]}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, Ref, {any_of, [{invalid, state_test, 1}]}}
+      , klsn_rule:eval(1, {any_of, [state_test_rule()]}, state_test_state(Ref))
     ).
 
 all_of_rule_test() ->
@@ -532,6 +593,11 @@ all_of_rule_test() ->
     ?assertEqual(
         {reject, {all_of, [{invalid, float, <<"1">>}]}}
       , klsn_rule:eval(<<"1">>, {all_of, [number, integer, float]}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, Ref, {all_of, [{invalid, state_test, 1}]}}
+      , klsn_rule:eval(1, {all_of, [state_test_rule()]}, state_test_state(Ref))
     ).
 
 foldl_rule_test() ->
@@ -555,6 +621,11 @@ foldl_rule_test() ->
     ?assertEqual(
         {reject, {invalid, foldl, input}}
       , klsn_rule:eval(input, {foldl, not_a_list}, #{})
+    ),
+    Ref = make_ref(),
+    ?assertEqual(
+        {normalized, Ref, {invalid, state_test, 1}}
+      , klsn_rule:eval(1, {foldl, [state_test_rule()]}, state_test_state(Ref))
     ).
 
 range_rule_test() ->
@@ -602,6 +673,11 @@ range_rule_test() ->
     ?assertEqual(
         {reject, {invalid, range, 3}}
       , klsn_rule:eval(3, {range, {1, number, 5}}, #{})
+    ),
+    StateValue = 3,
+    ?assertEqual(
+        {normalized, StateValue, {invalid, state_test, 1}}
+      , klsn_rule:eval(1, {range, {state_test_rule(), '=<', 5}}, state_test_state(StateValue))
     ).
 
 klsn_rule_alias_test() ->
