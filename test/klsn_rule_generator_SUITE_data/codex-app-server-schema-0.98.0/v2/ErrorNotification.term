@@ -3,9 +3,8 @@
     {#{<<"CodexErrorInfo">> =>
         {any_of,
          [{enum,
-           [<<"contextWindowExceeded">>,<<"usageLimitExceeded">>,
-            <<"internalServerError">>,<<"unauthorized">>,<<"badRequest">>,
-            <<"threadRollbackFailed">>,<<"sandboxError">>,<<"other">>]},
+           [contextWindowExceeded,usageLimitExceeded,internalServerError,
+            unauthorized,badRequest,threadRollbackFailed,sandboxError,other]},
           {struct,
            #{modelCap =>
               {required,
@@ -54,9 +53,8 @@
     {#{<<"CodexErrorInfo">> =>
         {any_of,
          [{enum,
-           [<<"contextWindowExceeded">>,<<"usageLimitExceeded">>,
-            <<"internalServerError">>,<<"unauthorized">>,<<"badRequest">>,
-            <<"threadRollbackFailed">>,<<"sandboxError">>,<<"other">>]},
+           [contextWindowExceeded,usageLimitExceeded,internalServerError,
+            unauthorized,badRequest,threadRollbackFailed,sandboxError,other]},
           {struct,
            #{modelCap =>
               {required,

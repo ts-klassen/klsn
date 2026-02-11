@@ -4,8 +4,7 @@
                                   keyPath => {required,binstr},
                                   mergeStrategy =>
                                       {required,{ref,<<"MergeStrategy">>}}}},
-                    <<"MergeStrategy">> =>
-                        {enum,[<<"replace">>,<<"upsert">>]}},
+                    <<"MergeStrategy">> => {enum,[replace,upsert]}},
                   {struct,#{filePath =>
                                 {optional,{any_of,[binstr,{exact,null}]}},
                             edits => {required,{list,{ref,<<"ConfigEdit">>}}},
@@ -17,8 +16,7 @@
                                   keyPath => {required,binstr},
                                   mergeStrategy =>
                                       {required,{ref,<<"MergeStrategy">>}}}},
-                    <<"MergeStrategy">> =>
-                        {enum,[<<"replace">>,<<"upsert">>]}},
+                    <<"MergeStrategy">> => {enum,[replace,upsert]}},
                   {struct,#{filePath =>
                                 {optional,{any_of,[binstr,{exact,null}]}},
                             edits => {required,{list,{ref,<<"ConfigEdit">>}}},

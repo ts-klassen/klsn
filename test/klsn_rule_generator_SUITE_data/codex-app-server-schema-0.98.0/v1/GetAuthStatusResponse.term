@@ -2,25 +2,25 @@
       {with_defs,
           {#{<<"AuthMode">> =>
                  {any_of,
-                     [{enum,[<<"apikey">>]},
-                      {enum,[<<"chatgpt">>]},
-                      {enum,[<<"chatgptAuthTokens">>]}]}},
+                     [{enum,[apikey]},
+                      {enum,[chatgpt]},
+                      {enum,[chatgptAuthTokens]}]}},
            {struct,
-               #{requiresOpenaiAuth =>
-                     {optional,{any_of,[boolean,{exact,null}]}},
-                 authMethod =>
+               #{authMethod =>
                      {optional,{any_of,[{ref,<<"AuthMode">>},{exact,null}]}},
-                 authToken => {optional,{any_of,[binstr,{exact,null}]}}}}}},
+                 authToken => {optional,{any_of,[binstr,{exact,null}]}},
+                 requiresOpenaiAuth =>
+                     {optional,{any_of,[boolean,{exact,null}]}}}}}},
   from_json =>
       {with_defs,
           {#{<<"AuthMode">> =>
                  {any_of,
-                     [{enum,[<<"apikey">>]},
-                      {enum,[<<"chatgpt">>]},
-                      {enum,[<<"chatgptAuthTokens">>]}]}},
+                     [{enum,[apikey]},
+                      {enum,[chatgpt]},
+                      {enum,[chatgptAuthTokens]}]}},
            {struct,
-               #{requiresOpenaiAuth =>
-                     {optional,{any_of,[boolean,{exact,null}]}},
-                 authMethod =>
+               #{authMethod =>
                      {optional,{any_of,[{ref,<<"AuthMode">>},{exact,null}]}},
-                 authToken => {optional,{any_of,[binstr,{exact,null}]}}}}}}}.
+                 authToken => {optional,{any_of,[binstr,{exact,null}]}},
+                 requiresOpenaiAuth =>
+                     {optional,{any_of,[boolean,{exact,null}]}}}}}}}.

@@ -30,15 +30,14 @@
                                {any_of,
                                    [{ref,<<"SkillInterface">>},{exact,null}]}},
                        description => {required,binstr},
-                       shortDescription =>
-                           {optional,{any_of,[binstr,{exact,null}]}},
                        dependencies =>
                            {optional,
                                {any_of,
                                    [{ref,<<"SkillDependencies">>},
-                                    {exact,null}]}}}},
-             <<"SkillScope">> =>
-                 {enum,[<<"user">>,<<"repo">>,<<"system">>,<<"admin">>]},
+                                    {exact,null}]}},
+                       shortDescription =>
+                           {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"SkillScope">> => {enum,[user,repo,system,admin]},
              <<"SkillToolDependency">> =>
                  {struct,
                      #{command => {optional,{any_of,[binstr,{exact,null}]}},
@@ -51,8 +50,8 @@
                            {optional,{any_of,[binstr,{exact,null}]}}}},
              <<"SkillsListEntry">> =>
                  {struct,
-                     #{cwd => {required,binstr},
-                       errors => {required,{list,{ref,<<"SkillErrorInfo">>}}},
+                     #{errors => {required,{list,{ref,<<"SkillErrorInfo">>}}},
+                       cwd => {required,binstr},
                        skills =>
                            {required,{list,{ref,<<"SkillMetadata">>}}}}}},
            {struct,#{data => {required,{list,{ref,<<"SkillsListEntry">>}}}}}}},
@@ -88,15 +87,14 @@
                                {any_of,
                                    [{ref,<<"SkillInterface">>},{exact,null}]}},
                        description => {required,binstr},
-                       shortDescription =>
-                           {optional,{any_of,[binstr,{exact,null}]}},
                        dependencies =>
                            {optional,
                                {any_of,
                                    [{ref,<<"SkillDependencies">>},
-                                    {exact,null}]}}}},
-             <<"SkillScope">> =>
-                 {enum,[<<"user">>,<<"repo">>,<<"system">>,<<"admin">>]},
+                                    {exact,null}]}},
+                       shortDescription =>
+                           {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"SkillScope">> => {enum,[user,repo,system,admin]},
              <<"SkillToolDependency">> =>
                  {struct,
                      #{command => {optional,{any_of,[binstr,{exact,null}]}},
@@ -109,8 +107,8 @@
                            {optional,{any_of,[binstr,{exact,null}]}}}},
              <<"SkillsListEntry">> =>
                  {struct,
-                     #{cwd => {required,binstr},
-                       errors => {required,{list,{ref,<<"SkillErrorInfo">>}}},
+                     #{errors => {required,{list,{ref,<<"SkillErrorInfo">>}}},
+                       cwd => {required,binstr},
                        skills =>
                            {required,{list,{ref,<<"SkillMetadata">>}}}}}},
            {struct,

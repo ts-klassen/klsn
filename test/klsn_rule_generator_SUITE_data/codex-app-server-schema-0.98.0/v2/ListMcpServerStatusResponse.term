@@ -1,17 +1,15 @@
 #{to_json =>
       {with_defs,
           {#{<<"McpAuthStatus">> =>
-                 {enum,
-                     [<<"unsupported">>,<<"notLoggedIn">>,<<"bearerToken">>,
-                      <<"oAuth">>]},
+                 {enum,[unsupported,notLoggedIn,bearerToken,oAuth]},
              <<"McpServerStatus">> =>
                  {struct,
                      #{name => {required,binstr},
                        tools => {required,{map,{binstr,{ref,<<"Tool">>}}}},
+                       resources => {required,{list,{ref,<<"Resource">>}}},
                        authStatus => {required,{ref,<<"McpAuthStatus">>}},
                        resourceTemplates =>
-                           {required,{list,{ref,<<"ResourceTemplate">>}}},
-                       resources => {required,{list,{ref,<<"Resource">>}}}}},
+                           {required,{list,{ref,<<"ResourceTemplate">>}}}}},
              <<"Resource">> =>
                  {struct,
                      #{name => {required,binstr},
@@ -51,17 +49,15 @@
   from_json =>
       {with_defs,
           {#{<<"McpAuthStatus">> =>
-                 {enum,
-                     [<<"unsupported">>,<<"notLoggedIn">>,<<"bearerToken">>,
-                      <<"oAuth">>]},
+                 {enum,[unsupported,notLoggedIn,bearerToken,oAuth]},
              <<"McpServerStatus">> =>
                  {struct,
                      #{name => {required,binstr},
                        tools => {required,{map,{binstr,{ref,<<"Tool">>}}}},
+                       resources => {required,{list,{ref,<<"Resource">>}}},
                        authStatus => {required,{ref,<<"McpAuthStatus">>}},
                        resourceTemplates =>
-                           {required,{list,{ref,<<"ResourceTemplate">>}}},
-                       resources => {required,{list,{ref,<<"Resource">>}}}}},
+                           {required,{list,{ref,<<"ResourceTemplate">>}}}}},
              <<"Resource">> =>
                  {struct,
                      #{name => {required,binstr},

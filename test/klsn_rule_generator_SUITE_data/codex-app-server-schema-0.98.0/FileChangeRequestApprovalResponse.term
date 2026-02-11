@@ -2,10 +2,10 @@
       {with_defs,
           {#{<<"FileChangeApprovalDecision">> =>
                  {any_of,
-                     [{enum,[<<"accept">>]},
-                      {enum,[<<"acceptForSession">>]},
-                      {enum,[<<"decline">>]},
-                      {enum,[<<"cancel">>]}]}},
+                     [{enum,[accept]},
+                      {enum,[acceptForSession]},
+                      {enum,[decline]},
+                      {enum,[cancel]}]}},
            {struct,
                #{decision =>
                      {required,{ref,<<"FileChangeApprovalDecision">>}}}}}},
@@ -13,10 +13,10 @@
       {with_defs,
           {#{<<"FileChangeApprovalDecision">> =>
                  {any_of,
-                     [{enum,[<<"accept">>]},
-                      {enum,[<<"acceptForSession">>]},
-                      {enum,[<<"decline">>]},
-                      {enum,[<<"cancel">>]}]}},
+                     [{enum,[accept]},
+                      {enum,[acceptForSession]},
+                      {enum,[decline]},
+                      {enum,[cancel]}]}},
            {struct,
                #{decision =>
                      {required,{ref,<<"FileChangeApprovalDecision">>}}}}}}}.

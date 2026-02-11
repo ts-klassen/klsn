@@ -2,9 +2,9 @@
       {with_defs,
           {#{<<"AuthMode">> =>
                  {any_of,
-                     [{enum,[<<"apikey">>]},
-                      {enum,[<<"chatgpt">>]},
-                      {enum,[<<"chatgptAuthTokens">>]}]}},
+                     [{enum,[apikey]},
+                      {enum,[chatgpt]},
+                      {enum,[chatgptAuthTokens]}]}},
            {struct,
                #{authMethod =>
                      {optional,
@@ -13,9 +13,9 @@
       {with_defs,
           {#{<<"AuthMode">> =>
                  {any_of,
-                     [{enum,[<<"apikey">>]},
-                      {enum,[<<"chatgpt">>]},
-                      {enum,[<<"chatgptAuthTokens">>]}]}},
+                     [{enum,[apikey]},
+                      {enum,[chatgpt]},
+                      {enum,[chatgptAuthTokens]}]}},
            {struct,
                #{authMethod =>
                      {optional,

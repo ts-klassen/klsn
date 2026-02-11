@@ -2,29 +2,29 @@
    {with_defs,
     {#{<<"ReviewDecision">> =>
         {any_of,
-         [{enum,[<<"approved">>]},
+         [{enum,[approved]},
           {struct,
            #{approved_execpolicy_amendment =>
               {required,
                {struct,
                 #{proposed_execpolicy_amendment =>
                    {required,{list,binstr}}}}}}},
-          {enum,[<<"approved_for_session">>]},
-          {enum,[<<"denied">>]},
-          {enum,[<<"abort">>]}]}},
+          {enum,[approved_for_session]},
+          {enum,[denied]},
+          {enum,[abort]}]}},
      {struct,#{decision => {required,{ref,<<"ReviewDecision">>}}}}}},
   from_json =>
    {with_defs,
     {#{<<"ReviewDecision">> =>
         {any_of,
-         [{enum,[<<"approved">>]},
+         [{enum,[approved]},
           {struct,
            #{approved_execpolicy_amendment =>
               {required,
                {struct,
                 #{proposed_execpolicy_amendment =>
                    {required,{list,binstr}}}}}}},
-          {enum,[<<"approved_for_session">>]},
-          {enum,[<<"denied">>]},
-          {enum,[<<"abort">>]}]}},
+          {enum,[approved_for_session]},
+          {enum,[denied]},
+          {enum,[abort]}]}},
      {struct,#{decision => {required,{ref,<<"ReviewDecision">>}}}}}}}.

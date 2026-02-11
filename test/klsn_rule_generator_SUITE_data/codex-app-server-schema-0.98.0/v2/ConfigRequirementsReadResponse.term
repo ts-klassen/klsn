@@ -1,9 +1,7 @@
 #{to_json =>
       {with_defs,
           {#{<<"AskForApproval">> =>
-                 {enum,
-                     [<<"untrusted">>,<<"on-failure">>,<<"on-request">>,
-                      <<"never">>]},
+                 {enum,[untrusted,'on-failure','on-request',never]},
              <<"ConfigRequirements">> =>
                  {struct,
                      #{allowedApprovalPolicies =>
@@ -21,11 +19,9 @@
                                {any_of,
                                    [{ref,<<"ResidencyRequirement">>},
                                     {exact,null}]}}}},
-             <<"ResidencyRequirement">> => {enum,[<<"us">>]},
+             <<"ResidencyRequirement">> => {enum,[us]},
              <<"SandboxMode">> =>
-                 {enum,
-                     [<<"read-only">>,<<"workspace-write">>,
-                      <<"danger-full-access">>]}},
+                 {enum,['read-only','workspace-write','danger-full-access']}},
            {struct,
                #{requirements =>
                      {optional,
@@ -35,9 +31,7 @@
   from_json =>
       {with_defs,
           {#{<<"AskForApproval">> =>
-                 {enum,
-                     [<<"untrusted">>,<<"on-failure">>,<<"on-request">>,
-                      <<"never">>]},
+                 {enum,[untrusted,'on-failure','on-request',never]},
              <<"ConfigRequirements">> =>
                  {struct,
                      #{allowedApprovalPolicies =>
@@ -55,11 +49,9 @@
                                {any_of,
                                    [{ref,<<"ResidencyRequirement">>},
                                     {exact,null}]}}}},
-             <<"ResidencyRequirement">> => {enum,[<<"us">>]},
+             <<"ResidencyRequirement">> => {enum,[us]},
              <<"SandboxMode">> =>
-                 {enum,
-                     [<<"read-only">>,<<"workspace-write">>,
-                      <<"danger-full-access">>]}},
+                 {enum,['read-only','workspace-write','danger-full-access']}},
            {struct,
                #{requirements =>
                      {optional,

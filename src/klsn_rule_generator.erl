@@ -150,7 +150,7 @@
 
 %% @doc
 %% Do not accept JSON Schema from user input; this function uses binary_to_atom/2
-%% when converting property names, which can exhaust the atom table.
+%% when converting property names and enum values, which can exhaust the atom table.
 %% Not for production use: generating rules at runtime is for development only.
 %% Generate rules ahead of time and include them in releases.
 -spec from_json_schema(json_schema()) -> #{from_json := klsn_rule:rule(), to_json := klsn_rule:rule()}.
@@ -210,7 +210,8 @@ from_json_schema_base_(#{oneOf := Schemas}=Schema, Opts) ->
 from_json_schema_base_(#{const := Const}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, {exact, Const}));
 from_json_schema_base_(#{enum := Enum}=Schema, _Opts) ->
-    json_rules_from_rule_(with_default_(Schema, {enum, Enum}));
+    EnumAtoms = [binary_to_atom(Value, utf8) || Value <- Enum],
+    json_rules_from_rule_(with_default_(Schema, {enum, EnumAtoms}));
 from_json_schema_base_(#{type := Types}=Schema, Opts) when is_list(Types) ->
     SchemaNoDefault = maps:remove(default, Schema),
     {FromRev, ToRev} = lists:foldl(fun(Type, {FromAcc, ToAcc}) ->
