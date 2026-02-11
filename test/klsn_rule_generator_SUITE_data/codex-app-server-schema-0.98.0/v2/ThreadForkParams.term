@@ -1,13 +1,9 @@
 #{to_json =>
       {with_defs,
           {#{<<"AskForApproval">> =>
-                 {enum,
-                     [<<"untrusted">>,<<"on-failure">>,<<"on-request">>,
-                      <<"never">>]},
+                 {enum,[untrusted,'on-failure','on-request',never]},
              <<"SandboxMode">> =>
-                 {enum,
-                     [<<"read-only">>,<<"workspace-write">>,
-                      <<"danger-full-access">>]}},
+                 {enum,['read-only','workspace-write','danger-full-access']}},
            {struct,
                #{config =>
                      {optional,{any_of,[{map,{binstr,term}},{exact,null}]}},
@@ -28,13 +24,9 @@
   from_json =>
       {with_defs,
           {#{<<"AskForApproval">> =>
-                 {enum,
-                     [<<"untrusted">>,<<"on-failure">>,<<"on-request">>,
-                      <<"never">>]},
+                 {enum,[untrusted,'on-failure','on-request',never]},
              <<"SandboxMode">> =>
-                 {enum,
-                     [<<"read-only">>,<<"workspace-write">>,
-                      <<"danger-full-access">>]}},
+                 {enum,['read-only','workspace-write','danger-full-access']}},
            {struct,
                #{config =>
                      {optional,{any_of,[{map,{binstr,term}},{exact,null}]}},

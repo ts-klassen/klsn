@@ -3,13 +3,13 @@
           {#{<<"FileChange">> =>
                  {any_of,
                      [{struct,
-                          #{type => {required,{enum,[<<"add">>]}},
+                          #{type => {required,{enum,[add]}},
                             content => {required,binstr}}},
                       {struct,
-                          #{type => {required,{enum,[<<"delete">>]}},
+                          #{type => {required,{enum,[delete]}},
                             content => {required,binstr}}},
                       {struct,
-                          #{type => {required,{enum,[<<"update">>]}},
+                          #{type => {required,{enum,[update]}},
                             move_path =>
                                 {optional,{any_of,[binstr,{exact,null}]}},
                             unified_diff => {required,binstr}}}]},
@@ -26,13 +26,13 @@
           {#{<<"FileChange">> =>
                  {any_of,
                      [{struct,
-                          #{type => {required,{enum,[<<"add">>]}},
+                          #{type => {required,{enum,[add]}},
                             content => {required,binstr}}},
                       {struct,
-                          #{type => {required,{enum,[<<"delete">>]}},
+                          #{type => {required,{enum,[delete]}},
                             content => {required,binstr}}},
                       {struct,
-                          #{type => {required,{enum,[<<"update">>]}},
+                          #{type => {required,{enum,[update]}},
                             move_path =>
                                 {optional,{any_of,[binstr,{exact,null}]}},
                             unified_diff => {required,binstr}}}]},

@@ -4,20 +4,21 @@
        <<"AnalyticsConfig">> =>
         {struct,#{enabled => {optional,{any_of,[boolean,{exact,null}]}}}},
        <<"AskForApproval">> =>
-        {enum,[<<"untrusted">>,<<"on-failure">>,<<"on-request">>,<<"never">>]},
+        {enum,[untrusted,'on-failure','on-request',never]},
        <<"Config">> =>
         {struct,
          #{profile => {optional,{any_of,[binstr,{exact,null}]}},
            instructions => {optional,{any_of,[binstr,{exact,null}]}},
            tools => {optional,{any_of,[{ref,<<"ToolsV2">>},{exact,null}]}},
            model => {optional,{any_of,[binstr,{exact,null}]}},
-           profiles =>
-            {optional,{default,{#{},{map,{binstr,{ref,<<"ProfileV2">>}}}}}},
            developer_instructions => {optional,{any_of,[binstr,{exact,null}]}},
-           analytics =>
-            {optional,{any_of,[{ref,<<"AnalyticsConfig">>},{exact,null}]}},
+           model_context_window => {optional,{any_of,[integer,{exact,null}]}},
            approval_policy =>
             {optional,{any_of,[{ref,<<"AskForApproval">>},{exact,null}]}},
+           profiles =>
+            {optional,{default,{#{},{map,{binstr,{ref,<<"ProfileV2">>}}}}}},
+           analytics =>
+            {optional,{any_of,[{ref,<<"AnalyticsConfig">>},{exact,null}]}},
            compact_prompt => {optional,{any_of,[binstr,{exact,null}]}},
            forced_chatgpt_workspace_id =>
             {optional,{any_of,[binstr,{exact,null}]}},
@@ -25,7 +26,6 @@
             {optional,{any_of,[{ref,<<"ForcedLoginMethod">>},{exact,null}]}},
            model_auto_compact_token_limit =>
             {optional,{any_of,[integer,{exact,null}]}},
-           model_context_window => {optional,{any_of,[integer,{exact,null}]}},
            model_provider => {optional,{any_of,[binstr,{exact,null}]}},
            model_reasoning_effort =>
             {optional,{any_of,[{ref,<<"ReasoningEffort">>},{exact,null}]}},
@@ -54,26 +54,25 @@
        <<"ConfigLayerSource">> =>
         {any_of,
          [{struct,
-           #{type => {required,{enum,[<<"mdm">>]}},
+           #{type => {required,{enum,[mdm]}},
              domain => {required,binstr},
              key => {required,binstr}}},
           {struct,
-           #{type => {required,{enum,[<<"system">>]}},
+           #{type => {required,{enum,[system]}},
              file => {required,{all_of,[{ref,<<"AbsolutePathBuf">>}]}}}},
           {struct,
-           #{type => {required,{enum,[<<"user">>]}},
+           #{type => {required,{enum,[user]}},
              file => {required,{all_of,[{ref,<<"AbsolutePathBuf">>}]}}}},
           {struct,
-           #{type => {required,{enum,[<<"project">>]}},
+           #{type => {required,{enum,[project]}},
              dotCodexFolder => {required,{ref,<<"AbsolutePathBuf">>}}}},
-          {struct,#{type => {required,{enum,[<<"sessionFlags">>]}}}},
+          {struct,#{type => {required,{enum,[sessionFlags]}}}},
           {struct,
-           #{type => {required,{enum,[<<"legacyManagedConfigTomlFromFile">>]}},
+           #{type => {required,{enum,[legacyManagedConfigTomlFromFile]}},
              file => {required,{ref,<<"AbsolutePathBuf">>}}}},
           {struct,
-           #{type =>
-              {required,{enum,[<<"legacyManagedConfigTomlFromMdm">>]}}}}]},
-       <<"ForcedLoginMethod">> => {enum,[<<"chatgpt">>,<<"api">>]},
+           #{type => {required,{enum,[legacyManagedConfigTomlFromMdm]}}}}]},
+       <<"ForcedLoginMethod">> => {enum,[chatgpt,api]},
        <<"ProfileV2">> =>
         {struct,
          #{model => {optional,{any_of,[binstr,{exact,null}]}},
@@ -89,17 +88,11 @@
            web_search =>
             {optional,{any_of,[{ref,<<"WebSearchMode">>},{exact,null}]}},
            chatgpt_base_url => {optional,{any_of,[binstr,{exact,null}]}}}},
-       <<"ReasoningEffort">> =>
-        {enum,
-         [<<"none">>,<<"minimal">>,<<"low">>,<<"medium">>,<<"high">>,
-          <<"xhigh">>]},
+       <<"ReasoningEffort">> => {enum,[none,minimal,low,medium,high,xhigh]},
        <<"ReasoningSummary">> =>
-        {any_of,
-         [{enum,[<<"auto">>,<<"concise">>,<<"detailed">>]},
-          {enum,[<<"none">>]}]},
+        {any_of,[{enum,[auto,concise,detailed]},{enum,[none]}]},
        <<"SandboxMode">> =>
-        {enum,
-         [<<"read-only">>,<<"workspace-write">>,<<"danger-full-access">>]},
+        {enum,['read-only','workspace-write','danger-full-access']},
        <<"SandboxWorkspaceWrite">> =>
         {struct,
          #{network_access => {optional,{default,{false,boolean}}},
@@ -110,8 +103,8 @@
         {struct,
          #{web_search => {optional,{any_of,[boolean,{exact,null}]}},
            view_image => {optional,{any_of,[boolean,{exact,null}]}}}},
-       <<"Verbosity">> => {enum,[<<"low">>,<<"medium">>,<<"high">>]},
-       <<"WebSearchMode">> => {enum,[<<"disabled">>,<<"cached">>,<<"live">>]}},
+       <<"Verbosity">> => {enum,[low,medium,high]},
+       <<"WebSearchMode">> => {enum,[disabled,cached,live]}},
      {struct,
       #{config => {required,{ref,<<"Config">>}},
         layers =>
@@ -124,20 +117,21 @@
        <<"AnalyticsConfig">> =>
         {struct,#{enabled => {optional,{any_of,[boolean,{exact,null}]}}}},
        <<"AskForApproval">> =>
-        {enum,[<<"untrusted">>,<<"on-failure">>,<<"on-request">>,<<"never">>]},
+        {enum,[untrusted,'on-failure','on-request',never]},
        <<"Config">> =>
         {struct,
          #{profile => {optional,{any_of,[binstr,{exact,null}]}},
            instructions => {optional,{any_of,[binstr,{exact,null}]}},
            tools => {optional,{any_of,[{ref,<<"ToolsV2">>},{exact,null}]}},
            model => {optional,{any_of,[binstr,{exact,null}]}},
-           profiles =>
-            {optional,{default,{#{},{map,{binstr,{ref,<<"ProfileV2">>}}}}}},
            developer_instructions => {optional,{any_of,[binstr,{exact,null}]}},
-           analytics =>
-            {optional,{any_of,[{ref,<<"AnalyticsConfig">>},{exact,null}]}},
+           model_context_window => {optional,{any_of,[integer,{exact,null}]}},
            approval_policy =>
             {optional,{any_of,[{ref,<<"AskForApproval">>},{exact,null}]}},
+           profiles =>
+            {optional,{default,{#{},{map,{binstr,{ref,<<"ProfileV2">>}}}}}},
+           analytics =>
+            {optional,{any_of,[{ref,<<"AnalyticsConfig">>},{exact,null}]}},
            compact_prompt => {optional,{any_of,[binstr,{exact,null}]}},
            forced_chatgpt_workspace_id =>
             {optional,{any_of,[binstr,{exact,null}]}},
@@ -145,7 +139,6 @@
             {optional,{any_of,[{ref,<<"ForcedLoginMethod">>},{exact,null}]}},
            model_auto_compact_token_limit =>
             {optional,{any_of,[integer,{exact,null}]}},
-           model_context_window => {optional,{any_of,[integer,{exact,null}]}},
            model_provider => {optional,{any_of,[binstr,{exact,null}]}},
            model_reasoning_effort =>
             {optional,{any_of,[{ref,<<"ReasoningEffort">>},{exact,null}]}},
@@ -174,26 +167,25 @@
        <<"ConfigLayerSource">> =>
         {any_of,
          [{struct,
-           #{type => {required,{enum,[<<"mdm">>]}},
+           #{type => {required,{enum,[mdm]}},
              domain => {required,binstr},
              key => {required,binstr}}},
           {struct,
-           #{type => {required,{enum,[<<"system">>]}},
+           #{type => {required,{enum,[system]}},
              file => {required,{all_of,[{ref,<<"AbsolutePathBuf">>}]}}}},
           {struct,
-           #{type => {required,{enum,[<<"user">>]}},
+           #{type => {required,{enum,[user]}},
              file => {required,{all_of,[{ref,<<"AbsolutePathBuf">>}]}}}},
           {struct,
-           #{type => {required,{enum,[<<"project">>]}},
+           #{type => {required,{enum,[project]}},
              dotCodexFolder => {required,{ref,<<"AbsolutePathBuf">>}}}},
-          {struct,#{type => {required,{enum,[<<"sessionFlags">>]}}}},
+          {struct,#{type => {required,{enum,[sessionFlags]}}}},
           {struct,
-           #{type => {required,{enum,[<<"legacyManagedConfigTomlFromFile">>]}},
+           #{type => {required,{enum,[legacyManagedConfigTomlFromFile]}},
              file => {required,{ref,<<"AbsolutePathBuf">>}}}},
           {struct,
-           #{type =>
-              {required,{enum,[<<"legacyManagedConfigTomlFromMdm">>]}}}}]},
-       <<"ForcedLoginMethod">> => {enum,[<<"chatgpt">>,<<"api">>]},
+           #{type => {required,{enum,[legacyManagedConfigTomlFromMdm]}}}}]},
+       <<"ForcedLoginMethod">> => {enum,[chatgpt,api]},
        <<"ProfileV2">> =>
         {struct,
          #{model => {optional,{any_of,[binstr,{exact,null}]}},
@@ -209,17 +201,11 @@
            web_search =>
             {optional,{any_of,[{ref,<<"WebSearchMode">>},{exact,null}]}},
            chatgpt_base_url => {optional,{any_of,[binstr,{exact,null}]}}}},
-       <<"ReasoningEffort">> =>
-        {enum,
-         [<<"none">>,<<"minimal">>,<<"low">>,<<"medium">>,<<"high">>,
-          <<"xhigh">>]},
+       <<"ReasoningEffort">> => {enum,[none,minimal,low,medium,high,xhigh]},
        <<"ReasoningSummary">> =>
-        {any_of,
-         [{enum,[<<"auto">>,<<"concise">>,<<"detailed">>]},
-          {enum,[<<"none">>]}]},
+        {any_of,[{enum,[auto,concise,detailed]},{enum,[none]}]},
        <<"SandboxMode">> =>
-        {enum,
-         [<<"read-only">>,<<"workspace-write">>,<<"danger-full-access">>]},
+        {enum,['read-only','workspace-write','danger-full-access']},
        <<"SandboxWorkspaceWrite">> =>
         {struct,
          #{network_access => {optional,{default,{false,boolean}}},
@@ -230,8 +216,8 @@
         {struct,
          #{web_search => {optional,{any_of,[boolean,{exact,null}]}},
            view_image => {optional,{any_of,[boolean,{exact,null}]}}}},
-       <<"Verbosity">> => {enum,[<<"low">>,<<"medium">>,<<"high">>]},
-       <<"WebSearchMode">> => {enum,[<<"disabled">>,<<"cached">>,<<"live">>]}},
+       <<"Verbosity">> => {enum,[low,medium,high]},
+       <<"WebSearchMode">> => {enum,[disabled,cached,live]}},
      {struct,
       #{config => {required,{ref,<<"Config">>}},
         layers =>

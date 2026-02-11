@@ -2,10 +2,10 @@
       {with_defs,
           {#{<<"AskForApproval">> =>
                  {any_of,
-                     [{enum,[<<"untrusted">>]},
-                      {enum,[<<"on-failure">>]},
-                      {enum,[<<"on-request">>]},
-                      {enum,[<<"never">>]}]},
+                     [{enum,[untrusted]},
+                      {enum,['on-failure']},
+                      {enum,['on-request']},
+                      {enum,[never]}]},
              <<"NewConversationParams">> =>
                  {struct,
                      #{profile => {optional,{any_of,[binstr,{exact,null}]}},
@@ -33,9 +33,7 @@
                                {any_of,
                                    [{ref,<<"SandboxMode">>},{exact,null}]}}}},
              <<"SandboxMode">> =>
-                 {enum,
-                     [<<"read-only">>,<<"workspace-write">>,
-                      <<"danger-full-access">>]},
+                 {enum,['read-only','workspace-write','danger-full-access']},
              <<"ThreadId">> => binstr},
            {struct,
                #{path => {optional,{any_of,[binstr,{exact,null}]}},
@@ -50,10 +48,10 @@
       {with_defs,
           {#{<<"AskForApproval">> =>
                  {any_of,
-                     [{enum,[<<"untrusted">>]},
-                      {enum,[<<"on-failure">>]},
-                      {enum,[<<"on-request">>]},
-                      {enum,[<<"never">>]}]},
+                     [{enum,[untrusted]},
+                      {enum,['on-failure']},
+                      {enum,['on-request']},
+                      {enum,[never]}]},
              <<"NewConversationParams">> =>
                  {struct,
                      #{profile => {optional,{any_of,[binstr,{exact,null}]}},
@@ -81,9 +79,7 @@
                                {any_of,
                                    [{ref,<<"SandboxMode">>},{exact,null}]}}}},
              <<"SandboxMode">> =>
-                 {enum,
-                     [<<"read-only">>,<<"workspace-write">>,
-                      <<"danger-full-access">>]},
+                 {enum,['read-only','workspace-write','danger-full-access']},
              <<"ThreadId">> => binstr},
            {struct,
                #{path => {optional,{any_of,[binstr,{exact,null}]}},

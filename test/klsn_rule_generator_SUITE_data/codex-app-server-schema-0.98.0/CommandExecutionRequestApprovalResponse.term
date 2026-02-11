@@ -2,14 +2,14 @@
    {with_defs,
     {#{<<"CommandExecutionApprovalDecision">> =>
         {any_of,
-         [{enum,[<<"accept">>]},
-          {enum,[<<"acceptForSession">>]},
+         [{enum,[accept]},
+          {enum,[acceptForSession]},
           {struct,
            #{acceptWithExecpolicyAmendment =>
               {required,
                {struct,#{execpolicy_amendment => {required,{list,binstr}}}}}}},
-          {enum,[<<"decline">>]},
-          {enum,[<<"cancel">>]}]}},
+          {enum,[decline]},
+          {enum,[cancel]}]}},
      {struct,
       #{decision =>
          {required,{ref,<<"CommandExecutionApprovalDecision">>}}}}}},
@@ -17,14 +17,14 @@
    {with_defs,
     {#{<<"CommandExecutionApprovalDecision">> =>
         {any_of,
-         [{enum,[<<"accept">>]},
-          {enum,[<<"acceptForSession">>]},
+         [{enum,[accept]},
+          {enum,[acceptForSession]},
           {struct,
            #{acceptWithExecpolicyAmendment =>
               {required,
                {struct,#{execpolicy_amendment => {required,{list,binstr}}}}}}},
-          {enum,[<<"decline">>]},
-          {enum,[<<"cancel">>]}]}},
+          {enum,[decline]},
+          {enum,[cancel]}]}},
      {struct,
       #{decision =>
          {required,{ref,<<"CommandExecutionApprovalDecision">>}}}}}}}.

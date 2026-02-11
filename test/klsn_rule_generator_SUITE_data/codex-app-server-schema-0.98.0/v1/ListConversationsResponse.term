@@ -2,8 +2,8 @@
    {with_defs,
     {#{<<"ConversationGitInfo">> =>
         {struct,
-         #{sha => {optional,{any_of,[binstr,{exact,null}]}},
-           branch => {optional,{any_of,[binstr,{exact,null}]}},
+         #{branch => {optional,{any_of,[binstr,{exact,null}]}},
+           sha => {optional,{any_of,[binstr,{exact,null}]}},
            origin_url => {optional,{any_of,[binstr,{exact,null}]}}}},
        <<"ConversationSummary">> =>
         {struct,
@@ -20,11 +20,11 @@
            updatedAt => {optional,{any_of,[binstr,{exact,null}]}}}},
        <<"SessionSource">> =>
         {any_of,
-         [{enum,[<<"cli">>,<<"vscode">>,<<"exec">>,<<"mcp">>,<<"unknown">>]},
+         [{enum,[cli,vscode,exec,mcp,unknown]},
           {struct,#{subagent => {required,{ref,<<"SubAgentSource">>}}}}]},
        <<"SubAgentSource">> =>
         {any_of,
-         [{enum,[<<"review">>,<<"compact">>]},
+         [{enum,[review,compact]},
           {struct,
            #{thread_spawn =>
               {required,
@@ -40,8 +40,8 @@
    {with_defs,
     {#{<<"ConversationGitInfo">> =>
         {struct,
-         #{sha => {optional,{any_of,[binstr,{exact,null}]}},
-           branch => {optional,{any_of,[binstr,{exact,null}]}},
+         #{branch => {optional,{any_of,[binstr,{exact,null}]}},
+           sha => {optional,{any_of,[binstr,{exact,null}]}},
            origin_url => {optional,{any_of,[binstr,{exact,null}]}}}},
        <<"ConversationSummary">> =>
         {struct,
@@ -58,11 +58,11 @@
            updatedAt => {optional,{any_of,[binstr,{exact,null}]}}}},
        <<"SessionSource">> =>
         {any_of,
-         [{enum,[<<"cli">>,<<"vscode">>,<<"exec">>,<<"mcp">>,<<"unknown">>]},
+         [{enum,[cli,vscode,exec,mcp,unknown]},
           {struct,#{subagent => {required,{ref,<<"SubAgentSource">>}}}}]},
        <<"SubAgentSource">> =>
         {any_of,
-         [{enum,[<<"review">>,<<"compact">>]},
+         [{enum,[review,compact]},
           {struct,
            #{thread_spawn =>
               {required,

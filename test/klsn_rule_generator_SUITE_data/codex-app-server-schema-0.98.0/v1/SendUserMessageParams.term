@@ -10,13 +10,13 @@
                   text_elements =>
                    {optional,
                     {default,{[],{list,{ref,<<"V1TextElement">>}}}}}}}},
-             type => {required,{enum,[<<"text">>]}}}},
+             type => {required,{enum,[text]}}}},
           {struct,
            #{data => {required,{struct,#{image_url => {required,binstr}}}},
-             type => {required,{enum,[<<"image">>]}}}},
+             type => {required,{enum,[image]}}}},
           {struct,
            #{data => {required,{struct,#{path => {required,binstr}}}},
-             type => {required,{enum,[<<"localImage">>]}}}}]},
+             type => {required,{enum,[localImage]}}}}]},
        <<"ThreadId">> => binstr,
        <<"V1ByteRange">> =>
         {struct,#{start => {required,integer},'end' => {required,integer}}},
@@ -39,13 +39,13 @@
                   text_elements =>
                    {optional,
                     {default,{[],{list,{ref,<<"V1TextElement">>}}}}}}}},
-             type => {required,{enum,[<<"text">>]}}}},
+             type => {required,{enum,[text]}}}},
           {struct,
            #{data => {required,{struct,#{image_url => {required,binstr}}}},
-             type => {required,{enum,[<<"image">>]}}}},
+             type => {required,{enum,[image]}}}},
           {struct,
            #{data => {required,{struct,#{path => {required,binstr}}}},
-             type => {required,{enum,[<<"localImage">>]}}}}]},
+             type => {required,{enum,[localImage]}}}}]},
        <<"ThreadId">> => binstr,
        <<"V1ByteRange">> =>
         {struct,#{start => {required,integer},'end' => {required,integer}}},

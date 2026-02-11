@@ -7,9 +7,7 @@
                        hasCredits => {required,boolean}}},
              <<"PlanType">> =>
                  {enum,
-                     [<<"free">>,<<"go">>,<<"plus">>,<<"pro">>,<<"team">>,
-                      <<"business">>,<<"enterprise">>,<<"edu">>,
-                      <<"unknown">>]},
+                     [free,go,plus,pro,team,business,enterprise,edu,unknown]},
              <<"RateLimitSnapshot">> =>
                  {struct,
                      #{primary =>
@@ -17,9 +15,6 @@
                                {any_of,
                                    [{ref,<<"RateLimitWindow">>},
                                     {exact,null}]}},
-                       planType =>
-                           {optional,
-                               {any_of,[{ref,<<"PlanType">>},{exact,null}]}},
                        credits =>
                            {optional,
                                {any_of,
@@ -29,7 +24,10 @@
                            {optional,
                                {any_of,
                                    [{ref,<<"RateLimitWindow">>},
-                                    {exact,null}]}}}},
+                                    {exact,null}]}},
+                       planType =>
+                           {optional,
+                               {any_of,[{ref,<<"PlanType">>},{exact,null}]}}}},
              <<"RateLimitWindow">> =>
                  {struct,
                      #{resetsAt => {optional,{any_of,[integer,{exact,null}]}},
@@ -47,9 +45,7 @@
                        hasCredits => {required,boolean}}},
              <<"PlanType">> =>
                  {enum,
-                     [<<"free">>,<<"go">>,<<"plus">>,<<"pro">>,<<"team">>,
-                      <<"business">>,<<"enterprise">>,<<"edu">>,
-                      <<"unknown">>]},
+                     [free,go,plus,pro,team,business,enterprise,edu,unknown]},
              <<"RateLimitSnapshot">> =>
                  {struct,
                      #{primary =>
@@ -57,9 +53,6 @@
                                {any_of,
                                    [{ref,<<"RateLimitWindow">>},
                                     {exact,null}]}},
-                       planType =>
-                           {optional,
-                               {any_of,[{ref,<<"PlanType">>},{exact,null}]}},
                        credits =>
                            {optional,
                                {any_of,
@@ -69,7 +62,10 @@
                            {optional,
                                {any_of,
                                    [{ref,<<"RateLimitWindow">>},
-                                    {exact,null}]}}}},
+                                    {exact,null}]}},
+                       planType =>
+                           {optional,
+                               {any_of,[{ref,<<"PlanType">>},{exact,null}]}}}},
              <<"RateLimitWindow">> =>
                  {struct,
                      #{resetsAt => {optional,{any_of,[integer,{exact,null}]}},

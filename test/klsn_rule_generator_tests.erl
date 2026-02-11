@@ -138,8 +138,8 @@ null_schema_generates_null_rule_test() ->
 enum_schema_generates_enum_rule_test() ->
     Schema = #{<<"enum">> => [<<"a">>, <<"b">>]},
     #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
-    ?assertEqual({enum, [<<"a">>, <<"b">>]}, FromJsonRule),
-    ?assertEqual({enum, [<<"a">>, <<"b">>]}, ToJsonRule).
+    ?assertEqual({enum, [a, b]}, FromJsonRule),
+    ?assertEqual({enum, [a, b]}, ToJsonRule).
 
 const_schema_generates_exact_rule_test() ->
     Schema = #{<<"const">> => <<"ok">>},

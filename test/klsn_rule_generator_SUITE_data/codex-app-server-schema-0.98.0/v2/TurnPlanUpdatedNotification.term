@@ -5,12 +5,12 @@
                      #{status => {required,{ref,<<"TurnPlanStepStatus">>}},
                        step => {required,binstr}}},
              <<"TurnPlanStepStatus">> =>
-                 {enum,[<<"pending">>,<<"inProgress">>,<<"completed">>]}},
+                 {enum,[pending,inProgress,completed]}},
            {struct,
-               #{threadId => {required,binstr},
+               #{plan => {required,{list,{ref,<<"TurnPlanStep">>}}},
+                 threadId => {required,binstr},
                  turnId => {required,binstr},
-                 explanation => {optional,{any_of,[binstr,{exact,null}]}},
-                 plan => {required,{list,{ref,<<"TurnPlanStep">>}}}}}}},
+                 explanation => {optional,{any_of,[binstr,{exact,null}]}}}}}},
   from_json =>
       {with_defs,
           {#{<<"TurnPlanStep">> =>
@@ -18,9 +18,9 @@
                      #{status => {required,{ref,<<"TurnPlanStepStatus">>}},
                        step => {required,binstr}}},
              <<"TurnPlanStepStatus">> =>
-                 {enum,[<<"pending">>,<<"inProgress">>,<<"completed">>]}},
+                 {enum,[pending,inProgress,completed]}},
            {struct,
-               #{threadId => {required,binstr},
+               #{plan => {required,{list,{ref,<<"TurnPlanStep">>}}},
+                 threadId => {required,binstr},
                  turnId => {required,binstr},
-                 explanation => {optional,{any_of,[binstr,{exact,null}]}},
-                 plan => {required,{list,{ref,<<"TurnPlanStep">>}}}}}}}}.
+                 explanation => {optional,{any_of,[binstr,{exact,null}]}}}}}}}.
