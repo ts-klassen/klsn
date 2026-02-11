@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{accessToken => {required,binstr},
+                idToken => {required,binstr}}},
+  from_json =>
+      {struct,#{accessToken => {required,binstr},
+                idToken => {required,binstr}}}}.

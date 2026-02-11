@@ -1,0 +1,8 @@
+#{to_json =>
+      {struct,#{query => {required,binstr},
+                cancellationToken => {optional,{any_of,[binstr,{exact,null}]}},
+                roots => {required,{list,binstr}}}},
+  from_json =>
+      {struct,#{query => {required,binstr},
+                cancellationToken => {optional,{any_of,[binstr,{exact,null}]}},
+                roots => {required,{list,binstr}}}}}.

@@ -1,0 +1,4 @@
+#{to_json =>
+      {any_of,[{struct,#{method => {required,{enum,[<<"initialized">>]}}}}]},
+  from_json =>
+      {any_of,[{struct,#{method => {required,{enum,[<<"initialized">>]}}}}]}}.

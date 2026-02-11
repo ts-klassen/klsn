@@ -1,0 +1,44 @@
+#{to_json =>
+   {with_defs,
+    {#{<<"ToolRequestUserInputOption">> =>
+        {struct,
+         #{label => {required,binstr},description => {required,binstr}}},
+       <<"ToolRequestUserInputQuestion">> =>
+        {struct,
+         #{id => {required,binstr},
+           header => {required,binstr},
+           options =>
+            {optional,
+             {any_of,
+              [{list,{ref,<<"ToolRequestUserInputOption">>}},{exact,null}]}},
+           isOther => {optional,{default,{false,boolean}}},
+           isSecret => {optional,{default,{false,boolean}}},
+           question => {required,binstr}}}},
+     {struct,
+      #{threadId => {required,binstr},
+        turnId => {required,binstr},
+        itemId => {required,binstr},
+        questions =>
+         {required,{list,{ref,<<"ToolRequestUserInputQuestion">>}}}}}}},
+  from_json =>
+   {with_defs,
+    {#{<<"ToolRequestUserInputOption">> =>
+        {struct,
+         #{label => {required,binstr},description => {required,binstr}}},
+       <<"ToolRequestUserInputQuestion">> =>
+        {struct,
+         #{id => {required,binstr},
+           header => {required,binstr},
+           options =>
+            {optional,
+             {any_of,
+              [{list,{ref,<<"ToolRequestUserInputOption">>}},{exact,null}]}},
+           isOther => {optional,{default,{false,boolean}}},
+           isSecret => {optional,{default,{false,boolean}}},
+           question => {required,binstr}}}},
+     {struct,
+      #{threadId => {required,binstr},
+        turnId => {required,binstr},
+        itemId => {required,binstr},
+        questions =>
+         {required,{list,{ref,<<"ToolRequestUserInputQuestion">>}}}}}}}}.

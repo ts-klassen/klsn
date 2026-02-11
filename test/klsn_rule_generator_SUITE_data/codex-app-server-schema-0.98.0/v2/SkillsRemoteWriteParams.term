@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{hazelnutId => {required,binstr},
+                isPreload => {required,boolean}}},
+  from_json =>
+      {struct,#{hazelnutId => {required,binstr},
+                isPreload => {required,boolean}}}}.

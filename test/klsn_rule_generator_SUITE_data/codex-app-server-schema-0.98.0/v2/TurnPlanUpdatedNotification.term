@@ -1,0 +1,26 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"TurnPlanStep">> =>
+                 {struct,
+                     #{status => {required,{ref,<<"TurnPlanStepStatus">>}},
+                       step => {required,binstr}}},
+             <<"TurnPlanStepStatus">> =>
+                 {enum,[<<"pending">>,<<"inProgress">>,<<"completed">>]}},
+           {struct,
+               #{threadId => {required,binstr},
+                 turnId => {required,binstr},
+                 explanation => {optional,{any_of,[binstr,{exact,null}]}},
+                 plan => {required,{list,{ref,<<"TurnPlanStep">>}}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"TurnPlanStep">> =>
+                 {struct,
+                     #{status => {required,{ref,<<"TurnPlanStepStatus">>}},
+                       step => {required,binstr}}},
+             <<"TurnPlanStepStatus">> =>
+                 {enum,[<<"pending">>,<<"inProgress">>,<<"completed">>]}},
+           {struct,
+               #{threadId => {required,binstr},
+                 turnId => {required,binstr},
+                 explanation => {optional,{any_of,[binstr,{exact,null}]}},
+                 plan => {required,{list,{ref,<<"TurnPlanStep">>}}}}}}}}.

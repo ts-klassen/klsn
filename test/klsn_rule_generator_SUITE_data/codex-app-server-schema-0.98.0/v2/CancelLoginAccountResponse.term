@@ -1,0 +1,13 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"CancelLoginAccountStatus">> =>
+                 {enum,[<<"canceled">>,<<"notFound">>]}},
+           {struct,
+               #{status => {required,{ref,<<"CancelLoginAccountStatus">>}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"CancelLoginAccountStatus">> =>
+                 {enum,[<<"canceled">>,<<"notFound">>]}},
+           {struct,
+               #{status =>
+                     {required,{ref,<<"CancelLoginAccountStatus">>}}}}}}}.

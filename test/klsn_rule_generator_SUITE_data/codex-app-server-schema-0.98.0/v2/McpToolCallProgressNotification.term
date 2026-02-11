@@ -1,0 +1,10 @@
+#{to_json =>
+      {struct,#{message => {required,binstr},
+                threadId => {required,binstr},
+                turnId => {required,binstr},
+                itemId => {required,binstr}}},
+  from_json =>
+      {struct,#{message => {required,binstr},
+                threadId => {required,binstr},
+                turnId => {required,binstr},
+                itemId => {required,binstr}}}}.

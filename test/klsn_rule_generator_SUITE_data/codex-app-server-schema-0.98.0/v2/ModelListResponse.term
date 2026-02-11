@@ -1,0 +1,70 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"InputModality">> =>
+                 {any_of,[{enum,[<<"text">>]},{enum,[<<"image">>]}]},
+             <<"Model">> =>
+                 {struct,
+                     #{id => {required,binstr},
+                       description => {required,binstr},
+                       model => {required,binstr},
+                       defaultReasoningEffort =>
+                           {required,{ref,<<"ReasoningEffort">>}},
+                       displayName => {required,binstr},
+                       inputModalities =>
+                           {optional,
+                               {default,
+                                   {[<<"text">>,<<"image">>],
+                                    {list,{ref,<<"InputModality">>}}}}},
+                       isDefault => {required,boolean},
+                       supportedReasoningEfforts =>
+                           {required,{list,{ref,<<"ReasoningEffortOption">>}}},
+                       supportsPersonality =>
+                           {optional,{default,{false,boolean}}},
+                       upgrade => {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"ReasoningEffort">> =>
+                 {enum,
+                     [<<"none">>,<<"minimal">>,<<"low">>,<<"medium">>,
+                      <<"high">>,<<"xhigh">>]},
+             <<"ReasoningEffortOption">> =>
+                 {struct,
+                     #{description => {required,binstr},
+                       reasoningEffort =>
+                           {required,{ref,<<"ReasoningEffort">>}}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"Model">>}}},
+                 nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"InputModality">> =>
+                 {any_of,[{enum,[<<"text">>]},{enum,[<<"image">>]}]},
+             <<"Model">> =>
+                 {struct,
+                     #{id => {required,binstr},
+                       description => {required,binstr},
+                       model => {required,binstr},
+                       defaultReasoningEffort =>
+                           {required,{ref,<<"ReasoningEffort">>}},
+                       displayName => {required,binstr},
+                       inputModalities =>
+                           {optional,
+                               {default,
+                                   {[<<"text">>,<<"image">>],
+                                    {list,{ref,<<"InputModality">>}}}}},
+                       isDefault => {required,boolean},
+                       supportedReasoningEfforts =>
+                           {required,{list,{ref,<<"ReasoningEffortOption">>}}},
+                       supportsPersonality =>
+                           {optional,{default,{false,boolean}}},
+                       upgrade => {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"ReasoningEffort">> =>
+                 {enum,
+                     [<<"none">>,<<"minimal">>,<<"low">>,<<"medium">>,
+                      <<"high">>,<<"xhigh">>]},
+             <<"ReasoningEffortOption">> =>
+                 {struct,
+                     #{description => {required,binstr},
+                       reasoningEffort =>
+                           {required,{ref,<<"ReasoningEffort">>}}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"Model">>}}},
+                 nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}}}.

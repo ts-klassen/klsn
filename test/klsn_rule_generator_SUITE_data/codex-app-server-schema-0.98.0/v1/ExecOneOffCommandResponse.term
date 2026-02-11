@@ -1,0 +1,8 @@
+#{to_json =>
+      {struct,#{stdout => {required,binstr},
+                stderr => {required,binstr},
+                exitCode => {required,integer}}},
+  from_json =>
+      {struct,#{stdout => {required,binstr},
+                stderr => {required,binstr},
+                exitCode => {required,integer}}}}.

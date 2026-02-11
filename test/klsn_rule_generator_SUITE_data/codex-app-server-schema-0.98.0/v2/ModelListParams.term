@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{limit => {optional,{any_of,[integer,{exact,null}]}},
+                cursor => {optional,{any_of,[binstr,{exact,null}]}}}},
+  from_json =>
+      {struct,#{limit => {optional,{any_of,[integer,{exact,null}]}},
+                cursor => {optional,{any_of,[binstr,{exact,null}]}}}}}.

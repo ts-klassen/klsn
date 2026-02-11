@@ -1,0 +1,18 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"RemoteSkillSummary">> =>
+                 {struct,
+                     #{id => {required,binstr},
+                       name => {required,binstr},
+                       description => {required,binstr}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"RemoteSkillSummary">>}}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"RemoteSkillSummary">> =>
+                 {struct,
+                     #{id => {required,binstr},
+                       name => {required,binstr},
+                       description => {required,binstr}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"RemoteSkillSummary">>}}}}}}}}.

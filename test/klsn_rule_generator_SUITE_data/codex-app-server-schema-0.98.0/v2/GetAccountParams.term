@@ -1,0 +1,3 @@
+#{to_json => {struct,#{refreshToken => {optional,{default,{false,boolean}}}}},
+  from_json =>
+      {struct,#{refreshToken => {optional,{default,{false,boolean}}}}}}.

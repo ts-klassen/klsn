@@ -1,0 +1,30 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"ReasoningEffort">> =>
+                 {enum,
+                     [<<"none">>,<<"minimal">>,<<"low">>,<<"medium">>,
+                      <<"high">>,<<"xhigh">>]},
+             <<"ThreadId">> => binstr},
+           {struct,
+               #{conversationId => {required,{ref,<<"ThreadId">>}},
+                 rolloutPath => {required,binstr},
+                 model => {required,binstr},
+                 reasoningEffort =>
+                     {optional,
+                         {any_of,
+                             [{ref,<<"ReasoningEffort">>},{exact,null}]}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"ReasoningEffort">> =>
+                 {enum,
+                     [<<"none">>,<<"minimal">>,<<"low">>,<<"medium">>,
+                      <<"high">>,<<"xhigh">>]},
+             <<"ThreadId">> => binstr},
+           {struct,
+               #{conversationId => {required,{ref,<<"ThreadId">>}},
+                 rolloutPath => {required,binstr},
+                 model => {required,binstr},
+                 reasoningEffort =>
+                     {optional,
+                         {any_of,
+                             [{ref,<<"ReasoningEffort">>},{exact,null}]}}}}}}}.

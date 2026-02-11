@@ -1,0 +1,14 @@
+#{to_json =>
+      {any_of,[{struct,#{type => {required,{enum,[<<"apiKey">>]}},
+                         apiKey => {required,binstr}}},
+               {struct,#{type => {required,{enum,[<<"chatgpt">>]}}}},
+               {struct,#{type => {required,{enum,[<<"chatgptAuthTokens">>]}},
+                         accessToken => {required,binstr},
+                         idToken => {required,binstr}}}]},
+  from_json =>
+      {any_of,[{struct,#{type => {required,{enum,[<<"apiKey">>]}},
+                         apiKey => {required,binstr}}},
+               {struct,#{type => {required,{enum,[<<"chatgpt">>]}}}},
+               {struct,#{type => {required,{enum,[<<"chatgptAuthTokens">>]}},
+                         accessToken => {required,binstr},
+                         idToken => {required,binstr}}}]}}.

@@ -1,0 +1,12 @@
+#{to_json =>
+      {struct,#{threadId => {required,binstr},
+                turnId => {required,binstr},
+                delta => {required,binstr},
+                itemId => {required,binstr},
+                summaryIndex => {required,integer}}},
+  from_json =>
+      {struct,#{threadId => {required,binstr},
+                turnId => {required,binstr},
+                delta => {required,binstr},
+                itemId => {required,binstr},
+                summaryIndex => {required,integer}}}}.

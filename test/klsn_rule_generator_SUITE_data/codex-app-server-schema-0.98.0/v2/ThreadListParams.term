@@ -1,0 +1,46 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"ThreadSortKey">> => {enum,[<<"created_at">>,<<"updated_at">>]},
+             <<"ThreadSourceKind">> =>
+                 {enum,
+                     [<<"cli">>,<<"vscode">>,<<"exec">>,<<"appServer">>,
+                      <<"subAgent">>,<<"subAgentReview">>,
+                      <<"subAgentCompact">>,<<"subAgentThreadSpawn">>,
+                      <<"subAgentOther">>,<<"unknown">>]}},
+           {struct,
+               #{limit => {optional,{any_of,[integer,{exact,null}]}},
+                 cursor => {optional,{any_of,[binstr,{exact,null}]}},
+                 modelProviders =>
+                     {optional,{any_of,[{list,binstr},{exact,null}]}},
+                 archived => {optional,{any_of,[boolean,{exact,null}]}},
+                 sortKey =>
+                     {optional,
+                         {any_of,[{ref,<<"ThreadSortKey">>},{exact,null}]}},
+                 sourceKinds =>
+                     {optional,
+                         {any_of,
+                             [{list,{ref,<<"ThreadSourceKind">>}},
+                              {exact,null}]}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"ThreadSortKey">> => {enum,[<<"created_at">>,<<"updated_at">>]},
+             <<"ThreadSourceKind">> =>
+                 {enum,
+                     [<<"cli">>,<<"vscode">>,<<"exec">>,<<"appServer">>,
+                      <<"subAgent">>,<<"subAgentReview">>,
+                      <<"subAgentCompact">>,<<"subAgentThreadSpawn">>,
+                      <<"subAgentOther">>,<<"unknown">>]}},
+           {struct,
+               #{limit => {optional,{any_of,[integer,{exact,null}]}},
+                 cursor => {optional,{any_of,[binstr,{exact,null}]}},
+                 modelProviders =>
+                     {optional,{any_of,[{list,binstr},{exact,null}]}},
+                 archived => {optional,{any_of,[boolean,{exact,null}]}},
+                 sortKey =>
+                     {optional,
+                         {any_of,[{ref,<<"ThreadSortKey">>},{exact,null}]}},
+                 sourceKinds =>
+                     {optional,
+                         {any_of,
+                             [{list,{ref,<<"ThreadSourceKind">>}},
+                              {exact,null}]}}}}}}}.

@@ -1,0 +1,38 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"ThreadTokenUsage">> =>
+                 {struct,
+                     #{total => {required,{ref,<<"TokenUsageBreakdown">>}},
+                       last => {required,{ref,<<"TokenUsageBreakdown">>}},
+                       modelContextWindow =>
+                           {optional,{any_of,[integer,{exact,null}]}}}},
+             <<"TokenUsageBreakdown">> =>
+                 {struct,
+                     #{cachedInputTokens => {required,integer},
+                       inputTokens => {required,integer},
+                       outputTokens => {required,integer},
+                       reasoningOutputTokens => {required,integer},
+                       totalTokens => {required,integer}}}},
+           {struct,
+               #{threadId => {required,binstr},
+                 turnId => {required,binstr},
+                 tokenUsage => {required,{ref,<<"ThreadTokenUsage">>}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"ThreadTokenUsage">> =>
+                 {struct,
+                     #{total => {required,{ref,<<"TokenUsageBreakdown">>}},
+                       last => {required,{ref,<<"TokenUsageBreakdown">>}},
+                       modelContextWindow =>
+                           {optional,{any_of,[integer,{exact,null}]}}}},
+             <<"TokenUsageBreakdown">> =>
+                 {struct,
+                     #{cachedInputTokens => {required,integer},
+                       inputTokens => {required,integer},
+                       outputTokens => {required,integer},
+                       reasoningOutputTokens => {required,integer},
+                       totalTokens => {required,integer}}}},
+           {struct,
+               #{threadId => {required,binstr},
+                 turnId => {required,binstr},
+                 tokenUsage => {required,{ref,<<"ThreadTokenUsage">>}}}}}}}.

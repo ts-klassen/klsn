@@ -1,0 +1,2 @@
+#{to_json => {struct,#{authorizationUrl => {required,binstr}}},
+  from_json => {struct,#{authorizationUrl => {required,binstr}}}}.

@@ -1,0 +1,216 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"AbsolutePathBuf">> => binstr,
+             <<"AskForApproval">> =>
+                 {any_of,
+                     [{enum,[<<"untrusted">>]},
+                      {enum,[<<"on-failure">>]},
+                      {enum,[<<"on-request">>]},
+                      {enum,[<<"never">>]}]},
+             <<"ForcedLoginMethod">> => {enum,[<<"chatgpt">>,<<"api">>]},
+             <<"Profile">> =>
+                 {struct,
+                     #{model => {optional,{any_of,[binstr,{exact,null}]}},
+                       approvalPolicy =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"AskForApproval">>},{exact,null}]}},
+                       modelProvider =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       chatgptBaseUrl =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       modelReasoningEffort =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ReasoningEffort">>},
+                                    {exact,null}]}},
+                       modelReasoningSummary =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ReasoningSummary">>},
+                                    {exact,null}]}},
+                       modelVerbosity =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"Verbosity">>},{exact,null}]}}}},
+             <<"ReasoningEffort">> =>
+                 {enum,
+                     [<<"none">>,<<"minimal">>,<<"low">>,<<"medium">>,
+                      <<"high">>,<<"xhigh">>]},
+             <<"ReasoningSummary">> =>
+                 {any_of,
+                     [{enum,[<<"auto">>,<<"concise">>,<<"detailed">>]},
+                      {enum,[<<"none">>]}]},
+             <<"SandboxMode">> =>
+                 {enum,
+                     [<<"read-only">>,<<"workspace-write">>,
+                      <<"danger-full-access">>]},
+             <<"SandboxSettings">> =>
+                 {struct,
+                     #{networkAccess =>
+                           {optional,{any_of,[boolean,{exact,null}]}},
+                       excludeSlashTmp =>
+                           {optional,{any_of,[boolean,{exact,null}]}},
+                       excludeTmpdirEnvVar =>
+                           {optional,{any_of,[boolean,{exact,null}]}},
+                       writableRoots =>
+                           {optional,
+                               {default,
+                                   {[],{list,{ref,<<"AbsolutePathBuf">>}}}}}}},
+             <<"Tools">> =>
+                 {struct,
+                     #{viewImage => {optional,{any_of,[boolean,{exact,null}]}},
+                       webSearch =>
+                           {optional,{any_of,[boolean,{exact,null}]}}}},
+             <<"UserSavedConfig">> =>
+                 {struct,
+                     #{profile => {optional,{any_of,[binstr,{exact,null}]}},
+                       tools =>
+                           {optional,
+                               {any_of,[{ref,<<"Tools">>},{exact,null}]}},
+                       model => {optional,{any_of,[binstr,{exact,null}]}},
+                       approvalPolicy =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"AskForApproval">>},{exact,null}]}},
+                       modelReasoningEffort =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ReasoningEffort">>},
+                                    {exact,null}]}},
+                       modelReasoningSummary =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ReasoningSummary">>},
+                                    {exact,null}]}},
+                       modelVerbosity =>
+                           {optional,
+                               {any_of,[{ref,<<"Verbosity">>},{exact,null}]}},
+                       forcedChatgptWorkspaceId =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       forcedLoginMethod =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ForcedLoginMethod">>},
+                                    {exact,null}]}},
+                       profiles =>
+                           {required,{map,{binstr,{ref,<<"Profile">>}}}},
+                       sandboxMode =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"SandboxMode">>},{exact,null}]}},
+                       sandboxSettings =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"SandboxSettings">>},
+                                    {exact,null}]}}}},
+             <<"Verbosity">> => {enum,[<<"low">>,<<"medium">>,<<"high">>]}},
+           {struct,#{config => {required,{ref,<<"UserSavedConfig">>}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"AbsolutePathBuf">> => binstr,
+             <<"AskForApproval">> =>
+                 {any_of,
+                     [{enum,[<<"untrusted">>]},
+                      {enum,[<<"on-failure">>]},
+                      {enum,[<<"on-request">>]},
+                      {enum,[<<"never">>]}]},
+             <<"ForcedLoginMethod">> => {enum,[<<"chatgpt">>,<<"api">>]},
+             <<"Profile">> =>
+                 {struct,
+                     #{model => {optional,{any_of,[binstr,{exact,null}]}},
+                       approvalPolicy =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"AskForApproval">>},{exact,null}]}},
+                       modelProvider =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       chatgptBaseUrl =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       modelReasoningEffort =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ReasoningEffort">>},
+                                    {exact,null}]}},
+                       modelReasoningSummary =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ReasoningSummary">>},
+                                    {exact,null}]}},
+                       modelVerbosity =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"Verbosity">>},{exact,null}]}}}},
+             <<"ReasoningEffort">> =>
+                 {enum,
+                     [<<"none">>,<<"minimal">>,<<"low">>,<<"medium">>,
+                      <<"high">>,<<"xhigh">>]},
+             <<"ReasoningSummary">> =>
+                 {any_of,
+                     [{enum,[<<"auto">>,<<"concise">>,<<"detailed">>]},
+                      {enum,[<<"none">>]}]},
+             <<"SandboxMode">> =>
+                 {enum,
+                     [<<"read-only">>,<<"workspace-write">>,
+                      <<"danger-full-access">>]},
+             <<"SandboxSettings">> =>
+                 {struct,
+                     #{networkAccess =>
+                           {optional,{any_of,[boolean,{exact,null}]}},
+                       excludeSlashTmp =>
+                           {optional,{any_of,[boolean,{exact,null}]}},
+                       excludeTmpdirEnvVar =>
+                           {optional,{any_of,[boolean,{exact,null}]}},
+                       writableRoots =>
+                           {optional,
+                               {default,
+                                   {[],{list,{ref,<<"AbsolutePathBuf">>}}}}}}},
+             <<"Tools">> =>
+                 {struct,
+                     #{viewImage => {optional,{any_of,[boolean,{exact,null}]}},
+                       webSearch =>
+                           {optional,{any_of,[boolean,{exact,null}]}}}},
+             <<"UserSavedConfig">> =>
+                 {struct,
+                     #{profile => {optional,{any_of,[binstr,{exact,null}]}},
+                       tools =>
+                           {optional,
+                               {any_of,[{ref,<<"Tools">>},{exact,null}]}},
+                       model => {optional,{any_of,[binstr,{exact,null}]}},
+                       approvalPolicy =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"AskForApproval">>},{exact,null}]}},
+                       modelReasoningEffort =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ReasoningEffort">>},
+                                    {exact,null}]}},
+                       modelReasoningSummary =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ReasoningSummary">>},
+                                    {exact,null}]}},
+                       modelVerbosity =>
+                           {optional,
+                               {any_of,[{ref,<<"Verbosity">>},{exact,null}]}},
+                       forcedChatgptWorkspaceId =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       forcedLoginMethod =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ForcedLoginMethod">>},
+                                    {exact,null}]}},
+                       profiles =>
+                           {required,{map,{binstr,{ref,<<"Profile">>}}}},
+                       sandboxMode =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"SandboxMode">>},{exact,null}]}},
+                       sandboxSettings =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"SandboxSettings">>},
+                                    {exact,null}]}}}},
+             <<"Verbosity">> => {enum,[<<"low">>,<<"medium">>,<<"high">>]}},
+           {struct,#{config => {required,{ref,<<"UserSavedConfig">>}}}}}}}.

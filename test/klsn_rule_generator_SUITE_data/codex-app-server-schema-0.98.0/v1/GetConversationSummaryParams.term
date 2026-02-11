@@ -1,0 +1,14 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"ThreadId">> => binstr},
+           {any_of,
+               [{struct,#{rolloutPath => {required,binstr}}},
+                {struct,
+                    #{conversationId => {required,{ref,<<"ThreadId">>}}}}]}}},
+  from_json =>
+      {with_defs,
+          {#{<<"ThreadId">> => binstr},
+           {any_of,
+               [{struct,#{rolloutPath => {required,binstr}}},
+                {struct,
+                    #{conversationId => {required,{ref,<<"ThreadId">>}}}}]}}}}.

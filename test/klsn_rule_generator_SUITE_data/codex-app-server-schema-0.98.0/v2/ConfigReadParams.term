@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{cwd => {optional,{any_of,[binstr,{exact,null}]}},
+                includeLayers => {optional,{default,{false,boolean}}}}},
+  from_json =>
+      {struct,#{cwd => {optional,{any_of,[binstr,{exact,null}]}},
+                includeLayers => {optional,{default,{false,boolean}}}}}}.

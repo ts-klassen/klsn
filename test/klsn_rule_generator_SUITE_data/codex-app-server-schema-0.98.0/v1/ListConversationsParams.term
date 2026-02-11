@@ -1,0 +1,10 @@
+#{to_json =>
+      {struct,#{cursor => {optional,{any_of,[binstr,{exact,null}]}},
+                modelProviders =>
+                    {optional,{any_of,[{list,binstr},{exact,null}]}},
+                pageSize => {optional,{any_of,[integer,{exact,null}]}}}},
+  from_json =>
+      {struct,#{cursor => {optional,{any_of,[binstr,{exact,null}]}},
+                modelProviders =>
+                    {optional,{any_of,[{list,binstr},{exact,null}]}},
+                pageSize => {optional,{any_of,[integer,{exact,null}]}}}}}.

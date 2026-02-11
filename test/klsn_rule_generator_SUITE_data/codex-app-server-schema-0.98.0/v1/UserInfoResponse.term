@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{allegedUserEmail =>
+                    {optional,{any_of,[binstr,{exact,null}]}}}},
+  from_json =>
+      {struct,#{allegedUserEmail =>
+                    {optional,{any_of,[binstr,{exact,null}]}}}}}.

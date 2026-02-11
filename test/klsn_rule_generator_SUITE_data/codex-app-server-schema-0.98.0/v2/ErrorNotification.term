@@ -1,0 +1,102 @@
+#{to_json =>
+   {with_defs,
+    {#{<<"CodexErrorInfo">> =>
+        {any_of,
+         [{enum,
+           [<<"contextWindowExceeded">>,<<"usageLimitExceeded">>,
+            <<"internalServerError">>,<<"unauthorized">>,<<"badRequest">>,
+            <<"threadRollbackFailed">>,<<"sandboxError">>,<<"other">>]},
+          {struct,
+           #{modelCap =>
+              {required,
+               {struct,
+                #{model => {required,binstr},
+                  reset_after_seconds =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}},
+          {struct,
+           #{httpConnectionFailed =>
+              {required,
+               {struct,
+                #{httpStatusCode =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}},
+          {struct,
+           #{responseStreamConnectionFailed =>
+              {required,
+               {struct,
+                #{httpStatusCode =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}},
+          {struct,
+           #{responseStreamDisconnected =>
+              {required,
+               {struct,
+                #{httpStatusCode =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}},
+          {struct,
+           #{responseTooManyFailedAttempts =>
+              {required,
+               {struct,
+                #{httpStatusCode =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}}]},
+       <<"TurnError">> =>
+        {struct,
+         #{message => {required,binstr},
+           additionalDetails =>
+            {optional,{default,{null,{any_of,[binstr,{exact,null}]}}}},
+           codexErrorInfo =>
+            {optional,{any_of,[{ref,<<"CodexErrorInfo">>},{exact,null}]}}}}},
+     {struct,
+      #{error => {required,{ref,<<"TurnError">>}},
+        threadId => {required,binstr},
+        turnId => {required,binstr},
+        willRetry => {required,boolean}}}}},
+  from_json =>
+   {with_defs,
+    {#{<<"CodexErrorInfo">> =>
+        {any_of,
+         [{enum,
+           [<<"contextWindowExceeded">>,<<"usageLimitExceeded">>,
+            <<"internalServerError">>,<<"unauthorized">>,<<"badRequest">>,
+            <<"threadRollbackFailed">>,<<"sandboxError">>,<<"other">>]},
+          {struct,
+           #{modelCap =>
+              {required,
+               {struct,
+                #{model => {required,binstr},
+                  reset_after_seconds =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}},
+          {struct,
+           #{httpConnectionFailed =>
+              {required,
+               {struct,
+                #{httpStatusCode =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}},
+          {struct,
+           #{responseStreamConnectionFailed =>
+              {required,
+               {struct,
+                #{httpStatusCode =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}},
+          {struct,
+           #{responseStreamDisconnected =>
+              {required,
+               {struct,
+                #{httpStatusCode =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}},
+          {struct,
+           #{responseTooManyFailedAttempts =>
+              {required,
+               {struct,
+                #{httpStatusCode =>
+                   {optional,{any_of,[integer,{exact,null}]}}}}}}}]},
+       <<"TurnError">> =>
+        {struct,
+         #{message => {required,binstr},
+           additionalDetails =>
+            {optional,{default,{null,{any_of,[binstr,{exact,null}]}}}},
+           codexErrorInfo =>
+            {optional,{any_of,[{ref,<<"CodexErrorInfo">>},{exact,null}]}}}}},
+     {struct,
+      #{error => {required,{ref,<<"TurnError">>}},
+        threadId => {required,binstr},
+        turnId => {required,binstr},
+        willRetry => {required,boolean}}}}}}.

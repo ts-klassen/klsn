@@ -1,0 +1,18 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"ChatgptAuthTokensRefreshReason">> =>
+                 {any_of,[{enum,[<<"unauthorized">>]}]}},
+           {struct,
+               #{reason =>
+                     {required,{ref,<<"ChatgptAuthTokensRefreshReason">>}},
+                 previousAccountId =>
+                     {optional,{any_of,[binstr,{exact,null}]}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"ChatgptAuthTokensRefreshReason">> =>
+                 {any_of,[{enum,[<<"unauthorized">>]}]}},
+           {struct,
+               #{reason =>
+                     {required,{ref,<<"ChatgptAuthTokensRefreshReason">>}},
+                 previousAccountId =>
+                     {optional,{any_of,[binstr,{exact,null}]}}}}}}}.

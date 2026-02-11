@@ -1,0 +1,32 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"TextPosition">> =>
+                 {struct,
+                     #{line => {required,integer},
+                       column => {required,integer}}},
+             <<"TextRange">> =>
+                 {struct,
+                     #{start => {required,{ref,<<"TextPosition">>}},
+                       'end' => {required,{ref,<<"TextPosition">>}}}}},
+           {struct,
+               #{path => {optional,{any_of,[binstr,{exact,null}]}},
+                 range =>
+                     {optional,{any_of,[{ref,<<"TextRange">>},{exact,null}]}},
+                 details => {optional,{any_of,[binstr,{exact,null}]}},
+                 summary => {required,binstr}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"TextPosition">> =>
+                 {struct,
+                     #{line => {required,integer},
+                       column => {required,integer}}},
+             <<"TextRange">> =>
+                 {struct,
+                     #{start => {required,{ref,<<"TextPosition">>}},
+                       'end' => {required,{ref,<<"TextPosition">>}}}}},
+           {struct,
+               #{path => {optional,{any_of,[binstr,{exact,null}]}},
+                 range =>
+                     {optional,{any_of,[{ref,<<"TextRange">>},{exact,null}]}},
+                 details => {optional,{any_of,[binstr,{exact,null}]}},
+                 summary => {required,binstr}}}}}}.

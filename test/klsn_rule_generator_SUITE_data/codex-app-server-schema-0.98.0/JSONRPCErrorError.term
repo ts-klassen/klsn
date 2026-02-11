@@ -1,0 +1,8 @@
+#{to_json =>
+      {struct,#{code => {required,integer},
+                data => {optional,term},
+                message => {required,binstr}}},
+  from_json =>
+      {struct,#{code => {required,integer},
+                data => {optional,term},
+                message => {required,binstr}}}}.

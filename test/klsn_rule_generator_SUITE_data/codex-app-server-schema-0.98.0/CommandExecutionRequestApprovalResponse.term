@@ -1,0 +1,30 @@
+#{to_json =>
+   {with_defs,
+    {#{<<"CommandExecutionApprovalDecision">> =>
+        {any_of,
+         [{enum,[<<"accept">>]},
+          {enum,[<<"acceptForSession">>]},
+          {struct,
+           #{acceptWithExecpolicyAmendment =>
+              {required,
+               {struct,#{execpolicy_amendment => {required,{list,binstr}}}}}}},
+          {enum,[<<"decline">>]},
+          {enum,[<<"cancel">>]}]}},
+     {struct,
+      #{decision =>
+         {required,{ref,<<"CommandExecutionApprovalDecision">>}}}}}},
+  from_json =>
+   {with_defs,
+    {#{<<"CommandExecutionApprovalDecision">> =>
+        {any_of,
+         [{enum,[<<"accept">>]},
+          {enum,[<<"acceptForSession">>]},
+          {struct,
+           #{acceptWithExecpolicyAmendment =>
+              {required,
+               {struct,#{execpolicy_amendment => {required,{list,binstr}}}}}}},
+          {enum,[<<"decline">>]},
+          {enum,[<<"cancel">>]}]}},
+     {struct,
+      #{decision =>
+         {required,{ref,<<"CommandExecutionApprovalDecision">>}}}}}}}.
