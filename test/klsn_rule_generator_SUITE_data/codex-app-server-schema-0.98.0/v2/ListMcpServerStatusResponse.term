@@ -1,0 +1,100 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"McpAuthStatus">> =>
+                 {enum,
+                     [<<"unsupported">>,<<"notLoggedIn">>,<<"bearerToken">>,
+                      <<"oAuth">>]},
+             <<"McpServerStatus">> =>
+                 {struct,
+                     #{name => {required,binstr},
+                       tools => {required,{map,{binstr,{ref,<<"Tool">>}}}},
+                       authStatus => {required,{ref,<<"McpAuthStatus">>}},
+                       resourceTemplates =>
+                           {required,{list,{ref,<<"ResourceTemplate">>}}},
+                       resources => {required,{list,{ref,<<"Resource">>}}}}},
+             <<"Resource">> =>
+                 {struct,
+                     #{name => {required,binstr},
+                       size => {optional,{any_of,[integer,{exact,null}]}},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       title => {optional,{any_of,[binstr,{exact,null}]}},
+                       uri => {required,binstr},
+                       '_meta' => {optional,term},
+                       annotations => {optional,term},
+                       icons => {optional,{any_of,[{list,term},{exact,null}]}},
+                       mimeType => {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"ResourceTemplate">> =>
+                 {struct,
+                     #{name => {required,binstr},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       title => {optional,{any_of,[binstr,{exact,null}]}},
+                       annotations => {optional,term},
+                       mimeType => {optional,{any_of,[binstr,{exact,null}]}},
+                       uriTemplate => {required,binstr}}},
+             <<"Tool">> =>
+                 {struct,
+                     #{name => {required,binstr},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       title => {optional,{any_of,[binstr,{exact,null}]}},
+                       outputSchema => {optional,term},
+                       inputSchema => {required,term},
+                       '_meta' => {optional,term},
+                       annotations => {optional,term},
+                       icons =>
+                           {optional,{any_of,[{list,term},{exact,null}]}}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"McpServerStatus">>}}},
+                 nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"McpAuthStatus">> =>
+                 {enum,
+                     [<<"unsupported">>,<<"notLoggedIn">>,<<"bearerToken">>,
+                      <<"oAuth">>]},
+             <<"McpServerStatus">> =>
+                 {struct,
+                     #{name => {required,binstr},
+                       tools => {required,{map,{binstr,{ref,<<"Tool">>}}}},
+                       authStatus => {required,{ref,<<"McpAuthStatus">>}},
+                       resourceTemplates =>
+                           {required,{list,{ref,<<"ResourceTemplate">>}}},
+                       resources => {required,{list,{ref,<<"Resource">>}}}}},
+             <<"Resource">> =>
+                 {struct,
+                     #{name => {required,binstr},
+                       size => {optional,{any_of,[integer,{exact,null}]}},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       title => {optional,{any_of,[binstr,{exact,null}]}},
+                       uri => {required,binstr},
+                       '_meta' => {optional,term},
+                       annotations => {optional,term},
+                       icons => {optional,{any_of,[{list,term},{exact,null}]}},
+                       mimeType => {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"ResourceTemplate">> =>
+                 {struct,
+                     #{name => {required,binstr},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       title => {optional,{any_of,[binstr,{exact,null}]}},
+                       annotations => {optional,term},
+                       mimeType => {optional,{any_of,[binstr,{exact,null}]}},
+                       uriTemplate => {required,binstr}}},
+             <<"Tool">> =>
+                 {struct,
+                     #{name => {required,binstr},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       title => {optional,{any_of,[binstr,{exact,null}]}},
+                       outputSchema => {optional,term},
+                       inputSchema => {required,term},
+                       '_meta' => {optional,term},
+                       annotations => {optional,term},
+                       icons =>
+                           {optional,{any_of,[{list,term},{exact,null}]}}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"McpServerStatus">>}}},
+                 nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}}}.

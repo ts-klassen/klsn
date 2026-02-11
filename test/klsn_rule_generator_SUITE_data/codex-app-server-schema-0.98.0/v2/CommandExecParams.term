@@ -1,0 +1,56 @@
+#{to_json =>
+   {with_defs,
+    {#{<<"AbsolutePathBuf">> => binstr,
+       <<"NetworkAccess">> => {enum,[<<"restricted">>,<<"enabled">>]},
+       <<"SandboxPolicy">> =>
+        {any_of,
+         [{struct,#{type => {required,{enum,[<<"dangerFullAccess">>]}}}},
+          {struct,#{type => {required,{enum,[<<"readOnly">>]}}}},
+          {struct,
+           #{type => {required,{enum,[<<"externalSandbox">>]}},
+             networkAccess =>
+              {optional,
+               {default,
+                {<<"restricted">>,{all_of,[{ref,<<"NetworkAccess">>}]}}}}}},
+          {struct,
+           #{type => {required,{enum,[<<"workspaceWrite">>]}},
+             networkAccess => {optional,{default,{false,boolean}}},
+             excludeSlashTmp => {optional,{default,{false,boolean}}},
+             excludeTmpdirEnvVar => {optional,{default,{false,boolean}}},
+             writableRoots =>
+              {optional,
+               {default,{[],{list,{ref,<<"AbsolutePathBuf">>}}}}}}}]}},
+     {struct,
+      #{command => {required,{list,binstr}},
+        cwd => {optional,{any_of,[binstr,{exact,null}]}},
+        sandboxPolicy =>
+         {optional,{any_of,[{ref,<<"SandboxPolicy">>},{exact,null}]}},
+        timeoutMs => {optional,{any_of,[integer,{exact,null}]}}}}}},
+  from_json =>
+   {with_defs,
+    {#{<<"AbsolutePathBuf">> => binstr,
+       <<"NetworkAccess">> => {enum,[<<"restricted">>,<<"enabled">>]},
+       <<"SandboxPolicy">> =>
+        {any_of,
+         [{struct,#{type => {required,{enum,[<<"dangerFullAccess">>]}}}},
+          {struct,#{type => {required,{enum,[<<"readOnly">>]}}}},
+          {struct,
+           #{type => {required,{enum,[<<"externalSandbox">>]}},
+             networkAccess =>
+              {optional,
+               {default,
+                {<<"restricted">>,{all_of,[{ref,<<"NetworkAccess">>}]}}}}}},
+          {struct,
+           #{type => {required,{enum,[<<"workspaceWrite">>]}},
+             networkAccess => {optional,{default,{false,boolean}}},
+             excludeSlashTmp => {optional,{default,{false,boolean}}},
+             excludeTmpdirEnvVar => {optional,{default,{false,boolean}}},
+             writableRoots =>
+              {optional,
+               {default,{[],{list,{ref,<<"AbsolutePathBuf">>}}}}}}}]}},
+     {struct,
+      #{command => {required,{list,binstr}},
+        cwd => {optional,{any_of,[binstr,{exact,null}]}},
+        sandboxPolicy =>
+         {optional,{any_of,[{ref,<<"SandboxPolicy">>},{exact,null}]}},
+        timeoutMs => {optional,{any_of,[integer,{exact,null}]}}}}}}}.

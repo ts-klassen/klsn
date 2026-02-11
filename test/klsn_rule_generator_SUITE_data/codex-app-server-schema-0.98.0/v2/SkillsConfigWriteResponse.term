@@ -1,0 +1,2 @@
+#{to_json => {struct,#{effectiveEnabled => {required,boolean}}},
+  from_json => {struct,#{effectiveEnabled => {required,boolean}}}}.

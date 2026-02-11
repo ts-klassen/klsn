@@ -1,0 +1,26 @@
+#{to_json =>
+      {with_defs,{#{<<"ConfigEdit">> =>
+                        {struct,#{value => {required,term},
+                                  keyPath => {required,binstr},
+                                  mergeStrategy =>
+                                      {required,{ref,<<"MergeStrategy">>}}}},
+                    <<"MergeStrategy">> =>
+                        {enum,[<<"replace">>,<<"upsert">>]}},
+                  {struct,#{filePath =>
+                                {optional,{any_of,[binstr,{exact,null}]}},
+                            edits => {required,{list,{ref,<<"ConfigEdit">>}}},
+                            expectedVersion =>
+                                {optional,{any_of,[binstr,{exact,null}]}}}}}},
+  from_json =>
+      {with_defs,{#{<<"ConfigEdit">> =>
+                        {struct,#{value => {required,term},
+                                  keyPath => {required,binstr},
+                                  mergeStrategy =>
+                                      {required,{ref,<<"MergeStrategy">>}}}},
+                    <<"MergeStrategy">> =>
+                        {enum,[<<"replace">>,<<"upsert">>]}},
+                  {struct,#{filePath =>
+                                {optional,{any_of,[binstr,{exact,null}]}},
+                            edits => {required,{list,{ref,<<"ConfigEdit">>}}},
+                            expectedVersion =>
+                                {optional,{any_of,[binstr,{exact,null}]}}}}}}}.

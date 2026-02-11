@@ -1,0 +1,8 @@
+#{to_json =>
+      {struct,#{error => {optional,{any_of,[binstr,{exact,null}]}},
+                name => {required,binstr},
+                success => {required,boolean}}},
+  from_json =>
+      {struct,#{error => {optional,{any_of,[binstr,{exact,null}]}},
+                name => {required,binstr},
+                success => {required,boolean}}}}.

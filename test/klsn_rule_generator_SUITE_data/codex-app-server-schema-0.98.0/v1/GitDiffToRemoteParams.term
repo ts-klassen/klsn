@@ -1,0 +1,2 @@
+#{to_json => {struct,#{cwd => {required,binstr}}},
+  from_json => {struct,#{cwd => {required,binstr}}}}.

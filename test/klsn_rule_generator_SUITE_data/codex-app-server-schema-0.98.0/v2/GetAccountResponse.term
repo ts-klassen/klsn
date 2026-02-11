@@ -1,0 +1,36 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"Account">> =>
+                 {any_of,
+                     [{struct,#{type => {required,{enum,[<<"apiKey">>]}}}},
+                      {struct,
+                          #{type => {required,{enum,[<<"chatgpt">>]}},
+                            email => {required,binstr},
+                            planType => {required,{ref,<<"PlanType">>}}}}]},
+             <<"PlanType">> =>
+                 {enum,
+                     [<<"free">>,<<"go">>,<<"plus">>,<<"pro">>,<<"team">>,
+                      <<"business">>,<<"enterprise">>,<<"edu">>,
+                      <<"unknown">>]}},
+           {struct,
+               #{account =>
+                     {optional,{any_of,[{ref,<<"Account">>},{exact,null}]}},
+                 requiresOpenaiAuth => {required,boolean}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"Account">> =>
+                 {any_of,
+                     [{struct,#{type => {required,{enum,[<<"apiKey">>]}}}},
+                      {struct,
+                          #{type => {required,{enum,[<<"chatgpt">>]}},
+                            email => {required,binstr},
+                            planType => {required,{ref,<<"PlanType">>}}}}]},
+             <<"PlanType">> =>
+                 {enum,
+                     [<<"free">>,<<"go">>,<<"plus">>,<<"pro">>,<<"team">>,
+                      <<"business">>,<<"enterprise">>,<<"edu">>,
+                      <<"unknown">>]}},
+           {struct,
+               #{account =>
+                     {optional,{any_of,[{ref,<<"Account">>},{exact,null}]}},
+                 requiresOpenaiAuth => {required,boolean}}}}}}.

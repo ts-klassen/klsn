@@ -1,0 +1,34 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"DynamicToolCallOutputContentItem">> =>
+                 {any_of,
+                     [{struct,
+                          #{type => {required,{enum,[<<"inputText">>]}},
+                            text => {required,binstr}}},
+                      {struct,
+                          #{type => {required,{enum,[<<"inputImage">>]}},
+                            imageUrl => {required,binstr}}}]}},
+           {struct,
+               #{success => {required,boolean},
+                 contentItems =>
+                     {required,
+                         {list,
+                             {ref,
+                                 <<"DynamicToolCallOutputContentItem">>}}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"DynamicToolCallOutputContentItem">> =>
+                 {any_of,
+                     [{struct,
+                          #{type => {required,{enum,[<<"inputText">>]}},
+                            text => {required,binstr}}},
+                      {struct,
+                          #{type => {required,{enum,[<<"inputImage">>]}},
+                            imageUrl => {required,binstr}}}]}},
+           {struct,
+               #{success => {required,boolean},
+                 contentItems =>
+                     {required,
+                         {list,
+                             {ref,
+                                 <<"DynamicToolCallOutputContentItem">>}}}}}}}}.

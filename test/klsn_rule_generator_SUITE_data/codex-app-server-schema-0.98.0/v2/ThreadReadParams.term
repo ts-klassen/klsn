@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{threadId => {required,binstr},
+                includeTurns => {optional,{default,{false,boolean}}}}},
+  from_json =>
+      {struct,#{threadId => {required,binstr},
+                includeTurns => {optional,{default,{false,boolean}}}}}}.

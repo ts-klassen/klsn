@@ -1,0 +1,68 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"AskForApproval">> =>
+                 {enum,
+                     [<<"untrusted">>,<<"on-failure">>,<<"on-request">>,
+                      <<"never">>]},
+             <<"ConfigRequirements">> =>
+                 {struct,
+                     #{allowedApprovalPolicies =>
+                           {optional,
+                               {any_of,
+                                   [{list,{ref,<<"AskForApproval">>}},
+                                    {exact,null}]}},
+                       allowedSandboxModes =>
+                           {optional,
+                               {any_of,
+                                   [{list,{ref,<<"SandboxMode">>}},
+                                    {exact,null}]}},
+                       enforceResidency =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ResidencyRequirement">>},
+                                    {exact,null}]}}}},
+             <<"ResidencyRequirement">> => {enum,[<<"us">>]},
+             <<"SandboxMode">> =>
+                 {enum,
+                     [<<"read-only">>,<<"workspace-write">>,
+                      <<"danger-full-access">>]}},
+           {struct,
+               #{requirements =>
+                     {optional,
+                         {any_of,
+                             [{ref,<<"ConfigRequirements">>},
+                              {exact,null}]}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"AskForApproval">> =>
+                 {enum,
+                     [<<"untrusted">>,<<"on-failure">>,<<"on-request">>,
+                      <<"never">>]},
+             <<"ConfigRequirements">> =>
+                 {struct,
+                     #{allowedApprovalPolicies =>
+                           {optional,
+                               {any_of,
+                                   [{list,{ref,<<"AskForApproval">>}},
+                                    {exact,null}]}},
+                       allowedSandboxModes =>
+                           {optional,
+                               {any_of,
+                                   [{list,{ref,<<"SandboxMode">>}},
+                                    {exact,null}]}},
+                       enforceResidency =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"ResidencyRequirement">>},
+                                    {exact,null}]}}}},
+             <<"ResidencyRequirement">> => {enum,[<<"us">>]},
+             <<"SandboxMode">> =>
+                 {enum,
+                     [<<"read-only">>,<<"workspace-write">>,
+                      <<"danger-full-access">>]}},
+           {struct,
+               #{requirements =>
+                     {optional,
+                         {any_of,
+                             [{ref,<<"ConfigRequirements">>},
+                              {exact,null}]}}}}}}}.

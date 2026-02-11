@@ -1,0 +1,26 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"FuzzyFileSearchResult">> =>
+                 {struct,
+                     #{path => {required,binstr},
+                       root => {required,binstr},
+                       file_name => {required,binstr},
+                       indices =>
+                           {optional,{any_of,[{list,integer},{exact,null}]}},
+                       score => {required,integer}}}},
+           {struct,
+               #{files =>
+                     {required,{list,{ref,<<"FuzzyFileSearchResult">>}}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"FuzzyFileSearchResult">> =>
+                 {struct,
+                     #{path => {required,binstr},
+                       root => {required,binstr},
+                       file_name => {required,binstr},
+                       indices =>
+                           {optional,{any_of,[{list,integer},{exact,null}]}},
+                       score => {required,integer}}}},
+           {struct,
+               #{files =>
+                     {required,{list,{ref,<<"FuzzyFileSearchResult">>}}}}}}}}.

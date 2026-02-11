@@ -1,0 +1,14 @@
+#{to_json =>
+   {with_defs,
+    {#{<<"ToolRequestUserInputAnswer">> =>
+        {struct,#{answers => {required,{list,binstr}}}}},
+     {struct,
+      #{answers =>
+         {required,{map,{binstr,{ref,<<"ToolRequestUserInputAnswer">>}}}}}}}},
+  from_json =>
+   {with_defs,
+    {#{<<"ToolRequestUserInputAnswer">> =>
+        {struct,#{answers => {required,{list,binstr}}}}},
+     {struct,
+      #{answers =>
+         {required,{map,{binstr,{ref,<<"ToolRequestUserInputAnswer">>}}}}}}}}}.

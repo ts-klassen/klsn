@@ -1,0 +1,12 @@
+#{to_json =>
+      {struct,#{arguments => {required,term},
+                callId => {required,binstr},
+                threadId => {required,binstr},
+                tool => {required,binstr},
+                turnId => {required,binstr}}},
+  from_json =>
+      {struct,#{arguments => {required,term},
+                callId => {required,binstr},
+                threadId => {required,binstr},
+                tool => {required,binstr},
+                turnId => {required,binstr}}}}.

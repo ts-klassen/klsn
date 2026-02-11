@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{refreshToken => {optional,{any_of,[boolean,{exact,null}]}},
+                includeToken => {optional,{any_of,[boolean,{exact,null}]}}}},
+  from_json =>
+      {struct,#{refreshToken => {optional,{any_of,[boolean,{exact,null}]}},
+                includeToken => {optional,{any_of,[boolean,{exact,null}]}}}}}.

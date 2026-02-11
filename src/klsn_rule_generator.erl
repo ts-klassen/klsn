@@ -14,6 +14,9 @@
             {alias, {?MODULE, json_schema_any_of}},
             {alias, {?MODULE, json_schema_all_of}},
             {alias, {?MODULE, json_schema_one_of}},
+            {alias, {?MODULE, json_schema_const}},
+            {alias, {?MODULE, json_schema_enum}},
+            {alias, {?MODULE, json_schema_type_list}},
             {alias, {?MODULE, json_schema_integer}},
             {alias, {?MODULE, json_schema_string}},
             {alias, {?MODULE, json_schema_boolean}},
@@ -21,9 +24,8 @@
             {alias, {?MODULE, json_schema_float}},
             {alias, {?MODULE, json_schema_null}},
             {alias, {?MODULE, json_schema_array}},
-            {alias, {?MODULE, json_schema_const}},
-            {alias, {?MODULE, json_schema_enum}},
-            {alias, {?MODULE, json_schema_object}}
+            {alias, {?MODULE, json_schema_object}},
+            {alias, {?MODULE, json_schema_annotations}}
         ]}}
       , {json_schema_definitions, {map, {binstr, {alias, {?MODULE, json_schema}}}}}
       , {json_schema_ref, {struct, #{
@@ -45,6 +47,14 @@
         }}}
       , {json_schema_one_of, {struct, #{
             oneOf => {required, {list, {alias, {?MODULE, json_schema}}}},
+            definitions => {optional, {alias, {?MODULE, json_schema_definitions}}},
+            default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_type_list, {struct, #{
+            type => {required, {list, {enum, [integer, string, boolean, number, float, null, array, object]}}},
+            items => {optional, {alias, {?MODULE, json_schema}}},
+            properties => {optional, {map, {binstr, {alias, {?MODULE, json_schema}}}}},
+            required => {optional, {list, binstr}},
             definitions => {optional, {alias, {?MODULE, json_schema_definitions}}},
             default => {optional, {alias, {?MODULE, json_value}}}
         }}}
@@ -104,10 +114,23 @@
         }}}
       , {json_schema_object, {struct, #{
             type => {required, {enum, [object]}}
-          , properties => {required, {map, {binstr, {alias, {?MODULE, json_schema}}}}}
+          , properties => {optional, {map, {binstr, {alias, {?MODULE, json_schema}}}}}
           , required => {optional, {list, binstr}}
+          , additionalProperties => {optional, {any_of, [boolean, {alias, {?MODULE, json_schema}}]}}
           , definitions => {optional, {alias, {?MODULE, json_schema_definitions}}}
           , default => {optional, {alias, {?MODULE, json_value}}}
+        }}}
+      , {json_schema_annotations, {struct, #{
+            description => {optional, binstr},
+            title => {optional, binstr},
+            default => {optional, {alias, {?MODULE, json_value}}},
+            examples => {optional, {list, {alias, {?MODULE, json_value}}}},
+            example => {optional, {alias, {?MODULE, json_value}}},
+            '$comment' => {optional, binstr},
+            deprecated => {optional, boolean},
+            readOnly => {optional, boolean},
+            writeOnly => {optional, boolean},
+            format => {optional, binstr}
         }}}
     ]).
 -type json_schema() :: klsn_rule:alias(json_schema).
@@ -184,6 +207,21 @@ from_json_schema_base_(#{oneOf := Schemas}=Schema, Opts) ->
     {FromRules, ToRules} = json_rule_list_(Schemas, Opts),
     #{from_json => with_default_(Schema, {any_of, FromRules}),
       to_json => with_default_(Schema, {any_of, ToRules})};
+from_json_schema_base_(#{const := Const}=Schema, _Opts) ->
+    json_rules_from_rule_(with_default_(Schema, {exact, Const}));
+from_json_schema_base_(#{enum := Enum}=Schema, _Opts) ->
+    json_rules_from_rule_(with_default_(Schema, {enum, Enum}));
+from_json_schema_base_(#{type := Types}=Schema, Opts) when is_list(Types) ->
+    SchemaNoDefault = maps:remove(default, Schema),
+    {FromRev, ToRev} = lists:foldl(fun(Type, {FromAcc, ToAcc}) ->
+        Schema1 = maps:put(type, Type, SchemaNoDefault),
+        #{from_json := FromRule, to_json := ToRule} = from_json_schema_base_(Schema1, Opts),
+        {[FromRule|FromAcc], [ToRule|ToAcc]}
+    end, {[], []}, Types),
+    FromRules = lists:reverse(FromRev),
+    ToRules = lists:reverse(ToRev),
+    #{from_json => with_default_(Schema, {any_of, FromRules}),
+      to_json => with_default_(Schema, {any_of, ToRules})};
 from_json_schema_base_(#{type := integer}=Schema, _Opts) ->
     json_rules_from_rule_(with_default_(Schema, integer));
 from_json_schema_base_(#{type := string}=Schema, _Opts) ->
@@ -205,31 +243,58 @@ from_json_schema_base_(#{type := array}=Schema, Opts) ->
         none ->
             json_rules_from_rule_(with_default_(Schema, {list, term}))
     end;
-from_json_schema_base_(#{const := Const}=Schema, _Opts) ->
-    json_rules_from_rule_(with_default_(Schema, {exact, Const}));
-from_json_schema_base_(#{enum := Enum}=Schema, _Opts) ->
-    json_rules_from_rule_(with_default_(Schema, {enum, Enum}));
-from_json_schema_base_(#{type := object, properties := Properties}=Schema, Opts) ->
+from_json_schema_base_(#{type := object}=Schema, Opts) ->
+    Properties = maps:get(properties, Schema, #{}),
     Required = maps:get(required, Schema, []),
-    PropList = maps:to_list(Properties),
-    MissingRequired = lists:filter(fun(Key) ->
-        not maps:is_key(Key, Properties)
-    end, Required),
-    case MissingRequired of
-        [] ->
-            {FromMap, ToMap} = lists:foldl(fun({PropName, PropSchema}, {FromAcc, ToAcc}) ->
-                #{from_json := FromJson, to_json := ToJson} = from_json_schema(PropSchema, Opts),
-                ReqOpt = case lists:member(PropName, Required) of
-                    true -> required;
-                    false -> optional
-                end,
-                Field = binary_to_atom(PropName, utf8),
-                {maps:put(Field, {ReqOpt, FromJson}, FromAcc),
-                 maps:put(Field, {ReqOpt, ToJson}, ToAcc)}
-            end, {#{}, #{}}, PropList),
-            #{from_json => with_default_(Schema, {struct, FromMap}),
-              to_json => with_default_(Schema, {struct, ToMap})};
-        _ ->
+    case Properties =:= #{} of
+        true ->
+            case Required of
+                [] ->
+                    case maps:get(additionalProperties, Schema, none) of
+                        none ->
+                            json_rules_from_rule_(with_default_(Schema, {map, {binstr, term}}));
+                        true ->
+                            json_rules_from_rule_(with_default_(Schema, {map, {binstr, term}}));
+                        false ->
+                            json_rules_from_rule_(with_default_(Schema, {struct, #{}}));
+                        AddSchema when is_map(AddSchema) ->
+                            #{from_json := FromItem, to_json := ToItem} = from_json_schema(AddSchema, Opts),
+                            #{from_json => with_default_(Schema, {map, {binstr, FromItem}}),
+                              to_json => with_default_(Schema, {map, {binstr, ToItem}})};
+                        _ ->
+                            error({klsn_rule_generator, unsupported_schema, Schema})
+                    end;
+                _ ->
+                    error({klsn_rule_generator, unsupported_schema, Schema})
+            end;
+        false ->
+            PropList = maps:to_list(Properties),
+            MissingRequired = lists:filter(fun(Key) ->
+                not maps:is_key(Key, Properties)
+            end, Required),
+            case MissingRequired of
+                [] ->
+                    {FromMap, ToMap} = lists:foldl(fun({PropName, PropSchema}, {FromAcc, ToAcc}) ->
+                        #{from_json := FromJson, to_json := ToJson} = from_json_schema(PropSchema, Opts),
+                        ReqOpt = case lists:member(PropName, Required) of
+                            true -> required;
+                            false -> optional
+                        end,
+                        Field = binary_to_atom(PropName, utf8),
+                        {maps:put(Field, {ReqOpt, FromJson}, FromAcc),
+                         maps:put(Field, {ReqOpt, ToJson}, ToAcc)}
+                    end, {#{}, #{}}, PropList),
+                    #{from_json => with_default_(Schema, {struct, FromMap}),
+                      to_json => with_default_(Schema, {struct, ToMap})};
+                _ ->
+                    error({klsn_rule_generator, unsupported_schema, Schema})
+            end
+    end;
+from_json_schema_base_(Schema, _Opts) when is_map(Schema) ->
+    case annotation_only_schema_(Schema) of
+        true ->
+            json_rules_from_rule_(with_default_(Schema, term));
+        false ->
             error({klsn_rule_generator, unsupported_schema, Schema})
     end;
 from_json_schema_base_(Schema, _Opts) ->
@@ -251,4 +316,34 @@ with_default_(Schema, Rule) ->
             {default, {Default, Rule}};
         none ->
             Rule
+    end.
+
+annotation_only_schema_(Schema) ->
+    maps:fold(fun(Key, _Value, Acc) ->
+        Acc andalso annotation_key_(Key)
+    end, true, Schema).
+
+annotation_key_(Key) ->
+    case Key of
+        description -> true;
+        title -> true;
+        default -> true;
+        examples -> true;
+        example -> true;
+        '$comment' -> true;
+        deprecated -> true;
+        readOnly -> true;
+        writeOnly -> true;
+        format -> true;
+        <<"description">> -> true;
+        <<"title">> -> true;
+        <<"default">> -> true;
+        <<"examples">> -> true;
+        <<"example">> -> true;
+        <<"$comment">> -> true;
+        <<"deprecated">> -> true;
+        <<"readOnly">> -> true;
+        <<"writeOnly">> -> true;
+        <<"format">> -> true;
+        _ -> false
     end.

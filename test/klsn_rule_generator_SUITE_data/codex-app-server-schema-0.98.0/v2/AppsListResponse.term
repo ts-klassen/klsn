@@ -1,0 +1,36 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"AppInfo">> =>
+                 {struct,
+                     #{id => {required,binstr},
+                       name => {required,binstr},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       distributionChannel =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       installUrl => {optional,{any_of,[binstr,{exact,null}]}},
+                       isAccessible => {optional,{default,{false,boolean}}},
+                       logoUrl => {optional,{any_of,[binstr,{exact,null}]}},
+                       logoUrlDark =>
+                           {optional,{any_of,[binstr,{exact,null}]}}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"AppInfo">>}}},
+                 nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"AppInfo">> =>
+                 {struct,
+                     #{id => {required,binstr},
+                       name => {required,binstr},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       distributionChannel =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       installUrl => {optional,{any_of,[binstr,{exact,null}]}},
+                       isAccessible => {optional,{default,{false,boolean}}},
+                       logoUrl => {optional,{any_of,[binstr,{exact,null}]}},
+                       logoUrlDark =>
+                           {optional,{any_of,[binstr,{exact,null}]}}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"AppInfo">>}}},
+                 nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}}}.

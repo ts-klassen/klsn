@@ -119,6 +119,16 @@ array_schema_defaults_to_term_items_test() ->
     ?assertEqual({list, term}, FromJsonRule),
     ?assertEqual({list, term}, ToJsonRule).
 
+nullable_array_schema_generates_any_of_rule_test() ->
+    Schema = #{
+        <<"type">> => [<<"array">>, <<"null">>],
+        <<"items">> => #{<<"type">> => <<"integer">>}
+    },
+    #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),
+    Expected = {any_of, [{list, integer}, {exact, null}]},
+    ?assertEqual(Expected, FromJsonRule),
+    ?assertEqual(Expected, ToJsonRule).
+
 null_schema_generates_null_rule_test() ->
     Schema = #{<<"type">> => <<"null">>},
     #{from_json := FromJsonRule, to_json := ToJsonRule} = klsn_rule_generator:from_json_schema(Schema),

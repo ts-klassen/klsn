@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{data => {required,{list,binstr}},
+                nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}},
+  from_json =>
+      {struct,#{data => {required,{list,binstr}},
+                nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}.

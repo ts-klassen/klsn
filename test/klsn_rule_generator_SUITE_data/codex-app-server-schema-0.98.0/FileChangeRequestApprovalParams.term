@@ -1,0 +1,12 @@
+#{to_json =>
+      {struct,#{reason => {optional,{any_of,[binstr,{exact,null}]}},
+                threadId => {required,binstr},
+                turnId => {required,binstr},
+                itemId => {required,binstr},
+                grantRoot => {optional,{any_of,[binstr,{exact,null}]}}}},
+  from_json =>
+      {struct,#{reason => {optional,{any_of,[binstr,{exact,null}]}},
+                threadId => {required,binstr},
+                turnId => {required,binstr},
+                itemId => {required,binstr},
+                grantRoot => {optional,{any_of,[binstr,{exact,null}]}}}}}.

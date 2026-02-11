@@ -1,0 +1,4 @@
+#{to_json =>
+      {struct,#{authUrl => {required,binstr},loginId => {required,binstr}}},
+  from_json =>
+      {struct,#{authUrl => {required,binstr},loginId => {required,binstr}}}}.

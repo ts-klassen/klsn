@@ -1,0 +1,80 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"CreditsSnapshot">> =>
+                 {struct,
+                     #{unlimited => {required,boolean},
+                       balance => {optional,{any_of,[binstr,{exact,null}]}},
+                       hasCredits => {required,boolean}}},
+             <<"PlanType">> =>
+                 {enum,
+                     [<<"free">>,<<"go">>,<<"plus">>,<<"pro">>,<<"team">>,
+                      <<"business">>,<<"enterprise">>,<<"edu">>,
+                      <<"unknown">>]},
+             <<"RateLimitSnapshot">> =>
+                 {struct,
+                     #{primary =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"RateLimitWindow">>},
+                                    {exact,null}]}},
+                       planType =>
+                           {optional,
+                               {any_of,[{ref,<<"PlanType">>},{exact,null}]}},
+                       credits =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"CreditsSnapshot">>},
+                                    {exact,null}]}},
+                       secondary =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"RateLimitWindow">>},
+                                    {exact,null}]}}}},
+             <<"RateLimitWindow">> =>
+                 {struct,
+                     #{resetsAt => {optional,{any_of,[integer,{exact,null}]}},
+                       usedPercent => {required,integer},
+                       windowDurationMins =>
+                           {optional,{any_of,[integer,{exact,null}]}}}}},
+           {struct,
+               #{rateLimits => {required,{ref,<<"RateLimitSnapshot">>}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"CreditsSnapshot">> =>
+                 {struct,
+                     #{unlimited => {required,boolean},
+                       balance => {optional,{any_of,[binstr,{exact,null}]}},
+                       hasCredits => {required,boolean}}},
+             <<"PlanType">> =>
+                 {enum,
+                     [<<"free">>,<<"go">>,<<"plus">>,<<"pro">>,<<"team">>,
+                      <<"business">>,<<"enterprise">>,<<"edu">>,
+                      <<"unknown">>]},
+             <<"RateLimitSnapshot">> =>
+                 {struct,
+                     #{primary =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"RateLimitWindow">>},
+                                    {exact,null}]}},
+                       planType =>
+                           {optional,
+                               {any_of,[{ref,<<"PlanType">>},{exact,null}]}},
+                       credits =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"CreditsSnapshot">>},
+                                    {exact,null}]}},
+                       secondary =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"RateLimitWindow">>},
+                                    {exact,null}]}}}},
+             <<"RateLimitWindow">> =>
+                 {struct,
+                     #{resetsAt => {optional,{any_of,[integer,{exact,null}]}},
+                       usedPercent => {required,integer},
+                       windowDurationMins =>
+                           {optional,{any_of,[integer,{exact,null}]}}}}},
+           {struct,
+               #{rateLimits => {required,{ref,<<"RateLimitSnapshot">>}}}}}}}.

@@ -1,0 +1,8 @@
+#{to_json =>
+      {with_defs,{#{<<"GitSha">> => binstr},
+                  {struct,#{diff => {required,binstr},
+                            sha => {required,{ref,<<"GitSha">>}}}}}},
+  from_json =>
+      {with_defs,{#{<<"GitSha">> => binstr},
+                  {struct,#{diff => {required,binstr},
+                            sha => {required,{ref,<<"GitSha">>}}}}}}}.

@@ -1,0 +1,76 @@
+#{to_json =>
+   {with_defs,
+    {#{<<"ConversationGitInfo">> =>
+        {struct,
+         #{sha => {optional,{any_of,[binstr,{exact,null}]}},
+           branch => {optional,{any_of,[binstr,{exact,null}]}},
+           origin_url => {optional,{any_of,[binstr,{exact,null}]}}}},
+       <<"ConversationSummary">> =>
+        {struct,
+         #{timestamp => {optional,{any_of,[binstr,{exact,null}]}},
+           path => {required,binstr},
+           source => {required,{ref,<<"SessionSource">>}},
+           cwd => {required,binstr},
+           conversationId => {required,{ref,<<"ThreadId">>}},
+           modelProvider => {required,binstr},
+           cliVersion => {required,binstr},
+           gitInfo =>
+            {optional,{any_of,[{ref,<<"ConversationGitInfo">>},{exact,null}]}},
+           preview => {required,binstr},
+           updatedAt => {optional,{any_of,[binstr,{exact,null}]}}}},
+       <<"SessionSource">> =>
+        {any_of,
+         [{enum,[<<"cli">>,<<"vscode">>,<<"exec">>,<<"mcp">>,<<"unknown">>]},
+          {struct,#{subagent => {required,{ref,<<"SubAgentSource">>}}}}]},
+       <<"SubAgentSource">> =>
+        {any_of,
+         [{enum,[<<"review">>,<<"compact">>]},
+          {struct,
+           #{thread_spawn =>
+              {required,
+               {struct,
+                #{depth => {required,integer},
+                  parent_thread_id => {required,{ref,<<"ThreadId">>}}}}}}},
+          {struct,#{other => {required,binstr}}}]},
+       <<"ThreadId">> => binstr},
+     {struct,
+      #{items => {required,{list,{ref,<<"ConversationSummary">>}}},
+        nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}},
+  from_json =>
+   {with_defs,
+    {#{<<"ConversationGitInfo">> =>
+        {struct,
+         #{sha => {optional,{any_of,[binstr,{exact,null}]}},
+           branch => {optional,{any_of,[binstr,{exact,null}]}},
+           origin_url => {optional,{any_of,[binstr,{exact,null}]}}}},
+       <<"ConversationSummary">> =>
+        {struct,
+         #{timestamp => {optional,{any_of,[binstr,{exact,null}]}},
+           path => {required,binstr},
+           source => {required,{ref,<<"SessionSource">>}},
+           cwd => {required,binstr},
+           conversationId => {required,{ref,<<"ThreadId">>}},
+           modelProvider => {required,binstr},
+           cliVersion => {required,binstr},
+           gitInfo =>
+            {optional,{any_of,[{ref,<<"ConversationGitInfo">>},{exact,null}]}},
+           preview => {required,binstr},
+           updatedAt => {optional,{any_of,[binstr,{exact,null}]}}}},
+       <<"SessionSource">> =>
+        {any_of,
+         [{enum,[<<"cli">>,<<"vscode">>,<<"exec">>,<<"mcp">>,<<"unknown">>]},
+          {struct,#{subagent => {required,{ref,<<"SubAgentSource">>}}}}]},
+       <<"SubAgentSource">> =>
+        {any_of,
+         [{enum,[<<"review">>,<<"compact">>]},
+          {struct,
+           #{thread_spawn =>
+              {required,
+               {struct,
+                #{depth => {required,integer},
+                  parent_thread_id => {required,{ref,<<"ThreadId">>}}}}}}},
+          {struct,#{other => {required,binstr}}}]},
+       <<"ThreadId">> => binstr},
+     {struct,
+      #{items => {required,{list,{ref,<<"ConversationSummary">>}}},
+        nextCursor => {optional,{any_of,[binstr,{exact,null}]}}}}}}}.

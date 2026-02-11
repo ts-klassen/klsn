@@ -1,0 +1,4 @@
+#{to_json =>
+      {struct,#{name => {required,binstr},threadId => {required,binstr}}},
+  from_json =>
+      {struct,#{name => {required,binstr},threadId => {required,binstr}}}}.

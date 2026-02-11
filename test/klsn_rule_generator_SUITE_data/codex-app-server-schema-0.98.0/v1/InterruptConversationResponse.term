@@ -1,0 +1,12 @@
+#{to_json =>
+      {with_defs,{#{<<"TurnAbortReason">> =>
+                        {enum,[<<"interrupted">>,<<"replaced">>,
+                               <<"review_ended">>]}},
+                  {struct,#{abortReason =>
+                                {required,{ref,<<"TurnAbortReason">>}}}}}},
+  from_json =>
+      {with_defs,{#{<<"TurnAbortReason">> =>
+                        {enum,[<<"interrupted">>,<<"replaced">>,
+                               <<"review_ended">>]}},
+                  {struct,#{abortReason =>
+                                {required,{ref,<<"TurnAbortReason">>}}}}}}}.

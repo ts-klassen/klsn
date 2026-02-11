@@ -1,0 +1,22 @@
+#{to_json =>
+      {with_defs,{#{<<"MergeStrategy">> =>
+                        {enum,[<<"replace">>,<<"upsert">>]}},
+                  {struct,#{value => {required,term},
+                            filePath =>
+                                {optional,{any_of,[binstr,{exact,null}]}},
+                            expectedVersion =>
+                                {optional,{any_of,[binstr,{exact,null}]}},
+                            keyPath => {required,binstr},
+                            mergeStrategy =>
+                                {required,{ref,<<"MergeStrategy">>}}}}}},
+  from_json =>
+      {with_defs,{#{<<"MergeStrategy">> =>
+                        {enum,[<<"replace">>,<<"upsert">>]}},
+                  {struct,#{value => {required,term},
+                            filePath =>
+                                {optional,{any_of,[binstr,{exact,null}]}},
+                            expectedVersion =>
+                                {optional,{any_of,[binstr,{exact,null}]}},
+                            keyPath => {required,binstr},
+                            mergeStrategy =>
+                                {required,{ref,<<"MergeStrategy">>}}}}}}}.

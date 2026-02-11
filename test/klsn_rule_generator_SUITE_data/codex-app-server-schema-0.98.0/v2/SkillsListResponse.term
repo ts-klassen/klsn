@@ -1,0 +1,117 @@
+#{to_json =>
+      {with_defs,
+          {#{<<"SkillDependencies">> =>
+                 {struct,
+                     #{tools =>
+                           {required,{list,{ref,<<"SkillToolDependency">>}}}}},
+             <<"SkillErrorInfo">> =>
+                 {struct,
+                     #{message => {required,binstr},
+                       path => {required,binstr}}},
+             <<"SkillInterface">> =>
+                 {struct,
+                     #{displayName =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       brandColor => {optional,{any_of,[binstr,{exact,null}]}},
+                       defaultPrompt =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       iconLarge => {optional,{any_of,[binstr,{exact,null}]}},
+                       iconSmall => {optional,{any_of,[binstr,{exact,null}]}},
+                       shortDescription =>
+                           {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"SkillMetadata">> =>
+                 {struct,
+                     #{enabled => {required,boolean},
+                       name => {required,binstr},
+                       scope => {required,{ref,<<"SkillScope">>}},
+                       path => {required,binstr},
+                       interface =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"SkillInterface">>},{exact,null}]}},
+                       description => {required,binstr},
+                       shortDescription =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       dependencies =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"SkillDependencies">>},
+                                    {exact,null}]}}}},
+             <<"SkillScope">> =>
+                 {enum,[<<"user">>,<<"repo">>,<<"system">>,<<"admin">>]},
+             <<"SkillToolDependency">> =>
+                 {struct,
+                     #{command => {optional,{any_of,[binstr,{exact,null}]}},
+                       type => {required,binstr},
+                       value => {required,binstr},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       url => {optional,{any_of,[binstr,{exact,null}]}},
+                       transport =>
+                           {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"SkillsListEntry">> =>
+                 {struct,
+                     #{cwd => {required,binstr},
+                       errors => {required,{list,{ref,<<"SkillErrorInfo">>}}},
+                       skills =>
+                           {required,{list,{ref,<<"SkillMetadata">>}}}}}},
+           {struct,#{data => {required,{list,{ref,<<"SkillsListEntry">>}}}}}}},
+  from_json =>
+      {with_defs,
+          {#{<<"SkillDependencies">> =>
+                 {struct,
+                     #{tools =>
+                           {required,{list,{ref,<<"SkillToolDependency">>}}}}},
+             <<"SkillErrorInfo">> =>
+                 {struct,
+                     #{message => {required,binstr},
+                       path => {required,binstr}}},
+             <<"SkillInterface">> =>
+                 {struct,
+                     #{displayName =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       brandColor => {optional,{any_of,[binstr,{exact,null}]}},
+                       defaultPrompt =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       iconLarge => {optional,{any_of,[binstr,{exact,null}]}},
+                       iconSmall => {optional,{any_of,[binstr,{exact,null}]}},
+                       shortDescription =>
+                           {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"SkillMetadata">> =>
+                 {struct,
+                     #{enabled => {required,boolean},
+                       name => {required,binstr},
+                       scope => {required,{ref,<<"SkillScope">>}},
+                       path => {required,binstr},
+                       interface =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"SkillInterface">>},{exact,null}]}},
+                       description => {required,binstr},
+                       shortDescription =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       dependencies =>
+                           {optional,
+                               {any_of,
+                                   [{ref,<<"SkillDependencies">>},
+                                    {exact,null}]}}}},
+             <<"SkillScope">> =>
+                 {enum,[<<"user">>,<<"repo">>,<<"system">>,<<"admin">>]},
+             <<"SkillToolDependency">> =>
+                 {struct,
+                     #{command => {optional,{any_of,[binstr,{exact,null}]}},
+                       type => {required,binstr},
+                       value => {required,binstr},
+                       description =>
+                           {optional,{any_of,[binstr,{exact,null}]}},
+                       url => {optional,{any_of,[binstr,{exact,null}]}},
+                       transport =>
+                           {optional,{any_of,[binstr,{exact,null}]}}}},
+             <<"SkillsListEntry">> =>
+                 {struct,
+                     #{cwd => {required,binstr},
+                       errors => {required,{list,{ref,<<"SkillErrorInfo">>}}},
+                       skills =>
+                           {required,{list,{ref,<<"SkillMetadata">>}}}}}},
+           {struct,
+               #{data => {required,{list,{ref,<<"SkillsListEntry">>}}}}}}}}.

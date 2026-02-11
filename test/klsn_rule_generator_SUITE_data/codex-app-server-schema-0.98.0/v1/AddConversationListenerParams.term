@@ -1,0 +1,10 @@
+#{to_json =>
+      {with_defs,{#{<<"ThreadId">> => binstr},
+                  {struct,#{conversationId => {required,{ref,<<"ThreadId">>}},
+                            experimentalRawEvents =>
+                                {optional,{default,{false,boolean}}}}}}},
+  from_json =>
+      {with_defs,{#{<<"ThreadId">> => binstr},
+                  {struct,#{conversationId => {required,{ref,<<"ThreadId">>}},
+                            experimentalRawEvents =>
+                                {optional,{default,{false,boolean}}}}}}}}.

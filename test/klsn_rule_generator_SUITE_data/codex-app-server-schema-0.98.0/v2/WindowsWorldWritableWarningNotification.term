@@ -1,0 +1,8 @@
+#{to_json =>
+      {struct,#{extraCount => {required,integer},
+                failedScan => {required,boolean},
+                samplePaths => {required,{list,binstr}}}},
+  from_json =>
+      {struct,#{extraCount => {required,integer},
+                failedScan => {required,boolean},
+                samplePaths => {required,{list,binstr}}}}}.

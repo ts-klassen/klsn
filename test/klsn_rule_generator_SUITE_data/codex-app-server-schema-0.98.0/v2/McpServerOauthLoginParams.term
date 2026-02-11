@@ -1,0 +1,8 @@
+#{to_json =>
+      {struct,#{name => {required,binstr},
+                scopes => {optional,{any_of,[{list,binstr},{exact,null}]}},
+                timeoutSecs => {optional,{any_of,[integer,{exact,null}]}}}},
+  from_json =>
+      {struct,#{name => {required,binstr},
+                scopes => {optional,{any_of,[{list,binstr},{exact,null}]}},
+                timeoutSecs => {optional,{any_of,[integer,{exact,null}]}}}}}.

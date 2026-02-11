@@ -1,0 +1,8 @@
+#{to_json =>
+      {with_defs,{#{<<"RequestId">> => {any_of,[binstr,integer]}},
+                  {struct,#{id => {required,{ref,<<"RequestId">>}},
+                            result => {required,term}}}}},
+  from_json =>
+      {with_defs,{#{<<"RequestId">> => {any_of,[binstr,integer]}},
+                  {struct,#{id => {required,{ref,<<"RequestId">>}},
+                            result => {required,term}}}}}}.

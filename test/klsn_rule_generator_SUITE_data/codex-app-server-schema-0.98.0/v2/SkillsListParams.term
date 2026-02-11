@@ -1,0 +1,6 @@
+#{to_json =>
+      {struct,#{cwds => {optional,{list,binstr}},
+                forceReload => {optional,boolean}}},
+  from_json =>
+      {struct,#{cwds => {optional,{list,binstr}},
+                forceReload => {optional,boolean}}}}.

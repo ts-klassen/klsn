@@ -29,171 +29,171 @@ Done definition: we have a test that generates JSON map -> erlang term and erlan
   - [ ] Add targeted tests for tricky schemas (unions, nested objects, optional fields)
   - [ ] Document supported subset and known gaps
   - [ ] Add per-schema `.term` expected rule files for the remaining codex schema JSON (including ClientRequest.json, ServerRequest.json, and codex_app_server_protocol.schemas.json)
-    - [ ] ApplyPatchApprovalParams.term
-    - [ ] ApplyPatchApprovalResponse.term
-    - [ ] ChatgptAuthTokensRefreshParams.term
-    - [ ] ChatgptAuthTokensRefreshResponse.term
-    - [ ] ClientNotification.term
-    - [ ] ClientRequest.term
-    - [ ] CommandExecutionRequestApprovalParams.term
-    - [ ] CommandExecutionRequestApprovalResponse.term
-    - [ ] DynamicToolCallParams.term
-    - [ ] DynamicToolCallResponse.term
-    - [ ] EventMsg.term
-    - [ ] ExecCommandApprovalParams.term
-    - [ ] ExecCommandApprovalResponse.term
-    - [ ] FileChangeRequestApprovalParams.term
-    - [ ] FileChangeRequestApprovalResponse.term
-    - [ ] FuzzyFileSearchParams.term
-    - [ ] FuzzyFileSearchResponse.term
-    - [ ] JSONRPCError.term
-    - [ ] JSONRPCErrorError.term
-    - [ ] JSONRPCMessage.term
+    - [x] ApplyPatchApprovalParams.term
+    - [x] ApplyPatchApprovalResponse.term
+    - [x] ChatgptAuthTokensRefreshParams.term
+    - [x] ChatgptAuthTokensRefreshResponse.term
+    - [x] ClientNotification.term
+    - [x] ClientRequest.term
+    - [x] CommandExecutionRequestApprovalParams.term
+    - [x] CommandExecutionRequestApprovalResponse.term
+    - [x] DynamicToolCallParams.term
+    - [x] DynamicToolCallResponse.term
+    - [x] EventMsg.term
+    - [x] ExecCommandApprovalParams.term
+    - [x] ExecCommandApprovalResponse.term
+    - [x] FileChangeRequestApprovalParams.term
+    - [x] FileChangeRequestApprovalResponse.term
+    - [x] FuzzyFileSearchParams.term
+    - [x] FuzzyFileSearchResponse.term
+    - [x] JSONRPCError.term
+    - [x] JSONRPCErrorError.term
+    - [x] JSONRPCMessage.term
     - [x] JSONRPCNotification.term
     - [x] JSONRPCRequest.term
-    - [ ] JSONRPCResponse.term
+    - [x] JSONRPCResponse.term
     - [x] RequestId.term
-    - [ ] ServerNotification.term
-    - [ ] ServerRequest.term
-    - [ ] ToolRequestUserInputParams.term
-    - [ ] ToolRequestUserInputResponse.term
-    - [ ] codex_app_server_protocol.schemas.term
-    - [ ] v1/AddConversationListenerParams.term
-    - [ ] v1/AddConversationSubscriptionResponse.term
-    - [ ] v1/ArchiveConversationParams.term
-    - [ ] v1/ArchiveConversationResponse.term
-    - [ ] v1/AuthStatusChangeNotification.term
-    - [ ] v1/CancelLoginChatGptParams.term
-    - [ ] v1/CancelLoginChatGptResponse.term
-    - [ ] v1/ExecOneOffCommandParams.term
-    - [ ] v1/ExecOneOffCommandResponse.term
-    - [ ] v1/ForkConversationParams.term
-    - [ ] v1/ForkConversationResponse.term
-    - [ ] v1/GetAuthStatusParams.term
-    - [ ] v1/GetAuthStatusResponse.term
-    - [ ] v1/GetConversationSummaryParams.term
-    - [ ] v1/GetConversationSummaryResponse.term
-    - [ ] v1/GetUserAgentResponse.term
-    - [ ] v1/GetUserSavedConfigResponse.term
-    - [ ] v1/GitDiffToRemoteParams.term
-    - [ ] v1/GitDiffToRemoteResponse.term
-    - [ ] v1/InitializeParams.term
-    - [ ] v1/InitializeResponse.term
-    - [ ] v1/InterruptConversationParams.term
-    - [ ] v1/InterruptConversationResponse.term
-    - [ ] v1/ListConversationsParams.term
-    - [ ] v1/ListConversationsResponse.term
-    - [ ] v1/LoginApiKeyParams.term
-    - [ ] v1/LoginApiKeyResponse.term
-    - [ ] v1/LoginChatGptCompleteNotification.term
-    - [ ] v1/LoginChatGptResponse.term
-    - [ ] v1/LogoutChatGptResponse.term
-    - [ ] v1/NewConversationParams.term
-    - [ ] v1/NewConversationResponse.term
-    - [ ] v1/RemoveConversationListenerParams.term
-    - [ ] v1/RemoveConversationSubscriptionResponse.term
-    - [ ] v1/ResumeConversationParams.term
-    - [ ] v1/ResumeConversationResponse.term
-    - [ ] v1/SendUserMessageParams.term
-    - [ ] v1/SendUserMessageResponse.term
-    - [ ] v1/SendUserTurnParams.term
-    - [ ] v1/SendUserTurnResponse.term
-    - [ ] v1/SessionConfiguredNotification.term
-    - [ ] v1/SetDefaultModelParams.term
-    - [ ] v1/SetDefaultModelResponse.term
-    - [ ] v1/UserInfoResponse.term
-    - [ ] v2/AccountLoginCompletedNotification.term
-    - [ ] v2/AccountRateLimitsUpdatedNotification.term
-    - [ ] v2/AccountUpdatedNotification.term
-    - [ ] v2/AgentMessageDeltaNotification.term
-    - [ ] v2/AppsListParams.term
-    - [ ] v2/AppsListResponse.term
-    - [ ] v2/CancelLoginAccountParams.term
-    - [ ] v2/CancelLoginAccountResponse.term
-    - [ ] v2/CommandExecParams.term
-    - [ ] v2/CommandExecResponse.term
-    - [ ] v2/CommandExecutionOutputDeltaNotification.term
-    - [ ] v2/ConfigBatchWriteParams.term
-    - [ ] v2/ConfigReadParams.term
-    - [ ] v2/ConfigReadResponse.term
-    - [ ] v2/ConfigRequirementsReadResponse.term
-    - [ ] v2/ConfigValueWriteParams.term
-    - [ ] v2/ConfigWarningNotification.term
-    - [ ] v2/ConfigWriteResponse.term
-    - [ ] v2/ContextCompactedNotification.term
-    - [ ] v2/DeprecationNoticeNotification.term
-    - [ ] v2/ErrorNotification.term
-    - [ ] v2/FeedbackUploadParams.term
-    - [ ] v2/FeedbackUploadResponse.term
-    - [ ] v2/FileChangeOutputDeltaNotification.term
-    - [ ] v2/GetAccountParams.term
-    - [ ] v2/GetAccountRateLimitsResponse.term
-    - [ ] v2/GetAccountResponse.term
-    - [ ] v2/ItemCompletedNotification.term
-    - [ ] v2/ItemStartedNotification.term
-    - [ ] v2/ListMcpServerStatusParams.term
-    - [ ] v2/ListMcpServerStatusResponse.term
-    - [ ] v2/LoginAccountParams.term
-    - [ ] v2/LoginAccountResponse.term
-    - [ ] v2/LogoutAccountResponse.term
-    - [ ] v2/McpServerOauthLoginCompletedNotification.term
-    - [ ] v2/McpServerOauthLoginParams.term
-    - [ ] v2/McpServerOauthLoginResponse.term
-    - [ ] v2/McpServerRefreshResponse.term
-    - [ ] v2/McpToolCallProgressNotification.term
-    - [ ] v2/ModelListParams.term
-    - [ ] v2/ModelListResponse.term
-    - [ ] v2/PlanDeltaNotification.term
-    - [ ] v2/RawResponseItemCompletedNotification.term
-    - [ ] v2/ReasoningSummaryPartAddedNotification.term
-    - [ ] v2/ReasoningSummaryTextDeltaNotification.term
-    - [ ] v2/ReasoningTextDeltaNotification.term
-    - [ ] v2/ReviewStartParams.term
-    - [ ] v2/ReviewStartResponse.term
-    - [ ] v2/SkillsConfigWriteParams.term
-    - [ ] v2/SkillsConfigWriteResponse.term
-    - [ ] v2/SkillsListParams.term
-    - [ ] v2/SkillsListResponse.term
-    - [ ] v2/SkillsRemoteReadParams.term
-    - [ ] v2/SkillsRemoteReadResponse.term
-    - [ ] v2/SkillsRemoteWriteParams.term
-    - [ ] v2/SkillsRemoteWriteResponse.term
-    - [ ] v2/TerminalInteractionNotification.term
-    - [ ] v2/ThreadArchiveParams.term
-    - [ ] v2/ThreadArchiveResponse.term
-    - [ ] v2/ThreadCompactStartParams.term
-    - [ ] v2/ThreadCompactStartResponse.term
-    - [ ] v2/ThreadForkParams.term
-    - [ ] v2/ThreadForkResponse.term
-    - [ ] v2/ThreadListParams.term
-    - [ ] v2/ThreadListResponse.term
-    - [ ] v2/ThreadLoadedListParams.term
-    - [ ] v2/ThreadLoadedListResponse.term
-    - [ ] v2/ThreadNameUpdatedNotification.term
-    - [ ] v2/ThreadReadParams.term
-    - [ ] v2/ThreadReadResponse.term
-    - [ ] v2/ThreadResumeParams.term
-    - [ ] v2/ThreadResumeResponse.term
-    - [ ] v2/ThreadRollbackParams.term
-    - [ ] v2/ThreadRollbackResponse.term
-    - [ ] v2/ThreadSetNameParams.term
-    - [ ] v2/ThreadSetNameResponse.term
-    - [ ] v2/ThreadStartParams.term
-    - [ ] v2/ThreadStartResponse.term
-    - [ ] v2/ThreadStartedNotification.term
-    - [ ] v2/ThreadTokenUsageUpdatedNotification.term
-    - [ ] v2/ThreadUnarchiveParams.term
-    - [ ] v2/ThreadUnarchiveResponse.term
-    - [ ] v2/TurnCompletedNotification.term
-    - [ ] v2/TurnDiffUpdatedNotification.term
-    - [ ] v2/TurnInterruptParams.term
-    - [ ] v2/TurnInterruptResponse.term
-    - [ ] v2/TurnPlanUpdatedNotification.term
-    - [ ] v2/TurnStartParams.term
-    - [ ] v2/TurnStartResponse.term
-    - [ ] v2/TurnStartedNotification.term
-    - [ ] v2/WindowsWorldWritableWarningNotification.term
-  - [ ] Make klsn_rule_generator_SUITE strict: require .term for every schema (do this after the per-schema list is complete)
+    - [x] ServerNotification.term
+    - [x] ServerRequest.term
+    - [x] ToolRequestUserInputParams.term
+    - [x] ToolRequestUserInputResponse.term
+    - [-] codex_app_server_protocol.schemas.term
+    - [x] v1/AddConversationListenerParams.term
+    - [x] v1/AddConversationSubscriptionResponse.term
+    - [x] v1/ArchiveConversationParams.term
+    - [x] v1/ArchiveConversationResponse.term
+    - [x] v1/AuthStatusChangeNotification.term
+    - [x] v1/CancelLoginChatGptParams.term
+    - [x] v1/CancelLoginChatGptResponse.term
+    - [x] v1/ExecOneOffCommandParams.term
+    - [x] v1/ExecOneOffCommandResponse.term
+    - [x] v1/ForkConversationParams.term
+    - [-] v1/ForkConversationResponse.term
+    - [x] v1/GetAuthStatusParams.term
+    - [x] v1/GetAuthStatusResponse.term
+    - [x] v1/GetConversationSummaryParams.term
+    - [x] v1/GetConversationSummaryResponse.term
+    - [x] v1/GetUserAgentResponse.term
+    - [x] v1/GetUserSavedConfigResponse.term
+    - [x] v1/GitDiffToRemoteParams.term
+    - [x] v1/GitDiffToRemoteResponse.term
+    - [x] v1/InitializeParams.term
+    - [x] v1/InitializeResponse.term
+    - [x] v1/InterruptConversationParams.term
+    - [x] v1/InterruptConversationResponse.term
+    - [x] v1/ListConversationsParams.term
+    - [x] v1/ListConversationsResponse.term
+    - [x] v1/LoginApiKeyParams.term
+    - [x] v1/LoginApiKeyResponse.term
+    - [x] v1/LoginChatGptCompleteNotification.term
+    - [x] v1/LoginChatGptResponse.term
+    - [x] v1/LogoutChatGptResponse.term
+    - [x] v1/NewConversationParams.term
+    - [x] v1/NewConversationResponse.term
+    - [x] v1/RemoveConversationListenerParams.term
+    - [x] v1/RemoveConversationSubscriptionResponse.term
+    - [x] v1/ResumeConversationParams.term
+    - [-] v1/ResumeConversationResponse.term
+    - [x] v1/SendUserMessageParams.term
+    - [x] v1/SendUserMessageResponse.term
+    - [x] v1/SendUserTurnParams.term
+    - [x] v1/SendUserTurnResponse.term
+    - [x] v1/SessionConfiguredNotification.term
+    - [x] v1/SetDefaultModelParams.term
+    - [x] v1/SetDefaultModelResponse.term
+    - [x] v1/UserInfoResponse.term
+    - [x] v2/AccountLoginCompletedNotification.term
+    - [x] v2/AccountRateLimitsUpdatedNotification.term
+    - [x] v2/AccountUpdatedNotification.term
+    - [x] v2/AgentMessageDeltaNotification.term
+    - [x] v2/AppsListParams.term
+    - [x] v2/AppsListResponse.term
+    - [x] v2/CancelLoginAccountParams.term
+    - [x] v2/CancelLoginAccountResponse.term
+    - [x] v2/CommandExecParams.term
+    - [x] v2/CommandExecResponse.term
+    - [x] v2/CommandExecutionOutputDeltaNotification.term
+    - [x] v2/ConfigBatchWriteParams.term
+    - [x] v2/ConfigReadParams.term
+    - [x] v2/ConfigReadResponse.term
+    - [x] v2/ConfigRequirementsReadResponse.term
+    - [x] v2/ConfigValueWriteParams.term
+    - [x] v2/ConfigWarningNotification.term
+    - [x] v2/ConfigWriteResponse.term
+    - [x] v2/ContextCompactedNotification.term
+    - [x] v2/DeprecationNoticeNotification.term
+    - [x] v2/ErrorNotification.term
+    - [x] v2/FeedbackUploadParams.term
+    - [x] v2/FeedbackUploadResponse.term
+    - [x] v2/FileChangeOutputDeltaNotification.term
+    - [x] v2/GetAccountParams.term
+    - [x] v2/GetAccountRateLimitsResponse.term
+    - [x] v2/GetAccountResponse.term
+    - [x] v2/ItemCompletedNotification.term
+    - [x] v2/ItemStartedNotification.term
+    - [x] v2/ListMcpServerStatusParams.term
+    - [x] v2/ListMcpServerStatusResponse.term
+    - [x] v2/LoginAccountParams.term
+    - [x] v2/LoginAccountResponse.term
+    - [x] v2/LogoutAccountResponse.term
+    - [x] v2/McpServerOauthLoginCompletedNotification.term
+    - [x] v2/McpServerOauthLoginParams.term
+    - [x] v2/McpServerOauthLoginResponse.term
+    - [x] v2/McpServerRefreshResponse.term
+    - [x] v2/McpToolCallProgressNotification.term
+    - [x] v2/ModelListParams.term
+    - [x] v2/ModelListResponse.term
+    - [x] v2/PlanDeltaNotification.term
+    - [x] v2/RawResponseItemCompletedNotification.term
+    - [x] v2/ReasoningSummaryPartAddedNotification.term
+    - [x] v2/ReasoningSummaryTextDeltaNotification.term
+    - [x] v2/ReasoningTextDeltaNotification.term
+    - [x] v2/ReviewStartParams.term
+    - [-] v2/ReviewStartResponse.term
+    - [x] v2/SkillsConfigWriteParams.term
+    - [x] v2/SkillsConfigWriteResponse.term
+    - [x] v2/SkillsListParams.term
+    - [x] v2/SkillsListResponse.term
+    - [x] v2/SkillsRemoteReadParams.term
+    - [x] v2/SkillsRemoteReadResponse.term
+    - [x] v2/SkillsRemoteWriteParams.term
+    - [x] v2/SkillsRemoteWriteResponse.term
+    - [x] v2/TerminalInteractionNotification.term
+    - [x] v2/ThreadArchiveParams.term
+    - [x] v2/ThreadArchiveResponse.term
+    - [x] v2/ThreadCompactStartParams.term
+    - [x] v2/ThreadCompactStartResponse.term
+    - [x] v2/ThreadForkParams.term
+    - [x] v2/ThreadForkResponse.term
+    - [x] v2/ThreadListParams.term
+    - [x] v2/ThreadListResponse.term
+    - [x] v2/ThreadLoadedListParams.term
+    - [x] v2/ThreadLoadedListResponse.term
+    - [x] v2/ThreadNameUpdatedNotification.term
+    - [x] v2/ThreadReadParams.term
+    - [x] v2/ThreadReadResponse.term
+    - [x] v2/ThreadResumeParams.term
+    - [x] v2/ThreadResumeResponse.term
+    - [x] v2/ThreadRollbackParams.term
+    - [x] v2/ThreadRollbackResponse.term
+    - [x] v2/ThreadSetNameParams.term
+    - [x] v2/ThreadSetNameResponse.term
+    - [x] v2/ThreadStartParams.term
+    - [x] v2/ThreadStartResponse.term
+    - [x] v2/ThreadStartedNotification.term
+    - [x] v2/ThreadTokenUsageUpdatedNotification.term
+    - [x] v2/ThreadUnarchiveParams.term
+    - [x] v2/ThreadUnarchiveResponse.term
+    - [x] v2/TurnCompletedNotification.term
+    - [x] v2/TurnDiffUpdatedNotification.term
+    - [x] v2/TurnInterruptParams.term
+    - [x] v2/TurnInterruptResponse.term
+    - [x] v2/TurnPlanUpdatedNotification.term
+    - [x] v2/TurnStartParams.term
+    - [x] v2/TurnStartResponse.term
+    - [x] v2/TurnStartedNotification.term
+    - [x] v2/WindowsWorldWritableWarningNotification.term
+  - [x] Make klsn_rule_generator_SUITE strict: require .term for every schema (do this after the per-schema list is complete)
 
 ## Description
 

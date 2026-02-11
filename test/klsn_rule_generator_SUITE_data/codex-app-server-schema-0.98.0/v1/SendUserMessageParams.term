@@ -1,0 +1,58 @@
+#{to_json =>
+   {with_defs,
+    {#{<<"InputItem">> =>
+        {any_of,
+         [{struct,
+           #{data =>
+              {required,
+               {struct,
+                #{text => {required,binstr},
+                  text_elements =>
+                   {optional,
+                    {default,{[],{list,{ref,<<"V1TextElement">>}}}}}}}},
+             type => {required,{enum,[<<"text">>]}}}},
+          {struct,
+           #{data => {required,{struct,#{image_url => {required,binstr}}}},
+             type => {required,{enum,[<<"image">>]}}}},
+          {struct,
+           #{data => {required,{struct,#{path => {required,binstr}}}},
+             type => {required,{enum,[<<"localImage">>]}}}}]},
+       <<"ThreadId">> => binstr,
+       <<"V1ByteRange">> =>
+        {struct,#{start => {required,integer},'end' => {required,integer}}},
+       <<"V1TextElement">> =>
+        {struct,
+         #{byteRange => {required,{all_of,[{ref,<<"V1ByteRange">>}]}},
+           placeholder => {optional,{any_of,[binstr,{exact,null}]}}}}},
+     {struct,
+      #{items => {required,{list,{ref,<<"InputItem">>}}},
+        conversationId => {required,{ref,<<"ThreadId">>}}}}}},
+  from_json =>
+   {with_defs,
+    {#{<<"InputItem">> =>
+        {any_of,
+         [{struct,
+           #{data =>
+              {required,
+               {struct,
+                #{text => {required,binstr},
+                  text_elements =>
+                   {optional,
+                    {default,{[],{list,{ref,<<"V1TextElement">>}}}}}}}},
+             type => {required,{enum,[<<"text">>]}}}},
+          {struct,
+           #{data => {required,{struct,#{image_url => {required,binstr}}}},
+             type => {required,{enum,[<<"image">>]}}}},
+          {struct,
+           #{data => {required,{struct,#{path => {required,binstr}}}},
+             type => {required,{enum,[<<"localImage">>]}}}}]},
+       <<"ThreadId">> => binstr,
+       <<"V1ByteRange">> =>
+        {struct,#{start => {required,integer},'end' => {required,integer}}},
+       <<"V1TextElement">> =>
+        {struct,
+         #{byteRange => {required,{all_of,[{ref,<<"V1ByteRange">>}]}},
+           placeholder => {optional,{any_of,[binstr,{exact,null}]}}}}},
+     {struct,
+      #{items => {required,{list,{ref,<<"InputItem">>}}},
+        conversationId => {required,{ref,<<"ThreadId">>}}}}}}}.
