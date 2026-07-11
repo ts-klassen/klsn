@@ -6,6 +6,12 @@
       , from_json_schema/2
     ]).
 
+-export_type([
+        json_schema/0
+      , opts/0
+      , json_schema_rules/0
+    ]).
+
 -klsn_rule_alias([
         {json_schema, {any_of, [
             {alias, {?MODULE, json_schema_true}},
