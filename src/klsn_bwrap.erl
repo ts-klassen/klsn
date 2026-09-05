@@ -116,10 +116,9 @@
 
 -spec run(command(), opts()) -> result().
 run(Command, Opts) when is_list(Command), is_map(Opts) ->
-    ensure_erlexec_started(),
-
     BwrapOpts = maps:get(bwrap, Opts),
     Timeout = maps:get(timeout, Opts, infinity),
+    Deadline = timeout_deadline(Timeout),
 
     Argv0 = [
         bwrap_executable()
@@ -127,26 +126,18 @@ run(Command, Opts) when is_list(Command), is_map(Opts) ->
     ],
     Argv = Argv0 ++ [<<"--">>] ++ Command,
 
-    ExecOpts0 = [stdout, stderr, monitor],
-    {ExecOpts, MaybeStdin} = case klsn_map:lookup([stdin], Opts) of
+    Stdin = case klsn_map:lookup([stdin], Opts) of
         none ->
-            {ExecOpts0, none};
+            <<>>;
         {value, StdinBinary0} when is_binary(StdinBinary0) ->
-            {[stdin | ExecOpts0], {value, StdinBinary0}}
+            StdinBinary0
       ; {value, _} ->
             erlang:error(badarg, [Command, Opts])
     end,
 
-    case exec:run(Argv, ExecOpts) of
-        {ok, _Pid, OsPid} ->
-            case MaybeStdin of
-                {value, StdinBinary1} ->
-                    ok = send_stdin_chunked(OsPid, StdinBinary1),
-                    ok = exec:send(OsPid, eof);
-                none ->
-                    ok
-            end,
-            wait_result(OsPid, timeout_deadline(Timeout), [], []);
+    case klsn_bwrap_port:start(Argv, Stdin, true, Deadline) of
+        {ok, Pid, OsPid} ->
+            wait_result(Pid, OsPid, Deadline, [], []);
         {error, Reason} ->
             erlang:error(Reason, [Command, Opts])
     end;
@@ -155,10 +146,12 @@ run(Command, Opts) ->
 
 %% @doc
 %% Start a bubblewrap sandbox and keep stdin/stdout open for streaming.
+%% Output arrives as {stdout | stderr, OsPid, Binary}. Completion arrives as
+%% {'DOWN', OsPid, process, ExecPid, normal | {exit_status, WaitStatus}}, where
+%% WaitStatus uses the Unix wait-status encoding: normal exit codes are
+%% shifted left by 8; termination signals occupy the low 7 bits.
 -spec open(command(), open_opts()) -> stream().
 open(Command, Opts) when is_list(Command), is_map(Opts) ->
-    ensure_erlexec_started(),
-
     BwrapOpts = maps:get(bwrap, Opts),
 
     Argv0 = [
@@ -167,24 +160,17 @@ open(Command, Opts) when is_list(Command), is_map(Opts) ->
     ],
     Argv = Argv0 ++ [<<"--">>] ++ Command,
 
-    ExecOpts = [stdout, stderr, monitor, stdin],
-    MaybeStdin = case klsn_map:lookup([stdin], Opts) of
+    Stdin = case klsn_map:lookup([stdin], Opts) of
         none ->
-            none;
+            <<>>;
         {value, StdinBinary0} when is_binary(StdinBinary0) ->
-            {value, StdinBinary0};
+            StdinBinary0;
         {value, _} ->
             erlang:error(badarg, [Command, Opts])
     end,
 
-    case exec:run(Argv, ExecOpts) of
+    case klsn_bwrap_port:start(Argv, Stdin, false) of
         {ok, Pid, OsPid} ->
-            case MaybeStdin of
-                {value, StdinBinary1} ->
-                    ok = send_stdin_chunked(OsPid, StdinBinary1);
-                none ->
-                    ok
-            end,
             #{
                 os_pid => OsPid
               , exec_pid => Pid
@@ -197,104 +183,66 @@ open(Command, Opts) ->
 
 %% @doc
 %% Send a binary chunk to a streaming sandbox.
+%% Waits for capacity in the native stdin buffer. The transport continues
+%% collecting output and handling stop while a sender waits for the reader.
 -spec send(stream(), binary()) -> ok.
-send(#{os_pid := OsPid}, Data) when is_integer(OsPid), is_binary(Data) ->
-    ok = send_stdin_chunked(OsPid, Data);
+send(#{os_pid := OsPid} = Handle, Data) when is_integer(OsPid), is_binary(Data) ->
+    ok = klsn_bwrap_port:send(Handle, Data);
 send(Handle, Data) ->
     erlang:error(badarg, [Handle, Data]).
 
 %% @doc
 %% Close stdin for a streaming sandbox.
 -spec send_eof(stream()) -> ok.
-send_eof(#{os_pid := OsPid}) when is_integer(OsPid) ->
-    ok = exec:send(OsPid, eof);
+send_eof(#{os_pid := OsPid} = Handle) when is_integer(OsPid) ->
+    ok = klsn_bwrap_port:send(Handle, eof);
 send_eof(Handle) ->
     erlang:error(badarg, [Handle]).
 
 %% @doc
 %% Stop a streaming sandbox.
 -spec stop(stream()) -> ok.
-stop(#{os_pid := OsPid}) when is_integer(OsPid) ->
-    ok = exec:stop(OsPid);
+stop(#{os_pid := OsPid} = Handle) when is_integer(OsPid) ->
+    ok = klsn_bwrap_port:stop(Handle);
 stop(Handle) ->
     erlang:error(badarg, [Handle]).
 
-ensure_erlexec_started() ->
-    case whereis(exec) of
-        Pid when is_pid(Pid) ->
-            ok;
-        undefined ->
-            case os:getenv("SHELL") of
-                false ->
-                    os:putenv("SHELL", find_shell());
-                _ ->
-                    ok
-            end,
-            {ok, _} = application:ensure_all_started(erlexec)
+wait_result(Pid, OsPid, Deadline, StdoutAcc, StderrAcc) ->
+    case timeout_remaining(Deadline) of
+        0 -> cancel_run(Pid, OsPid);
+        Timeout -> receive_result(Pid, OsPid, Deadline, Timeout, StdoutAcc, StderrAcc)
     end.
 
-find_shell() ->
-    case os:find_executable("bash") of
-        false ->
-            case os:find_executable("sh") of
-                false ->
-                    case filelib:is_file("/bin/bash") of
-                        true ->
-                            "/bin/bash";
-                        false ->
-                            "/bin/sh"
-                    end;
-                Sh ->
-                    Sh
-            end;
-        Bash ->
-            Bash
-    end.
-
-send_stdin_chunked(_OsPid, <<>>) ->
-    ok;
-send_stdin_chunked(OsPid, StdinBinary) when is_integer(OsPid), is_binary(StdinBinary) ->
-    ChunkSize = 60000,
-    send_stdin_chunked(OsPid, StdinBinary, ChunkSize, 0).
-
-send_stdin_chunked(_OsPid, StdinBinary, _ChunkSize, Pos) when Pos >= byte_size(StdinBinary) ->
-    ok;
-send_stdin_chunked(OsPid, StdinBinary, ChunkSize, Pos) ->
-    Remaining = byte_size(StdinBinary) - Pos,
-    Len = erlang:min(ChunkSize, Remaining),
-    Chunk = binary:part(StdinBinary, Pos, Len),
-    ok = exec:send(OsPid, Chunk),
-    send_stdin_chunked(OsPid, StdinBinary, ChunkSize, Pos + Len).
-
-wait_result(OsPid, Deadline, StdoutAcc, StderrAcc) ->
-    Timeout = timeout_remaining(Deadline),
+receive_result(Pid, OsPid, Deadline, Timeout, StdoutAcc, StderrAcc) ->
     receive
         {stdout, OsPid, Data} when is_binary(Data) ->
-            wait_result(OsPid, Deadline, [StdoutAcc, Data], StderrAcc);
+            wait_result(Pid, OsPid, Deadline, [StdoutAcc, Data], StderrAcc);
         {stderr, OsPid, Data} when is_binary(Data) ->
-            wait_result(OsPid, Deadline, StdoutAcc, [StderrAcc, Data]);
-        {'DOWN', OsPid, process, _Pid, {exit_status, ExitStatus}} when is_integer(ExitStatus) ->
-            ExitCode = exit_code(exec:status(ExitStatus)),
+            wait_result(Pid, OsPid, Deadline, StdoutAcc, [StderrAcc, Data]);
+        {'DOWN', OsPid, process, Pid, {exit_status, ExitStatus}} when is_integer(ExitStatus) ->
+            ExitCode = exit_code(ExitStatus),
             {StdoutAcc1, StderrAcc1} = drain_output(OsPid, StdoutAcc, StderrAcc),
             #{
                 exit_code => ExitCode
               , stdout => iolist_to_binary(StdoutAcc1)
               , stderr => iolist_to_binary(StderrAcc1)
             };
-        {'DOWN', OsPid, process, _Pid, normal} ->
+        {'DOWN', OsPid, process, Pid, normal} ->
             {StdoutAcc1, StderrAcc1} = drain_output(OsPid, StdoutAcc, StderrAcc),
             #{
                 exit_code => 0
               , stdout => iolist_to_binary(StdoutAcc1)
               , stderr => iolist_to_binary(StderrAcc1)
             };
-        {'DOWN', OsPid, process, _Pid, Reason} ->
+        {'DOWN', OsPid, process, Pid, Reason} ->
             erlang:error(Reason, [OsPid])
     after Timeout ->
-        exec:stop(OsPid),
-        drain_down(OsPid),
-        erlang:error(timeout, [OsPid])
+        cancel_run(Pid, OsPid)
     end.
+
+cancel_run(Pid, OsPid) ->
+    ok = klsn_bwrap_port:cancel(Pid, OsPid),
+    erlang:error(timeout, [OsPid]).
 
 drain_output(OsPid, StdoutAcc, StderrAcc) ->
     receive
@@ -306,24 +254,12 @@ drain_output(OsPid, StdoutAcc, StderrAcc) ->
         {StdoutAcc, StderrAcc}
     end.
 
-drain_down(OsPid) ->
-    receive
-        {stdout, OsPid, _} ->
-            drain_down(OsPid);
-        {stderr, OsPid, _} ->
-            drain_down(OsPid);
-        {'DOWN', OsPid, process, _Pid, _Reason} ->
-            ok
-    after 5000 ->
-        ok
-    end.
-
 bwrap_executable() ->
     case os:find_executable("bwrap") of
         false ->
             erlang:error(not_found, [bwrap]);
         Path ->
-            unicode:characters_to_binary(Path)
+            unicode:characters_to_binary(filename:absname(Path))
     end.
 
 bwrap_opts_to_argv(Opts) when is_list(Opts) ->
@@ -463,12 +399,8 @@ timeout_remaining(DeadlineMs) when is_integer(DeadlineMs) ->
 monotonic_ms() ->
     erlang:convert_time_unit(erlang:monotonic_time(), native, millisecond).
 
-exit_code({status, Code}) when is_integer(Code), Code >= 0 ->
-    Code;
-exit_code({signal, Signal, _CoreDump}) ->
-    128 + signal_to_int(Signal).
-
-signal_to_int(Signal) when is_atom(Signal) ->
-    exec:signal_to_int(Signal);
-signal_to_int(Signal) when is_integer(Signal) ->
-    Signal.
+exit_code(WaitStatus) ->
+    case WaitStatus band 16#7f of
+        0 -> (WaitStatus bsr 8) band 16#ff;
+        Signal -> 128 + Signal
+    end.

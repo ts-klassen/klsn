@@ -1,0 +1,223 @@
+Parent = self(),
+{ok, ModeBytes} = file:read_file("/tmp/runtime-mode"),
+Mode = string:trim(binary_to_list(ModeBytes)),
+DiagnosticMode = lists:member(Mode,
+    ["diagnostic", "diagnostic_stop", "background_before_wait"]),
+StopMode = lists:member(Mode, ["final_stop", "diagnostic_stop"]),
+{module, klsn_bwrap_port} = code:ensure_loaded(klsn_bwrap_port),
+%% A single normal scheduler and a high-priority spawn tracer let us hold
+%% the new normal-priority helper before it runs. Raw I/O bypasses the file
+%% server, so hold the helper itself without blocking a dirty I/O thread.
+1 = erlang:system_info(schedulers_online),
+Gate = spawn_opt(fun() ->
+    Loop = fun F(Held) ->
+        receive
+            {trace, _Worker, spawn, Helper, {erlang, apply, [Fun, []]}} ->
+                case {Held, erlang:fun_info(Fun, module)} of
+                    {undefined, {module, klsn_bwrap_port}} ->
+                        true = erlang:suspend_process(Helper),
+                        Parent ! {diagnostic_held, Helper},
+                        F(Helper);
+                    _ -> F(Held)
+                end;
+            release ->
+                case Held of
+                    undefined -> ok;
+                    _ -> catch erlang:resume_process(Held)
+                end,
+                Parent ! released,
+                F(Held);
+            _ -> F(Held)
+        end
+    end,
+    Loop(undefined)
+end, [{priority, high}]),
+Wait = fun F(Predicate, N) ->
+    case Predicate() of
+        true -> ok;
+        false when N > 0 -> timer:sleep(10), F(Predicate, N - 1);
+        false -> error(cleanup_or_checkpoint_timeout)
+    end
+end,
+Opts = #{bwrap => [{ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
+    {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>},
+    {bind, <<"/tmp/checkpoint">>, <<"/tmp/checkpoint">>}]},
+Command = case Mode of
+    Active when Active =:= "diagnostic"; Active =:= "diagnostic_stop" ->
+        <<"sleep 30 </dev/null >/dev/null 2>&1 & "
+          "printf '%s\\n' \"$!\" >/tmp/checkpoint/descendant; "
+          "printf ready >/tmp/checkpoint/ready; printf out; printf err >&2; exec sleep 30">>;
+    "background_before_wait" ->
+        <<"sleep 30 </dev/null >/dev/null 2>&1 & "
+          "printf '%s\\n' \"$!\" >/tmp/checkpoint/background; "
+          "printf ready >/tmp/checkpoint/ready; printf out; printf err >&2; "
+          "while [ ! -f /tmp/checkpoint/exit ]; do sleep .01; done; exit 0">>;
+    _ ->
+        <<"sleep 30 </dev/null >/dev/null 2>&1 & "
+          "printf '%s\\n' \"$!\" >/tmp/checkpoint/background; "
+          "printf ready >/tmp/checkpoint/ready; printf out; printf err >&2; exit 0">>
+end,
+Caller = spawn(fun() ->
+    receive start -> ok end,
+    self() ! keep_this_message,
+    case StopMode of
+        true ->
+            Handle = klsn_bwrap:open([<<"/bin/sh">>, <<"-c">>, Command], Opts),
+            #{exec_pid := Worker, os_pid := OsPid} = Handle,
+            Parent ! {opened, Handle},
+            receive stop_now -> ok end,
+            Start = erlang:monotonic_time(millisecond),
+            ok = klsn_bwrap:stop(Handle),
+            Parent ! {stop_ack, erlang:monotonic_time(millisecond) - Start},
+            Collect = fun F() ->
+                receive
+                    {stdout, OsPid, _} -> F();
+                    {stderr, OsPid, _} -> F();
+                    {'DOWN', OsPid, process, Worker, Reason} -> Reason
+                after 3000 -> error(stop_did_not_complete)
+                end
+            end,
+            Completion = Collect(),
+            Parent ! {stopped, Completion, erlang:monotonic_time(millisecond) - Start};
+        _ ->
+            Start = erlang:monotonic_time(millisecond),
+            Result = try klsn_bwrap:run([<<"/bin/sh">>, <<"-c">>, Command],
+                Opts#{timeout => 2000})
+                catch error:Reason -> Reason end,
+            Parent ! {result, Result, erlang:monotonic_time(millisecond) - Start}
+    end,
+    receive inspect -> ok end,
+    receive keep_this_message -> ok after 0 -> error(unrelated_message_lost) end,
+    Parent ! {mailbox, process_info(self(), messages)}
+end),
+case DiagnosticMode of
+    true -> 1 = erlang:trace(Caller, true, [procs, set_on_spawn, {tracer, Gate}]);
+    false -> ok
+end,
+Caller ! start,
+try
+    DiagnosticRequester = case DiagnosticMode of
+        true -> receive {diagnostic_held, Requester} -> Requester
+            after 1500 -> error(diagnostic_not_held) end;
+        false ->
+            Wait(fun() -> case file:read_file("/tmp/runtime-final-pids") of
+                {ok, Bytes} when byte_size(Bytes) > 1 -> true;
+                _ -> false
+            end end, 150),
+            undefined
+    end,
+    Worker = case StopMode of
+        true -> receive {opened, #{exec_pid := P}} -> P
+            after 5000 -> error(open_did_not_finish) end;
+        false ->
+            [P] = [P || P <- processes(), process_info(P, initial_call) =:=
+                {initial_call, {klsn_bwrap_port, init, 3}}],
+            P
+    end,
+    {ok, <<"ready">>} = file:read_file("/tmp/checkpoint/ready"),
+    case DiagnosticRequester of
+        undefined -> ok;
+        _ ->
+            %% Let the normal-priority worker record the pending read. The
+            %% tracer must not busy-wait here and starve that registration.
+            Wait(fun() ->
+                case process_info(Worker, dictionary) of
+                    {dictionary, Current} -> lists:member(DiagnosticRequester,
+                        proplists:get_value(diagnostic_readers, Current, []));
+                    _ -> false
+                end
+            end, 100),
+            {status, suspended} = process_info(DiagnosticRequester, status)
+    end,
+    {dictionary, Dict} = process_info(Worker, dictionary),
+    Guardian = proplists:get_value(guardian, Dict),
+    OsPid = proplists:get_value(os_pid, Dict),
+    Descendants = case file:read_file("/tmp/checkpoint/descendant") of
+        {ok, DescendantBytes} -> [list_to_integer(string:trim(binary_to_list(DescendantBytes)))];
+        {error, enoent} -> []
+    end,
+    Native = Descendants ++ [OsPid | [N || Port <- erlang:ports(),
+        erlang:port_info(Port, connected) =:= {connected, Guardian},
+        {os_pid, N} <- [erlang:port_info(Port, os_pid)]]],
+    Pattern = "/tmp/klsn-bwrap-" ++ os:getpid() ++ "-*",
+    [_PrivateDir] = filelib:wildcard(Pattern),
+    case Mode of
+        "background_before_wait" ->
+            %% Prevent the worker from requesting WAIT even with asynchronous
+            %% diagnostics. Only then let the main command exit normally.
+            true = erlang:suspend_process(Worker),
+            ok = file:write_file("/tmp/checkpoint/exit", <<>>),
+            Wait(fun() -> not filelib:is_file(
+                "/proc/" ++ integer_to_list(OsPid) ++ "/stat") end, 100);
+        _ -> ok
+    end,
+    case StopMode of
+        true ->
+            Expected = case Mode of
+                "diagnostic_stop" -> {exit_status, 15};
+                "final_stop" -> normal
+            end,
+            Caller ! stop_now,
+            receive
+                {stop_ack, AckElapsed} when AckElapsed < 1000 -> ok;
+                {stop_ack, AckElapsed} -> error({stop_ack_too_late, AckElapsed})
+            after 1500 -> error(stop_not_acknowledged_while_held)
+            end,
+            receive
+                {stopped, Expected, Elapsed} when Elapsed < 2500 -> ok;
+                {stopped, Other, Elapsed} -> error({stop_result, Other, Elapsed})
+            after 3000 -> error(stop_did_not_finish_while_held)
+            end;
+        _ ->
+            receive
+                {result, timeout, Elapsed} when Elapsed < 3000 -> ok;
+                {result, Other, Elapsed} -> error({timeout_result, Other, Elapsed})
+            after 3500 -> error(runtime_did_not_timeout_while_held)
+            end
+    end,
+    false = filelib:is_file("/tmp/runtime-release"),
+    case StopMode of
+        %% Public completion is sent immediately before the worker exits.
+        true -> Wait(fun() -> not is_process_alive(Worker) end, 100);
+        _ -> false = is_process_alive(Worker)
+    end,
+    %% Cancellation must remove held readers without relying on their gate
+    %% being released. The gate holds only this invocation's diagnostic.
+    Wait(fun() ->
+        not is_process_alive(Guardian) andalso
+            (DiagnosticRequester =:= undefined orelse not is_process_alive(DiagnosticRequester)) andalso
+            lists:all(fun(N) ->
+                not filelib:is_file("/proc/" ++ integer_to_list(N) ++ "/stat")
+            end, Native) andalso filelib:wildcard(Pattern) =:= []
+    end, 500),
+    ok = file:write_file("/tmp/runtime-release", <<>>),
+    Gate ! release,
+    receive released -> ok after 1000 -> error(gate_not_released) end,
+    case file:read_file("/tmp/checkpoint/background") of
+        {error, enoent} -> ok;
+        {ok, BackgroundBytes} ->
+            Background = list_to_integer(string:trim(binary_to_list(BackgroundBytes))),
+            {ok, Stat} = file:read_file("/proc/" ++ integer_to_list(Background) ++ "/stat"),
+            [State | _] = string:lexemes(binary_to_list(lists:last(
+                binary:split(Stat, <<") ">>, [global]))), " "),
+            false = lists:member(State, ["Z", "X", "x"]),
+            KillPort = open_port({spawn_executable, os:find_executable("kill")},
+                [exit_status, {args, ["-KILL", "--", integer_to_list(Background)]}]),
+            receive {KillPort, {exit_status, 0}} -> ok
+                after 1000 -> error(background_cleanup_failed) end,
+            catch erlang:port_close(KillPort)
+    end,
+    Caller ! inspect,
+    receive
+        {mailbox, {messages, []}} -> ok;
+        {mailbox, Messages} -> error({late_transport_messages, Messages})
+    after 1000 -> error(mailbox_not_inspected)
+    end,
+    io:format("runtime cancellation and cleanup verified~n")
+after
+    file:write_file("/tmp/checkpoint/exit", <<>>),
+    file:write_file("/tmp/runtime-release", <<>>),
+    Gate ! release,
+    exit(Gate, kill)
+end,
+halt(0).

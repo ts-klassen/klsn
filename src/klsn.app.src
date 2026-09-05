@@ -9,7 +9,6 @@
     inets,
     ssl
    ]},
-  {included_applications,[erlexec]},
   {env,[]},
   {modules, []},
 

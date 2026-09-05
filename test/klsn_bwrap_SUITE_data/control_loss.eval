@@ -1,0 +1,82 @@
+Sleep = <<"/tmp/line\nbreak">>,
+Opts = #{bwrap => [
+    {ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
+    {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>},
+    {ro_bind, unicode:characters_to_binary(os:find_executable("sleep")), Sleep}
+] ++ Extra},
+#{exec_pid := Worker, os_pid := Wrapper} = klsn_bwrap:open(
+    [<<"/bin/sh">>, <<"-c">>, <<"printf ready; printf ready >&2; exec \"$1\" 30">>,
+        <<"control-loss">>, Sleep], Opts),
+receive
+    {stdout, Wrapper, <<"ready">>} -> ok
+after 5000 -> error(no_target_ready)
+end,
+receive
+    {stderr, Wrapper, <<"ready">>} -> ok
+after 5000 -> error(no_stderr_ready)
+end,
+Stat = fun(P) ->
+    {ok, Bytes} = file:read_file("/proc/" ++ integer_to_list(P) ++ "/stat"),
+    string:lexemes(binary_to_list(lists:last(
+        binary:split(Bytes, <<") ">>, [global]))), [32, 10])
+end,
+ChildrenOf = fun(P) ->
+    Number = integer_to_list(P),
+    {ok, Bytes} = file:read_file("/proc/" ++ Number ++ "/task/" ++ Number ++ "/children"),
+    [list_to_integer(S) || S <- string:lexemes(binary_to_list(Bytes), [32, 10])]
+end,
+Descendants = fun F(P) ->
+    lists:append([[C | F(C)] || C <- ChildrenOf(P)])
+end,
+Supervisor = list_to_integer(lists:nth(2, Stat(Wrapper))),
+{dictionary, Dict} = process_info(Worker, dictionary),
+Guardian = proplists:get_value(guardian, Dict),
+[Dir] = filelib:wildcard("/tmp/klsn-bwrap-" ++ os:getpid() ++ "-*"),
+Owned = [{P, N} || P <- erlang:ports(),
+    erlang:port_info(P, connected) =:= {connected, Guardian},
+    {os_pid, N} <- [erlang:port_info(P, os_pid)]],
+[Control] = [P || {P, N} <- Owned, N =:= Supervisor],
+%% Readers are guardian-owned too. Match the sandbox's anonymous stdin pipe.
+{ok, InputPipe} = file:read_link("/proc/" ++ integer_to_list(Wrapper) ++ "/fd/0"),
+[Input] = [N || {_P, N} <- Owned, N =/= Supervisor,
+    file:read_link("/proc/" ++ integer_to_list(N) ++ "/fd/1") =:=
+        {ok, InputPipe}],
+SupervisorString = integer_to_list(Supervisor),
+%% Discover PIDs from the observer's /proc, including with nested unshare_pid.
+Targets = Descendants(Wrapper),
+true = Targets =/= [],
+Monitors = Descendants(Supervisor) -- [Wrapper | Targets],
+Roles = [{control, Supervisor}, {wrapper, Wrapper}, {stdin, Input}] ++
+    [{target, N} || N <- Targets] ++ [{monitor, N} || N <- Monitors],
+Rows = [io_lib:format("~s ~B ~s~n", [Role, N, lists:nth(20, Stat(N))]) ||
+    {Role, N} <- Roles],
+Wait = fun F(Fun, N) ->
+    case Fun() of
+        true -> ok;
+        false when N > 0 -> timer:sleep(5), F(Fun, N - 1);
+        false -> error(poll_timeout)
+    end
+end,
+%% The renamed executable supplies an actual embedded newline in comm.
+Wait(fun() -> lists:any(fun(P) ->
+    file:read_file("/proc/" ++ integer_to_list(P) ++ "/comm") =:=
+        {ok, <<"line\nbreak\n">>}
+end, Targets) end, 400),
+{ok, Files} = file:list_dir(Dir),
+["environment.args", "stderr.error", "stdout.error"] = lists:sort(Files),
+ok = file:write_file("/tmp/control-loss-pids", Rows),
+ok = file:write_file("/tmp/control-loss-dir", Dir),
+case Shutdown of
+    halt ->
+        Kill = open_port({spawn_executable, os:find_executable("kill")},
+            [exit_status, {args, ["-STOP", "--", SupervisorString]}]),
+        receive {Kill, {exit_status, 0}} -> ok
+        after 2000 -> error(stop_failed)
+        end,
+        Wait(fun() -> lists:member(hd(Stat(Supervisor)), ["T", "t"]) end, 400),
+        true = erlang:port_command(Control, <<"status\n">>),
+        Wait(fun() -> erlang:port_info(Control, queue_size) =:= {queue_size, 0} end, 400),
+        halt(0);
+    stop ->
+        init:stop()
+end.

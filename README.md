@@ -20,6 +20,17 @@ Build
 
     $ rebar3 compile
 
+`klsn_bwrap` uses Erlang `open_port/2` on Linux. It requires `bwrap`, Bash,
+`kill`, and the GNU `cat`, `dd`, `env`, `mkdir`, `rm`, and `rmdir`
+utilities on `PATH`.
+Anonymous pipes connect stdin, stdout and stderr to the sandbox, including
+when commands reopen those descriptors. A private directory under `TMPDIR`
+(default `/tmp`) holds diagnostics and the caller's
+environment snapshot; it is removed when the command finishes. Bash's job
+status preserves the distinction between exit
+codes and signals; output draining finishes even when descendants retain
+the pipes. The transport needs no native extension or custom executable.
+
 Rebar3 deps
 -----------
 `rebar.config`

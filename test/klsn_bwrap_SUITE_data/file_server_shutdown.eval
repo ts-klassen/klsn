@@ -1,0 +1,95 @@
+%% The eval process inherits init's exit trapping. Use ordinary caller
+%% semantics so our observer ports do not add EXIT messages to the mailbox.
+process_flag(trap_exit, false),
+Opts = #{bwrap => [{ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
+    {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>}]},
+Command = case Mode of
+    completion -> <<"printf ready; IFS= read -r request; printf out; printf err >&2; exit 7">>;
+    _ -> <<"printf ready; exec sleep 30">>
+end,
+Handle = #{exec_pid := Worker, os_pid := OsPid} = klsn_bwrap:open(
+    [<<"/bin/sh">>, <<"-c">>, Command], Opts),
+receive {stdout, OsPid, <<"ready">>} -> ok
+    after 5000 -> error(command_not_ready) end,
+{dictionary, Dict} = process_info(Worker, dictionary),
+Guardian = proplists:get_value(guardian, Dict),
+WorkerMonitor = erlang:monitor(process, Worker),
+GuardianMonitor = erlang:monitor(process, Guardian),
+[Dir] = filelib:wildcard("/tmp/klsn-bwrap-" ++ os:getpid() ++ "-*"),
+{ok, Files} = file:list_dir(Dir),
+["environment.args", "stderr.error", "stdout.error"] = lists:sort(Files),
+Native = [OsPid | [N || Port <- erlang:ports(),
+    erlang:port_info(Port, connected) =:= {connected, Guardian},
+    {os_pid, N} <- [erlang:port_info(Port, os_pid)]]],
+{ok, Stat} = file:read_file("/proc/" ++ integer_to_list(OsPid) ++ "/stat"),
+[_State, ParentPid | _] = string:lexemes(binary_to_list(lists:last(
+    binary:split(Stat, <<") ">>, [global]))), " \n"),
+Bash = os:find_executable("bash"),
+Sleep = os:find_executable("sleep"),
+Kill = os:find_executable("kill"),
+Paths = [Dir | ["/proc/" ++ integer_to_list(N) ++ "/stat" || N <- Native]],
+FileServer = whereis(file_server_2),
+self() ! keep_this_message,
+true = erlang:suspend_process(FileServer),
+try
+    Start = erlang:monotonic_time(millisecond),
+    case Mode of
+        completion -> ok = klsn_bwrap:send(Handle, <<"go\n">>);
+        stop ->
+            ok = klsn_bwrap:stop(Handle),
+            AckElapsed = erlang:monotonic_time(millisecond) - Start,
+            true = AckElapsed < 1000;
+        control_kill ->
+            %% SIGKILL bypasses the supervisor's EXIT trap; the guardian
+            %% must still remove the directory whose ownership is confirmed.
+            KillPort = open_port({spawn_executable, Kill},
+                [exit_status, hide, {args, ["-KILL", "--", ParentPid]}]),
+            receive {KillPort, {exit_status, 0}} -> ok
+                after 1000 -> error(control_kill_failed) end,
+            catch erlang:port_close(KillPort)
+    end,
+    Collect = fun F(Out, Err) ->
+        receive
+            {stdout, OsPid, Data} -> F([Out, Data], Err);
+            {stderr, OsPid, Data} -> F(Out, [Err, Data]);
+            {'DOWN', OsPid, process, Worker, Reason} ->
+                {Reason, iolist_to_binary(Out), iolist_to_binary(Err)}
+        after 2000 -> error(completion_waited_for_file_server)
+        end
+    end,
+    {Completion, Stdout, Stderr} = Collect([], []),
+    case {Mode, Completion} of
+        {completion, {exit_status, 1792}} ->
+            <<"out">> = Stdout,
+            <<"err">> = Stderr;
+        {stop, {exit_status, 15}} -> ok;
+        {control_kill, {control_port, Code}} when is_integer(Code), Code =/= 0 -> ok;
+        _ -> error({unexpected_completion, Mode, Completion})
+    end,
+    receive {'DOWN', WorkerMonitor, process, Worker, Completion} -> ok
+        after 1000 -> error(worker_still_alive) end,
+    receive {'DOWN', GuardianMonitor, process, Guardian, normal} -> ok
+        after 1000 -> error(guardian_still_alive) end,
+    {status, suspended} = process_info(FileServer, status),
+    %% A native observer checks known paths without calling the suspended
+    %% file server. All executable paths were resolved before suspension.
+    Observer = open_port({spawn_executable, Bash},
+        [exit_status, hide, {args, ["--noprofile", "--norc", "-p", "-c",
+            "sleep=$1; shift; for ((attempt=0; attempt<200; attempt++)); do "
+            "present=false; for path; do [ ! -e \"$path\" ] || present=true; done; "
+            "\"$present\" || exit 0; \"$sleep\" .01; done; exit 1",
+            "file-server-observer", Sleep | Paths]}]),
+    receive {Observer, {exit_status, 0}} -> ok
+        after 3000 -> error(native_cleanup_incomplete) end,
+    catch erlang:port_close(Observer),
+    {status, suspended} = process_info(FileServer, status),
+    {trap_exit, false} = process_info(self(), trap_exit),
+    receive keep_this_message -> ok after 0 -> error(unrelated_message_lost) end,
+    {messages, []} = process_info(self(), messages)
+after
+    %% Restore shared services before any ordinary file access or reporting,
+    %% including when the old implementation fails the completion deadline.
+    erlang:resume_process(FileServer)
+end,
+io:format("shutdown completed while the file server was suspended~n"),
+halt(0).

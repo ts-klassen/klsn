@@ -1,0 +1,36 @@
+Opts = #{bwrap => [{ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
+    {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>}]},
+Command = case Stream of
+    stdout -> <<"printf ready; exec sleep 30">>;
+    stderr -> <<"printf ready >&2; exec sleep 30">>
+end,
+#{os_pid := Wrapper} = klsn_bwrap:open(
+    [<<"/bin/sh">>, <<"-c">>, Command], Opts),
+{ok, WrapperStat} = file:read_file("/proc/" ++ integer_to_list(Wrapper) ++ "/stat"),
+Supervisor = lists:nth(2, string:lexemes(binary_to_list(lists:last(
+    binary:split(WrapperStat, <<") ">>, [global]))), " ")),
+Wait = fun F(Fun, N) ->
+    case Fun() of
+        true -> ok;
+        false when N > 0 -> timer:sleep(5), F(Fun, N - 1);
+        false -> error(poll_timeout)
+    end
+end,
+Wait(fun() ->
+    case file:read_file("/tmp/reader-pid") of
+        {ok, Bytes} when byte_size(Bytes) > 1 -> true;
+        _ -> false
+    end
+end, 600),
+{ok, ReaderBytes} = file:read_file("/tmp/reader-pid"),
+Reader = string:trim(binary_to_list(ReaderBytes)),
+Wait(fun() ->
+    {ok, Bytes} = file:read_file("/proc/" ++ Reader ++ "/stat"),
+    [State | _] = string:lexemes(binary_to_list(lists:last(
+        binary:split(Bytes, <<") ">>, [global]))), " "),
+    lists:member(State, ["T", "t"])
+end, 600),
+[Dir] = filelib:wildcard("/tmp/klsn-bwrap-" ++ os:getpid() ++ "-*"),
+ok = file:write_file("/tmp/private-dir", Dir),
+ok = file:write_file("/tmp/control-pid", Supervisor),
+halt(0).

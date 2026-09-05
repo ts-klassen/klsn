@@ -1,0 +1,46 @@
+Parent = self(),
+%% Exercise startup with more than a pipe capacity of restoration data.
+true = os:putenv("BASH_COMMAND", lists:duplicate(100000, $x)),
+Opts = #{bwrap => [{ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
+    {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>}]},
+spawn(fun() -> Parent ! {opened, catch klsn_bwrap:open([<<"/bin/cat">>], Opts)} end),
+Wait = fun F(Fun, N) ->
+    case Fun() of
+        true -> ok;
+        false when N > 0 -> timer:sleep(5), F(Fun, N - 1);
+        false -> error(poll_timeout)
+    end
+end,
+Wait(fun() -> case file:read_file("/tmp/startup-helper") of
+    {ok, Bytes} when byte_size(Bytes) > 1 -> true;
+    _ -> false
+end end, 600),
+{ok, PidBytes} = file:read_file("/tmp/startup-helper"),
+Helper = string:trim(binary_to_list(PidBytes)),
+Wait(fun() ->
+    {ok, Bytes} = file:read_file("/proc/" ++ Helper ++ "/stat"),
+    [State | _] = string:lexemes(binary_to_list(lists:last(
+        binary:split(Bytes, <<") ">>, [global]))), " "),
+    lists:member(State, ["T", "t"])
+end, 600),
+receive {opened, Result} -> error({open_returned_early, Result}) after 0 -> ok end,
+case Shutdown of
+    halt -> halt(0);
+    stop -> init:stop();
+    worker ->
+        [Worker] = [P || P <- processes(),
+            process_info(P, initial_call) =:= {initial_call, {klsn_bwrap_port, init, 3}}],
+        Monitor = monitor(process, Worker),
+        exit(Worker, kill),
+        receive {'DOWN', Monitor, process, Worker, killed} -> ok
+            after 3000 -> error(worker_not_killed) end,
+        Gone = fun F(N) ->
+            case file:read_file("/proc/" ++ Helper ++ "/stat") of
+                {error, enoent} -> true;
+                _ when N > 0 -> timer:sleep(10), F(N - 1);
+                _ -> false
+            end
+        end,
+        ok = file:write_file("/tmp/startup-worker-cleanup", atom_to_list(Gone(500))),
+        halt(0)
+end.

@@ -1,0 +1,76 @@
+Parent = self(),
+{ok, Stage} = file:read_file("/tmp/deadline-stage"),
+Missing = fun(Path) ->
+    case filelib:is_file(Path) of
+        false -> ok;
+        true -> error({unexpected_startup_file, Stage, Path})
+    end
+end,
+Opts = #{bwrap => [{ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
+    {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>},
+    {bind, <<"/tmp/command">>, <<"/tmp/command">>}]},
+Command = [<<"/bin/sh">>, <<"-c">>, <<"printf ran >/tmp/command/ran">>],
+%% An already-expired deadline must not create even a startup helper.
+timeout = try klsn_bwrap:run(Command, Opts#{timeout => 0})
+    catch error:ZeroReason -> ZeroReason end,
+ok = Missing("/tmp/deadline-helper"),
+Caller = spawn(fun() ->
+    self() ! keep_this_message,
+    Start = erlang:monotonic_time(millisecond),
+    Result = try klsn_bwrap:run(Command, Opts#{timeout => 1000})
+        catch error:Reason -> Reason end,
+    Parent ! {result, Result, erlang:monotonic_time(millisecond) - Start},
+    receive inspect -> ok end,
+    receive keep_this_message -> ok after 0 -> error(unrelated_message_lost) end,
+    Parent ! {mailbox, process_info(self(), messages)}
+end),
+Wait = fun F(Fun, N) ->
+    case Fun() of
+        true -> ok;
+        false when N > 0 -> timer:sleep(10), F(Fun, N - 1);
+        false -> error(checkpoint_timeout)
+    end
+end,
+try
+    Wait(fun() -> case file:read_file("/tmp/deadline-helper") of
+        {ok, Bytes} when byte_size(Bytes) > 1 -> true;
+        _ -> false
+    end end, 80),
+    {ok, HelperBytes} = file:read_file("/tmp/deadline-helper"),
+    Helper = list_to_integer(string:trim(binary_to_list(HelperBytes))),
+    [Guardian] = [P || P <- processes(), process_info(P, initial_call) =:=
+        {initial_call, {klsn_bwrap_port, init_guardian, 2}}],
+    Native = lists:usort([Helper | [N || P <- erlang:ports(),
+        erlang:port_info(P, connected) =:= {connected, Guardian},
+        {os_pid, N} <- [erlang:port_info(P, os_pid)]]]),
+    receive
+        {result, timeout, Elapsed} when Elapsed < 2000 -> ok;
+        {result, Other, Elapsed} -> error({startup_result, Other, Elapsed})
+    after 2500 -> error(startup_did_not_timeout)
+    end,
+    %% Return before releasing setup, including mkdir before it creates its
+    %% directory. Its external owner must clean up after that delayed result.
+    ok = Missing("/tmp/deadline-release"),
+    ok = Missing("/tmp/command/ran"),
+    ok = file:write_file("/tmp/deadline-release", <<>>),
+    %% Cleanup belongs to the external owner even after the guardian exits.
+    %% Include its final unlink in the bounded completion check.
+    Wait(fun() -> not is_process_alive(Guardian) andalso lists:all(fun(N) ->
+        not filelib:is_file("/proc/" ++ integer_to_list(N) ++ "/stat")
+    end, Native) andalso
+        filelib:wildcard("/tmp/klsn-bwrap-" ++ os:getpid() ++ "-*") =:= [] end, 500),
+    [] = [P || P <- processes(), process_info(P, initial_call) =:=
+        {initial_call, {klsn_bwrap_port, init, 3}}],
+    ok = Missing("/tmp/command/ran"),
+    Caller ! inspect,
+    receive {mailbox, {messages, []}} -> ok
+        after 1000 -> error(late_startup_messages) end,
+    %% The same setup can still complete with an unbounded run deadline.
+    #{exit_code := 0, stdout := <<>>, stderr := <<>>} =
+        klsn_bwrap:run(Command, Opts#{timeout => infinity}),
+    {ok, <<"ran">>} = file:read_file("/tmp/command/ran"),
+    io:format("startup deadline and deferred cleanup verified~n")
+after
+    file:write_file("/tmp/deadline-release", <<>>)
+end,
+halt(0).

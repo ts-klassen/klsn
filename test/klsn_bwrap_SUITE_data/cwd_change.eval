@@ -1,0 +1,55 @@
+Opts = #{bwrap => [{ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
+    {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>}, {chdir, <<"/">>}]},
+Expect = fun F(P, Expected) ->
+    receive
+        {stdout, P, Data} ->
+            Size = byte_size(Data),
+            <<Data:Size/binary, Rest/binary>> = Expected,
+            case Rest of <<>> -> ok; _ -> F(P, Rest) end
+    after 5000 -> error(missing_stdout)
+    end
+end,
+Collect = fun F(P, E, Out) ->
+    receive
+        {stdout, P, Data} -> F(P, E, [Data | Out]);
+        {stderr, P, Data} -> error({unexpected_stderr, Data});
+        {'DOWN', P, process, E, Reason} ->
+            {Reason, iolist_to_binary(lists:reverse(Out))}
+    after 7000 -> error(missing_down)
+    end
+end,
+Pattern = "/tmp/klsn-bwrap-" ++ os:getpid() ++ "-*",
+Before = filelib:wildcard(Pattern),
+Cat = #{os_pid := CatPid, exec_pid := CatWorker} =
+    klsn_bwrap:open([<<"/bin/cat">>], Opts#{stdin => <<"initial">>}),
+Expect(CatPid, <<"initial">>),
+Sleeper = #{os_pid := SleepPid, exec_pid := SleepWorker} = klsn_bwrap:open(
+    [<<"/bin/sh">>, <<"-c">>, <<"printf ready; exec sleep 30">>], Opts),
+Expect(SleepPid, <<"ready">>),
+#{os_pid := KilledPid, exec_pid := KilledWorker} =
+    klsn_bwrap:open([<<"/bin/cat">>], Opts#{stdin => <<"ready">>}),
+Expect(KilledPid, <<"ready">>),
+ok = file:set_cwd(After),
+ok = klsn_bwrap:send(Cat, <<"after-cwd-change">>),
+ok = klsn_bwrap:send_eof(Cat),
+{normal, <<"after-cwd-change">>} = Collect(CatPid, CatWorker, []),
+ok = klsn_bwrap:stop(Sleeper),
+{{exit_status, 15}, <<>>} = Collect(SleepPid, SleepWorker, []),
+Monitor = monitor(process, KilledWorker),
+exit(KilledWorker, kill),
+receive {'DOWN', Monitor, process, KilledWorker, killed} -> ok
+after 5000 -> error(worker_still_alive)
+end,
+Wait = fun F(N) ->
+    Gone = lists:all(fun(P) ->
+        not filelib:is_file("/proc/" ++ integer_to_list(P) ++ "/stat")
+    end, [CatPid, SleepPid, KilledPid]),
+    case Gone andalso filelib:wildcard(Pattern) =:= Before of
+        true -> ok;
+        false when N > 0 -> timer:sleep(10), F(N - 1);
+        false -> error(cleanup_did_not_finish)
+    end
+end,
+Wait(300),
+io:format("streams and cleanup survived cwd change~n"),
+halt(0).
