@@ -1651,6 +1651,8 @@ map_rule(_, _, _State) ->
 %%   {invalid_struct_value, Field, Reason} for value normalization.
 %% When multiple normalization causes exist, the reason reports extra keys
 %% first, then key normalization, then value normalization.
+%% Within each category, which key or field supplies the reason is unspecified
+%% because map traversal order is unspecified.
 %% - reject when required fields are missing, a field has duplicate keys, or a
 %%   field rule rejects. Reasons are:
 %%   {missing_required_field, Field},

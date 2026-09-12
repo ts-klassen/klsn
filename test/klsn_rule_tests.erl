@@ -532,14 +532,18 @@ struct_rule_test() ->
         {reject, {invalid_struct_value, a, {invalid, integer, <<"x">>}}}
       , klsn_rule:eval(#{a => <<"x">>}, {struct, #{a => {required, integer}}}, #{})
     ),
-    ?assertEqual(
-        {normalized, #{a => 1, b => 2}, {invalid_struct_value, a, {invalid, integer, <<"1">>}}}
-      , klsn_rule:eval(
-            #{a => <<"1">>, b => <<"2">>}
-          , {struct, #{a => {required, integer}, b => {required, integer}}}
-          , #{}
-        )
+    {normalized, MultiFieldOutput, MultiFieldReason} = klsn_rule:eval(
+        #{a => <<"1">>, b => <<"2">>}
+      , {struct, #{a => {required, integer}, b => {required, integer}}}
+      , #{}
     ),
+    ?assertEqual(#{a => 1, b => 2}, MultiFieldOutput),
+    %% Map traversal order is unspecified, so either normalized field may
+    %% supply the reason. Check the complete reason for that field.
+    ?assert(lists:member(MultiFieldReason, [
+        {invalid_struct_value, a, {invalid, integer, <<"1">>}}
+      , {invalid_struct_value, b, {invalid, integer, <<"2">>}}
+    ])),
     ?assertEqual(
         {reject, {invalid, struct, #{}}}
       , klsn_rule:eval(#{}, {struct, #{<<"a">> => {required, integer}}}, #{})
