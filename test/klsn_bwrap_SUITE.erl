@@ -21,6 +21,9 @@
       , send_after_completion/1
       , stale_stream_handles/1
       , streaming_backpressure/1
+      , streaming_send_timeout/1
+      , streaming_send_timeout_races/1
+      , streaming_send_timeout_linked_owner/1
       , stdin_closes_while_draining/1
       , streaming_stop/1
       , concurrent_streams/1
@@ -95,6 +98,9 @@ all() ->
       , send_after_completion
       , stale_stream_handles
       , streaming_backpressure
+      , streaming_send_timeout
+      , streaming_send_timeout_races
+      , streaming_send_timeout_linked_owner
       , stdin_closes_while_draining
       , streaming_stop
       , concurrent_streams
@@ -322,11 +328,25 @@ streaming_roundtrip(_Config) ->
 streaming_binary_io(_Config) ->
     %% Exercise every byte value, multiple port buffers, both output streams,
     %% and EOF queued immediately after a large write.
-    Payload = binary:copy(list_to_binary(lists:seq(0, 255)), 8192),
-    Handle = klsn_bwrap:open([<<"/usr/bin/tee">>, <<"/dev/stderr">>], open_opts()),
-    ok = klsn_bwrap:send(Handle, Payload),
-    ok = klsn_bwrap:send_eof(Handle),
-    ?assertEqual({normal, Payload, Payload}, collect(Handle)).
+    Payload = binary:copy(list_to_binary(lists:seq(0, 255)), 32768),
+    lists:foreach(fun(Timeout) ->
+        Handle = #{os_pid := OsPid} = klsn_bwrap:open(
+            [<<"/usr/bin/tee">>, <<"/dev/stderr">>], open_opts()),
+        try
+            case Timeout of
+                legacy ->
+                    ok = klsn_bwrap:send(Handle, Payload),
+                    ok = klsn_bwrap:send_eof(Handle);
+                _ ->
+                    ok = klsn_bwrap:send(#{os_pid => OsPid}, <<>>, 0),
+                    ok = klsn_bwrap:send(#{os_pid => OsPid}, Payload, Timeout),
+                    ok = klsn_bwrap:send_eof(#{os_pid => OsPid}, Timeout)
+            end,
+            ?assertEqual({normal, Payload, Payload}, collect(Handle))
+        after
+            catch klsn_bwrap:stop(Handle)
+        end
+    end, [legacy, 5000, infinity]).
 
 streaming_exit_status(_Config) ->
     lists:foreach(fun(Code) ->
@@ -356,7 +376,9 @@ send_after_completion(_Config) ->
     lists:foreach(fun(Target) ->
         ?assertEqual(ok, klsn_bwrap:send(Target, <<"late">>)),
         ?assertEqual(ok, klsn_bwrap:send(Target, <<>>)),
-        ?assertEqual(ok, klsn_bwrap:send_eof(Target))
+        ?assertEqual(ok, klsn_bwrap:send_eof(Target)),
+        ?assertEqual(ok, klsn_bwrap:send(Target, <<"late">>, 100)),
+        ?assertEqual(ok, klsn_bwrap:send_eof(Target, 100))
     end, [Handle, #{os_pid => OsPid}]),
     ?assertEqual({normal, <<"x">>, <<>>}, collect(Handle)).
 
@@ -371,7 +393,9 @@ stale_stream_handles(_Config) ->
         try
             case Action of
                 send -> ok = klsn_bwrap:send(Stale, <<"stale-input">>);
+                timed_send -> ok = klsn_bwrap:send(Stale, <<"stale-input">>, 100);
                 eof -> ok = klsn_bwrap:send_eof(Stale);
+                timed_eof -> ok = klsn_bwrap:send_eof(Stale, 100);
                 stop -> ?assertError({badmatch, {error, no_process}},
                     klsn_bwrap:stop(Stale))
             end,
@@ -382,18 +406,23 @@ stale_stream_handles(_Config) ->
         after
             catch klsn_bwrap:stop(Live)
         end
-    end, [{Identity, Action} || Identity <- [Dead, invalid], Action <- [send, eof, stop]]).
+    end, [{Identity, Action} || Identity <- [Dead, invalid],
+        Action <- [send, timed_send, eof, timed_eof, stop]]).
 
 streaming_backpressure(Config) ->
-    lists:foreach(fun(Mode) -> streaming_backpressure(Config, Mode) end, [read, stop]).
+    lists:foreach(fun(Mode) -> streaming_backpressure(Config, Mode) end,
+        [read, stop, timed_read, timed_stop]).
 
 streaming_backpressure(Config, Mode) ->
     Dir = filename:join(?config(priv_dir, Config), "backpressure-" ++ atom_to_list(Mode)),
     Gate = filename:join(Dir, "read"),
+    OutputGate = filename:join(Dir, "output"),
     ok = file:make_dir(Dir),
     Opts = open_opts(),
     Handle = #{os_pid := OsPid} = klsn_bwrap:open([<<"/bin/sh">>, <<"-c">>,
-        <<"printf ready; while [ ! -f /tmp/gate/read ]; do sleep .01; done; exec cat">>],
+        <<"printf ready; while [ ! -f /tmp/gate/output ]; do sleep .01; done; "
+          "printf progress; printf progress >&2; "
+          "while [ ! -f /tmp/gate/read ]; do sleep .01; done; exec cat">>],
         Opts#{bwrap := maps:get(bwrap, Opts) ++
             [{bind, unicode:characters_to_binary(Dir), <<"/tmp/gate">>}]}),
     Parent = self(),
@@ -401,10 +430,16 @@ streaming_backpressure(Config, Mode) ->
     {Sender, Monitor} = spawn_monitor(fun() ->
         receive send -> ok end,
         lists:foreach(fun(Data) ->
-            ok = klsn_bwrap:send(Handle, Data),
+            ok = case Mode of
+                M when M =:= timed_read; M =:= timed_stop -> klsn_bwrap:send(Handle, Data, 5000);
+                _ -> klsn_bwrap:send(Handle, Data)
+            end,
             Parent ! {self(), accepted}
         end, Chunks),
-        ok = klsn_bwrap:send_eof(Handle)
+        ok = case Mode of
+            M when M =:= timed_read; M =:= timed_stop -> klsn_bwrap:send_eof(Handle, 5000);
+            _ -> klsn_bwrap:send_eof(Handle)
+        end
     end),
     try
         expect_stdout(OsPid, <<"ready">>),
@@ -417,31 +452,245 @@ streaming_backpressure(Config, Mode) ->
         Accepted = accepted_input(Sender, 1),
         ?assert(Accepted =< 3),
         ?assert(is_process_alive(Sender)),
+        %% Both output streams must continue draining while send is blocked.
+        ok = file:write_file(OutputGate, <<>>),
+        expect_stdout(OsPid, <<"progress">>),
+        receive {stderr, OsPid, <<"progress">>} -> ok
+        after 5000 -> ct:fail(stderr_blocked_by_send) end,
         Start = erlang:monotonic_time(millisecond),
         case Mode of
-            read -> ok = file:write_file(Gate, <<>>);
-            stop -> ok = klsn_bwrap:stop(Handle)
+            ReadMode when ReadMode =:= read; ReadMode =:= timed_read ->
+                ok = file:write_file(Gate, <<>>);
+            _ -> ok = klsn_bwrap:stop(Handle)
         end,
         wait_input_sender({Sender, Monitor}),
         case Mode of
-            read -> ?assertEqual({normal, iolist_to_binary(Chunks), <<>>}, collect(Handle));
-            stop ->
+            ResultMode when ResultMode =:= read; ResultMode =:= timed_read ->
+                ?assertEqual({normal, iolist_to_binary(Chunks), <<>>}, collect(Handle));
+            _ ->
                 ?assertMatch({{exit_status, 15}, _, _}, collect(Handle)),
                 ?assert(erlang:monotonic_time(millisecond) - Start < 2500)
         end,
         accepted_input(Sender, 0)
     after
+        file:write_file(OutputGate, <<>>),
         file:write_file(Gate, <<>>),
         catch klsn_bwrap:stop(Handle),
         exit(Sender, kill),
         erlang:demonitor(Monitor, [flush]),
         file:delete(Gate),
+        file:delete(OutputGate),
         file:del_dir(Dir)
+    end.
+
+streaming_send_timeout_races(_Config) ->
+    lists:foreach(fun streaming_send_timeout_race/1, [reply, exit]).
+
+streaming_send_timeout_race(Mode) ->
+    Command = case Mode of
+        reply -> [<<"/bin/cat">>];
+        exit -> [<<"/usr/bin/head">>, <<"-c">>, <<"1">>]
+    end,
+    Handle = #{exec_pid := Worker, os_pid := OsPid} = klsn_bwrap:open(Command, open_opts()),
+    Parent = self(),
+    true = erlang:suspend_process(Worker),
+    {Sender, Monitor} = spawn_monitor(fun() ->
+        self() ! keep_this_message,
+        Result = try klsn_bwrap:send(Handle, <<"x">>, 1000)
+            catch Class:Reason -> {Class, Reason} end,
+        receive keep_this_message -> ok after 0 -> error(unrelated_message_lost) end,
+        Parent ! {self(), Result, process_info(self(), messages), process_info(self(), monitors)}
+    end),
+    try
+        %% Hold the caller after it sends its request but before it can
+        %% consume a reply. Exercise a queued reply and reply + monitor DOWN.
+        wait_until(fun() ->
+            {messages, Messages} = process_info(Worker, messages),
+            lists:any(fun
+                ({request, From, _, {send, <<"x">>}}) -> From =:= Sender;
+                (_) -> false
+            end, Messages)
+        end, 50),
+        true = erlang:suspend_process(Sender),
+        true = erlang:resume_process(Worker),
+        case Mode of
+            reply -> expect_stdout(OsPid, <<"x">>);
+            exit -> ?assertEqual({normal, <<"x">>, <<>>}, collect(Handle))
+        end,
+        {messages, Pending} = process_info(Sender, messages),
+        ?assert(lists:any(fun
+            ({Ref, ok}) -> is_reference(Ref);
+            (_) -> false
+        end, Pending)),
+        timer:sleep(1100),
+        true = erlang:resume_process(Sender),
+        receive
+            {Sender, Result, Messages, Monitors} ->
+                ?assertEqual({error, timeout}, Result),
+                ?assertEqual({messages, []}, Messages),
+                ?assertEqual({monitors, []}, Monitors)
+        after 2000 -> ct:fail(timed_sender_did_not_return)
+        end,
+        wait_input_sender({Sender, Monitor}),
+        ?assertNot(is_process_alive(Worker))
+    after
+        exit(Sender, kill),
+        erlang:demonitor(Monitor, [flush]),
+        exit(Worker, kill)
     end.
 
 accepted_input(Sender, Count) ->
     receive {Sender, accepted} -> accepted_input(Sender, Count + 1)
     after 0 -> Count end.
+
+streaming_send_timeout(Config) ->
+    lists:foreach(fun(Mode) -> streaming_send_timeout(Config, Mode) end,
+        [send, pid_only, eof, concurrent, suspended, zero]).
+
+streaming_send_timeout(Config, Mode) ->
+    Tmp = filename:join(?config(priv_dir, Config), "send-timeout-" ++ atom_to_list(Mode)),
+    ok = file:make_dir(Tmp),
+    try
+        with_environment([{"TMPDIR", Tmp}], fun() ->
+            Payload = binary:copy(<<0>>, 8 * 1024 * 1024),
+            Opts = case Mode of
+                eof -> (open_opts())#{stdin => Payload};
+                _ -> open_opts()
+            end,
+            Handle = #{exec_pid := Worker, os_pid := OsPid} = klsn_bwrap:open(
+                [<<"/bin/sh">>, <<"-c">>,
+                    <<"trap '' TERM; printf ready; printf retained >&2; exec sleep 30">>], Opts),
+            expect_stdout(OsPid, <<"ready">>),
+            wait_until(fun() ->
+                {messages, Messages} = process_info(self(), messages),
+                lists:member({stderr, OsPid, <<"retained">>}, Messages)
+            end, 100),
+            {dictionary, Dict} = process_info(Worker, dictionary),
+            Guardian = proplists:get_value(guardian, Dict),
+            Native = [OsPid | [N || Port <- erlang:ports(),
+                erlang:port_info(Port, connected) =:= {connected, Guardian},
+                {os_pid, N} <- [erlang:port_info(Port, os_pid)]]],
+            Peer = case Mode of
+                concurrent ->
+                    {_, Pending} = queue_before_exit(Handle, queued_input),
+                    Pending;
+                _ -> none
+            end,
+            BeforeMonitors = process_info(self(), monitors),
+            Keep = make_ref(),
+            self() ! {Keep, unrelated},
+            Timeout = case Mode of zero -> 0; _ -> 200 end,
+            try
+                case Mode of
+                    suspended -> true = erlang:suspend_process(Worker);
+                    _ -> ok
+                end,
+                Start = erlang:monotonic_time(millisecond),
+                Outcome = try
+                    case Mode of
+                        eof -> klsn_bwrap:send_eof(Handle, Timeout);
+                        pid_only -> klsn_bwrap:send(#{os_pid => OsPid}, Payload, Timeout);
+                        _ -> klsn_bwrap:send(Handle, Payload, Timeout)
+                    end
+                catch Class:Reason -> {Class, Reason} end,
+                Elapsed = erlang:monotonic_time(millisecond) - Start,
+                ?assertEqual({error, timeout}, Outcome),
+                ct:pal("~p: ~p ms send deadline returned in ~p ms", [Mode, Timeout, Elapsed]),
+                ?assert(Elapsed >= Timeout),
+                ?assert(Elapsed < Timeout + 1500),
+                ?assertNot(is_process_alive(Worker)),
+                case Peer of
+                    none -> ?assertEqual(BeforeMonitors, process_info(self(), monitors));
+                    _ -> wait_input_sender(Peer)
+                end,
+                receive {Keep, unrelated} -> ok
+                after 0 -> ct:fail(unrelated_message_lost) end,
+                receive {stderr, OsPid, <<"retained">>} -> ok
+                after 0 -> ct:fail(delivered_output_lost) end,
+                %% The cancelled transport cannot append another request.
+                lists:foreach(fun(Target) ->
+                    ok = klsn_bwrap:send(Target, <<"late">>, 200),
+                    ok = klsn_bwrap:send_eof(Target, 200)
+                end, [Handle, #{os_pid => OsPid}]),
+                wait_until(fun() ->
+                    not is_process_alive(Guardian) andalso
+                        lists:all(fun(N) -> not filelib:is_file(
+                            "/proc/" ++ integer_to_list(N) ++ "/stat") end, Native) andalso
+                        file:list_dir(Tmp) =:= {ok, []}
+                end, 500),
+                receive
+                    {Ref, _} when is_reference(Ref) -> ct:fail(late_send_reply);
+                    {'DOWN', Ref, process, _, _} when is_reference(Ref) ->
+                        ct:fail(leaked_send_monitor)
+                after 0 -> ok
+                end
+            after
+                %% Kill also releases a deliberately suspended transport.
+                exit(Worker, kill),
+                case Peer of
+                    {PeerPid, PeerMonitor} ->
+                        exit(PeerPid, kill),
+                        erlang:demonitor(PeerMonitor, [flush]);
+                    none -> ok
+                end
+            end
+        end)
+    after
+        file:del_dir(Tmp)
+    end.
+
+streaming_send_timeout_linked_owner(_Config) ->
+    lists:foreach(fun(Action) ->
+        {Owner, Monitor} = spawn_monitor(fun() ->
+            %% The public timeout must be catchable without trapping linked
+            %% exits. Keep the test runner outside that failure domain.
+            ?assertEqual({trap_exit, false}, process_info(self(), trap_exit)),
+            Payload = binary:copy(<<0>>, 8 * 1024 * 1024),
+            Opts = case Action of
+                eof -> (open_opts())#{stdin => Payload};
+                send -> open_opts()
+            end,
+            Handle = #{exec_pid := Worker, os_pid := OsPid} = klsn_bwrap:open(
+                [<<"/bin/sh">>, <<"-c">>, <<"printf ready; exec sleep 30">>], Opts),
+            expect_stdout(OsPid, <<"ready">>),
+            link(Worker),
+            self() ! keep_this_message,
+            try
+                Start = erlang:monotonic_time(millisecond),
+                Outcome = try
+                    case Action of
+                        send -> klsn_bwrap:send(Handle, Payload, 100);
+                        eof -> klsn_bwrap:send_eof(Handle, 100)
+                    end
+                catch Class:Reason -> {Class, Reason} end,
+                ?assertEqual({error, timeout}, Outcome),
+                ?assert(erlang:monotonic_time(millisecond) - Start < 1500),
+                ?assertNot(is_process_alive(Worker)),
+                ?assertEqual({monitors, []}, process_info(self(), monitors)),
+                receive keep_this_message -> ok
+                after 0 -> error(unrelated_message_lost) end,
+                %% The same caller must remain alive to open and use a new
+                %% stream after handling the timeout.
+                Recovered = klsn_bwrap:open([<<"/bin/cat">>], open_opts()),
+                try
+                    ok = klsn_bwrap:send(Recovered, <<"recovered">>, 1000),
+                    ok = klsn_bwrap:send_eof(Recovered, 1000),
+                    ?assertEqual({normal, <<"recovered">>, <<>>}, collect(Recovered))
+                after
+                    catch klsn_bwrap:stop(Recovered)
+                end
+            after
+                unlink(Worker),
+                exit(Worker, kill)
+            end
+        end),
+        try
+            wait_input_sender({Owner, Monitor})
+        after
+            exit(Owner, kill),
+            erlang:demonitor(Monitor, [flush])
+        end
+    end, [send, eof]).
 
 wait_input_sender(none) -> ok;
 wait_input_sender({Sender, Monitor}) ->
@@ -643,6 +892,13 @@ invalid_arguments(_Config) ->
     ?assertError(badarg, klsn_bwrap:run([], #{bwrap => [unknown_option]})),
     ?assertError(badarg, klsn_bwrap:send(#{}, <<>>)),
     ?assertError(badarg, klsn_bwrap:send_eof(#{})),
+    ?assertError(badarg, klsn_bwrap:send(#{}, <<>>, 100)),
+    ?assertError(badarg, klsn_bwrap:send(#{os_pid => 1}, "not binary", 100)),
+    ?assertError(badarg, klsn_bwrap:send_eof(#{}, 100)),
+    lists:foreach(fun(Timeout) ->
+        ?assertError(badarg, klsn_bwrap:send(#{os_pid => 1}, <<>>, Timeout)),
+        ?assertError(badarg, klsn_bwrap:send_eof(#{os_pid => 1}, Timeout))
+    end, [-1, 1.5, invalid, 16#100000000]),
     ?assertError(badarg, klsn_bwrap:stop(#{})).
 
 cleans_up(Config) ->

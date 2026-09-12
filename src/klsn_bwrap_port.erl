@@ -3,7 +3,7 @@
 %% All command arguments and paths are passed separately through {args, ...}.
 -module(klsn_bwrap_port).
 
--export([start/3, start/4, send/2, stop/1, cancel/2]).
+-export([start/3, start/4, send/2, send/3, stop/1, cancel/2]).
 -export([init/3, init_guardian/2]).
 
 -define(READ_SIZE, 4194304).
@@ -108,11 +108,14 @@ startup_timeout() ->
     check_startup_deadline(),
     min(5000, remaining(get(startup_deadline))).
 
-send(_Target, <<>>) -> ok;
-send(Target, Data) ->
+send(Target, Data) -> send(Target, Data, infinity).
+
+%% Deadline is absolute, including worker lookup and the entire queue wait.
+send(_Target, <<>>, _Deadline) -> ok;
+send(Target, Data, Deadline) ->
     %% The command may finish between chunks. Late stdin, including EOF,
     %% is discarded even if the worker exits while the request is pending.
-    case request(Target, {send, Data}) of
+    case request(Target, {send, Data}, Deadline) of
         {error, no_process} -> ok;
         Reply -> Reply
     end.
@@ -122,16 +125,51 @@ stop(OsPid) -> request(OsPid, stop).
 %% Complete handles address the worker directly. For os_pid-only handles,
 %% inspect connected port owners rather than all processes in the VM.
 request(Target, Request) ->
+    request(Target, Request, infinity).
+
+request(Target, Request, Deadline) ->
     case target_owner(Target) of
         undefined -> {error, no_process};
         Pid ->
             Ref = erlang:monitor(process, Pid),
-            Pid ! {request, self(), Ref, Request},
-            receive
-                {Ref, Reply} -> erlang:demonitor(Ref, [flush]), Reply;
-                {'DOWN', Ref, process, Pid, _} -> {error, no_process}
+            case remaining(Deadline) of
+                0 -> cancel_request(Pid, Ref);
+                _ ->
+                    Pid ! {request, self(), Ref, Request},
+                    receive_reply(Pid, Ref, Deadline)
             end
     end.
+
+receive_reply(Pid, Ref, Deadline) ->
+    receive
+        {Ref, Reply} ->
+            %% A queued reply must not bypass a deadline that elapsed while
+            %% the caller was descheduled. Keep the monitor until decided.
+            case remaining(Deadline) of
+                0 -> cancel_request(Pid, Ref);
+                _ -> erlang:demonitor(Ref, [flush]), Reply
+            end;
+        {'DOWN', Ref, process, Pid, _} ->
+            case remaining(Deadline) of
+                0 -> {error, timeout};
+                _ -> {error, no_process}
+            end
+    after remaining(Deadline) ->
+        cancel_request(Pid, Ref)
+    end.
+
+cancel_request(Pid, Ref) ->
+    %% A partial write cannot safely be removed from a reusable byte stream.
+    %% Kill directly so cancellation cannot wait on worker I/O or cleanup;
+    %% the guardian retains ownership of the native helpers and sandbox.
+    %% A linked caller must survive our forced kill to catch error:timeout.
+    unlink(Pid),
+    exit(Pid, kill),
+    receive {'DOWN', Ref, process, Pid, _} -> ok end,
+    %% The worker's reply precedes its monitor DOWN, including when send
+    %% completion races expiry. Preserve output and other requests' replies.
+    receive {Ref, _} -> ok after 0 -> ok end,
+    {error, timeout}.
 
 target_owner(#{os_pid := OsPid, exec_pid := Pid}) ->
     case is_pid(Pid) andalso node(Pid) =:= node() andalso owns(Pid, OsPid) of
