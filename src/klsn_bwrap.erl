@@ -4,7 +4,9 @@
         run/2
       , open/2
       , send/2
+      , send/3
       , send_eof/1
+      , send_eof/2
       , stop/1
     ]).
 
@@ -185,6 +187,7 @@ open(Command, Opts) ->
 %% Send a binary chunk to a streaming sandbox.
 %% Waits for capacity in the native stdin buffer. The transport continues
 %% collecting output and handling stop while a sender waits for the reader.
+%% This wait has no time limit; use send/3 to bound it.
 -spec send(stream(), binary()) -> ok.
 send(#{os_pid := OsPid} = Handle, Data) when is_integer(OsPid), is_binary(Data) ->
     ok = klsn_bwrap_port:send(Handle, Data);
@@ -192,12 +195,54 @@ send(Handle, Data) ->
     erlang:error(badarg, [Handle, Data]).
 
 %% @doc
+%% Send a binary chunk, waiting at most Timeout milliseconds (or infinity)
+%% for capacity in the native stdin buffer. Empty chunks are a no-op.
+%% Like send/2, ok does not guarantee that the sandbox consumed the data;
+%% input sent after stdin closes or the command exits is discarded.
+%%
+%% On expiry, raises timeout after killing the transport and discarding its
+%% pending input. The whole stream becomes unusable; open a new stream before
+%% sending again. Some or all bytes may already have reached the sandbox.
+%% Native process and file cleanup continues asynchronously, and bytes in
+%% native buffers may still reach the sandbox. Cancellation does not emit a
+%% stream completion message; a separate stream owner can monitor exec_pid
+%% to observe transport termination. Previously delivered output and
+%% unrelated caller messages are preserved.
+-spec send(stream(), binary(), timeout()) -> ok.
+send(#{os_pid := OsPid} = Handle, Data, Timeout) when is_integer(OsPid), is_binary(Data),
+        (Timeout =:= infinity orelse
+            (is_integer(Timeout) andalso Timeout >= 0 andalso Timeout =< 16#ffffffff)) ->
+    case klsn_bwrap_port:send(Handle, Data, timeout_deadline(Timeout)) of
+        ok -> ok;
+        {error, Reason} -> erlang:error(Reason, [Handle, Data, Timeout])
+    end;
+send(Handle, Data, Timeout) ->
+    erlang:error(badarg, [Handle, Data, Timeout]).
+
+%% @doc
 %% Close stdin for a streaming sandbox.
+%% Waits without a time limit for preceding input; see send_eof/2.
 -spec send_eof(stream()) -> ok.
 send_eof(#{os_pid := OsPid} = Handle) when is_integer(OsPid) ->
     ok = klsn_bwrap_port:send(Handle, eof);
 send_eof(Handle) ->
     erlang:error(badarg, [Handle]).
+
+%% @doc
+%% Close stdin after preceding input reaches the native buffer, waiting at
+%% most Timeout milliseconds (or infinity). Timeout has the same stream
+%% cancellation semantics as send/3. Successful return requests an
+%% asynchronous close; it does not wait for the sandbox to observe EOF.
+-spec send_eof(stream(), timeout()) -> ok.
+send_eof(#{os_pid := OsPid} = Handle, Timeout) when is_integer(OsPid),
+        (Timeout =:= infinity orelse
+            (is_integer(Timeout) andalso Timeout >= 0 andalso Timeout =< 16#ffffffff)) ->
+    case klsn_bwrap_port:send(Handle, eof, timeout_deadline(Timeout)) of
+        ok -> ok;
+        {error, Reason} -> erlang:error(Reason, [Handle, Timeout])
+    end;
+send_eof(Handle, Timeout) ->
+    erlang:error(badarg, [Handle, Timeout]).
 
 %% @doc
 %% Stop a streaming sandbox.

@@ -31,6 +31,23 @@ status preserves the distinction between exit
 codes and signals; output draining finishes even when descendants retain
 the pipes. The transport needs no native extension or custom executable.
 
+Streaming writes apply backpressure: `klsn_bwrap:send/2` waits without a
+time limit until the native stdin buffer accepts the chunk. Use
+`klsn_bwrap:send(Stream, Binary, Timeout)` to bound that wait in milliseconds,
+or `infinity` for the existing behavior. `klsn_bwrap:send_eof(Stream, Timeout)`
+also bounds the wait for preceding input before requesting stdin closure.
+An application response timeout that starts after sending does not cover
+these waits.
+
+On a send timeout, the call raises `error:timeout` and terminates the whole
+transport, discarding pending input. Open a new stream before sending again.
+Some or all of the data may already have reached the sandbox; a timeout does
+not prove that a request was never executed. Native cleanup continues in the
+background, and already buffered bytes may still reach the sandbox during it.
+This cancellation emits no stream completion message; if another
+process owns the stream, it can monitor the handle's `exec_pid` for termination.
+Previously delivered output remains in the owner's mailbox.
+
 Rebar3 deps
 -----------
 `rebar.config`
