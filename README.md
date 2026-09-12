@@ -36,7 +36,7 @@ Rebar3 deps
 `rebar.config`
 ```
 {deps, [
-    {klsn, {git, "https://github.com/ts-klassen/klsn.git", {tag, "1.26.0"}}}
+    {klsn, {git, "https://github.com/ts-klassen/klsn.git", {tag, "1.27.0"}}}
 ]}.
 ```
 
