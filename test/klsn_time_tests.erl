@@ -13,13 +13,19 @@ rfc3339_to_unix_seconds_test() ->
 
 %% rfc3339_to_unix_nanoseconds/1
 rfc3339_to_unix_nanoseconds_test() ->
+    %% OTP 28 fixed calendar's handling of fractions before the Unix epoch
+    %% (erlang/otp#9280). This wrapper follows the runtime's behavior.
+    NegativeFraction = case ?OTP_RELEASE >= 28 of
+        true -> -500000000;
+        false -> -1500000000
+    end,
     ?assertEqual(0, klsn_time:rfc3339_to_unix_nanoseconds(<<"1970-01-01T00:00:00Z">>)),
     ?assertEqual(123456789, klsn_time:rfc3339_to_unix_nanoseconds(<<"1970-01-01T00:00:00.123456789Z">>)),
-    ?assertEqual(-1500000000, klsn_time:rfc3339_to_unix_nanoseconds(<<"1969-12-31T23:59:59.500000000Z">>)),
+    ?assertEqual(NegativeFraction, klsn_time:rfc3339_to_unix_nanoseconds(<<"1969-12-31T23:59:59.500000000Z">>)),
     %% +09:00 offset equivalents
     ?assertEqual(0, klsn_time:rfc3339_to_unix_nanoseconds(<<"1970-01-01T09:00:00+09:00">>)),
     ?assertEqual(123456789, klsn_time:rfc3339_to_unix_nanoseconds(<<"1970-01-01T09:00:00.123456789+09:00">>)),
-    ?assertEqual(-1500000000, klsn_time:rfc3339_to_unix_nanoseconds(<<"1970-01-01T08:59:59.500000000+09:00">>)),
+    ?assertEqual(NegativeFraction, klsn_time:rfc3339_to_unix_nanoseconds(<<"1970-01-01T08:59:59.500000000+09:00">>)),
     %% A later timestamp (1,000,000,000 seconds since epoch)
     ?assertEqual(1000000000000000000, klsn_time:rfc3339_to_unix_nanoseconds(<<"2001-09-09T10:46:40+09:00">>)),
     ?assertEqual(1000000000123456789, klsn_time:rfc3339_to_unix_nanoseconds(<<"2001-09-09T10:46:40.123456789+09:00">>)),

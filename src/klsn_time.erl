@@ -73,8 +73,10 @@ rfc3339_to_unix_seconds(RFC3339) when is_binary(RFC3339) ->
 %% 1> klsn_time:rfc3339_to_unix_nanoseconds(&lt;&lt;"1970-01-01T00:00:00.123456789Z"&gt;&gt;).
 %% 123456789
 %% 2> klsn_time:rfc3339_to_unix_nanoseconds(&lt;&lt;"1970-01-01T08:59:59.500000000+09:00"&gt;&gt;).
-%% -1500000000
+%% -500000000
 %% </pre>
+%% OTP releases before 28 return -1500000000 for the second example due to
+%% a calendar bug when parsing fractional timestamps before the Unix epoch.
 -spec rfc3339_to_unix_nanoseconds(rfc3339()) -> unix_nanoseconds().
 rfc3339_to_unix_nanoseconds(RFC3339) when is_binary(RFC3339) ->
     String = binary_to_list(RFC3339),
