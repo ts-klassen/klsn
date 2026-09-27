@@ -1,0 +1,1 @@
+Fixtures from the ordinary (non-experimental) Codex 0.157.1 app-server JSON Schema generated on 2026-09-27. The three content fixtures retain the named definition and all transitively referenced definitions from codex_app_server_protocol.v2.schemas.json. The MCP fixture is the unmodified generated file, without the coderlx workaround.

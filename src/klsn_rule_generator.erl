@@ -154,20 +154,33 @@
       , to_json => klsn_rule:rule()
     }.
 
+-type schema_key_input() :: atom() | integer() | float() | iolist() | klsn:binstr().
+
 %% @doc
 %% Do not accept JSON Schema from user input; this function uses binary_to_atom/2
 %% when converting property names and enum values, which can exhaust the atom table.
 %% Not for production use: generating rules at runtime is for development only.
 %% Generate rules ahead of time and include them in releases.
+%%
+%% For object schemas, both generated rules retain common fields and enforce
+%% common type, properties, and required constraints alongside anyOf or oneOf.
+%% Unsupported combinations raise an error with reason
+%% {klsn_rule_generator, unsupported_intersection, Details}.
+%% oneOf accepts values matching at least one alternative; it does not require
+%% exactly one match.
 -spec from_json_schema(json_schema()) -> #{from_json := klsn_rule:rule(), to_json := klsn_rule:rule()}.
 from_json_schema(Schema) ->
     from_json_schema(Schema, #{}).
 
--klsn_input_rule([{alias, {?MODULE, json_schema}}, {alias, {?MODULE, opts_rule}}]).
--klsn_output_rule({alias, {?MODULE, json_schema_rules}}).
 -spec from_json_schema(json_schema(), opts()) ->
     #{from_json := klsn_rule:rule(), to_json := klsn_rule:rule()}.
 from_json_schema(Schema, Opts) ->
+    from_json_schema_normalized_(prepare_schema_(Schema), Opts).
+
+-klsn_input_rule([{alias, {?MODULE, json_schema}}, {alias, {?MODULE, opts_rule}}]).
+-klsn_output_rule({alias, {?MODULE, json_schema_rules}}).
+-spec from_json_schema_normalized_(json_schema(), opts()) -> json_schema_rules().
+from_json_schema_normalized_(Schema, Opts) ->
     Rules = from_json_schema_base_(Schema, Opts),
     case Schema of
         Map when is_map(Map) ->
@@ -176,7 +189,7 @@ from_json_schema(Schema, Opts) ->
                     Rules;
                 {value, Defs} when is_map(Defs) ->
                     {FromDefs, ToDefs} = lists:foldl(fun({Name, DefSchema}, {FromAcc, ToAcc}) ->
-                        #{from_json := FromRule, to_json := ToRule} = from_json_schema(DefSchema, Opts),
+                        #{from_json := FromRule, to_json := ToRule} = from_json_schema_normalized_(DefSchema, Opts),
                         {maps:put(Name, FromRule, FromAcc), maps:put(Name, ToRule, ToAcc)}
                     end, {#{}, #{}}, maps:to_list(Defs)),
                     #{from_json := FromRule, to_json := ToRule} = Rules,
@@ -189,6 +202,7 @@ from_json_schema(Schema, Opts) ->
             Rules
     end.
 
+-spec from_json_schema_base_(json_schema(), opts()) -> json_schema_rules().
 from_json_schema_base_(true, _Opts) ->
     json_rules_from_rule_(term);
 from_json_schema_base_(false, _Opts) ->
@@ -244,7 +258,7 @@ from_json_schema_base_(#{type := null}=Schema, _Opts) ->
 from_json_schema_base_(#{type := array}=Schema, Opts) ->
     case klsn_map:lookup([items], Schema) of
         {value, Items} ->
-            #{from_json := FromItem, to_json := ToItem} = from_json_schema(Items, Opts),
+            #{from_json := FromItem, to_json := ToItem} = from_json_schema_normalized_(Items, Opts),
             #{from_json => with_default_(Schema, {list, FromItem}),
               to_json => with_default_(Schema, {list, ToItem})};
         none ->
@@ -265,7 +279,7 @@ from_json_schema_base_(#{type := object}=Schema, Opts) ->
                         false ->
                             json_rules_from_rule_(with_default_(Schema, {struct, #{}}));
                         AddSchema when is_map(AddSchema) ->
-                            #{from_json := FromItem, to_json := ToItem} = from_json_schema(AddSchema, Opts),
+                            #{from_json := FromItem, to_json := ToItem} = from_json_schema_normalized_(AddSchema, Opts),
                             #{from_json => with_default_(Schema, {map, {binstr, FromItem}}),
                               to_json => with_default_(Schema, {map, {binstr, ToItem}})};
                         _ ->
@@ -282,7 +296,7 @@ from_json_schema_base_(#{type := object}=Schema, Opts) ->
             case MissingRequired of
                 [] ->
                     {FromMap, ToMap} = lists:foldl(fun({PropName, PropSchema}, {FromAcc, ToAcc}) ->
-                        #{from_json := FromJson, to_json := ToJson} = from_json_schema(PropSchema, Opts),
+                        #{from_json := FromJson, to_json := ToJson} = from_json_schema_normalized_(PropSchema, Opts),
                         ReqOpt = case lists:member(PropName, Required) of
                             true -> required;
                             false -> optional
@@ -310,9 +324,10 @@ from_json_schema_base_(Schema, _Opts) ->
 json_rules_from_rule_(Rule) ->
     #{from_json => Rule, to_json => Rule}.
 
+-spec json_rule_list_([json_schema()], opts()) -> {[klsn_rule:rule()], [klsn_rule:rule()]}.
 json_rule_list_(Schemas, Opts) ->
     {FromRev, ToRev} = lists:foldl(fun(ItemSchema, {FromAcc, ToAcc}) ->
-        #{from_json := FromRule, to_json := ToRule} = from_json_schema(ItemSchema, Opts),
+        #{from_json := FromRule, to_json := ToRule} = from_json_schema_normalized_(ItemSchema, Opts),
         {[FromRule|FromAcc], [ToRule|ToAcc]}
     end, {[], []}, Schemas),
     {lists:reverse(FromRev), lists:reverse(ToRev)}.
@@ -353,4 +368,252 @@ annotation_key_(Key) ->
         <<"writeOnly">> -> true;
         <<"format">> -> true;
         _ -> false
+    end.
+
+%% Expand before the schema alias normalizes structs: otherwise it discards
+%% siblings of anyOf/oneOf. Only schema positions are traversed, never defaults
+%% or examples (which are arbitrary JSON values).
+-spec prepare_schema_(json_schema()) -> json_schema().
+prepare_schema_(Schema) when is_map(Schema) ->
+    Canonical = schema_keys_(Schema),
+    Children = maps:map(fun
+        (Key, Value) when Key =:= <<"properties">>; Key =:= <<"definitions">> ->
+            maps:map(fun(_, Child) ->
+                prepare_schema_(Child)
+            end, schema_keys_(Value));
+        (Key, Value) when Key =:= <<"anyOf">>; Key =:= <<"oneOf">>; Key =:= <<"allOf">> ->
+            lists:map(fun prepare_schema_/1, Value);
+        (Key, Value) when Key =:= <<"items">>; Key =:= <<"additionalProperties">> ->
+            prepare_schema_(Value);
+        (<<"type">>, Value) ->
+            %% Preserve the schema rules' precedence between a list of types
+            %% and an iolist naming one type, including mixed iolists.
+            TypeSchema = klsn_rule:normalize(#{type => Value}, {alias, {?MODULE, json_schema}}),
+            case klsn_map:lookup([type], TypeSchema) of
+                {value, Types} when is_list(Types) ->
+                    lists:map(fun schema_key_/1, Types);
+                {value, Type} ->
+                    schema_key_(Type);
+                none ->
+                    Value
+            end;
+        (<<"required">>, Value) ->
+            lists:map(fun schema_key_/1, Value);
+        (_, Value) ->
+            Value
+    end, Canonical),
+    Choices = lists:filter(fun(Key) ->
+        maps:is_key(Key, Children)
+    end, [<<"anyOf">>, <<"oneOf">>]),
+    case Choices of
+        [] ->
+            Children;
+        [Choice] ->
+            Siblings = maps:remove(Choice, Children),
+            Common = maps:filter(fun(Key, _) ->
+                not choice_metadata_(Key)
+            end, Siblings),
+            case map_size(Common) of
+                0 ->
+                    Children;
+                _ ->
+                    ensure_mergeable_object_(Common),
+                    %% Combine property constraints before struct normalization
+                    %% can discard fields declared only on the other side.
+                    Branches = lists:map(fun(Branch) ->
+                        ensure_mergeable_object_(Branch),
+                        %% A branch fallback could omit common fields.
+                        case maps:is_key(<<"default">>, Branch) of
+                            true ->
+                                error({klsn_rule_generator, unsupported_intersection, {Common, Branch}});
+                            false ->
+                                ok
+                        end,
+                        %% Properties alone do not require an object.
+                        MaybeType = case klsn_map:lookup([<<"type">>], Common) of
+                            none ->
+                                klsn_map:lookup([<<"type">>], Branch);
+                            Value ->
+                                Value
+                        end,
+                        case MaybeType of
+                            {value, <<"object">>} ->
+                                ok;
+                            _ ->
+                                error({klsn_rule_generator, unsupported_intersection, {Common, Branch}})
+                        end,
+                        merge_object_(Common, Branch)
+                    end, maps:get(Choice, Children)),
+                    (maps:without(maps:keys(Common), Children))#{Choice := Branches}
+            end;
+        _ ->
+            error({klsn_rule_generator, unsupported_intersection, Children})
+    end;
+prepare_schema_(Schema) ->
+    Schema.
+
+-spec schema_keys_(maps:map(schema_key_input(), Value)) -> maps:map(klsn:binstr(), Value).
+schema_keys_(Map) ->
+    Pairs = lists:map(fun({Key, Value}) ->
+        {schema_key_(Key), Value}
+    end, maps:to_list(Map)),
+    Result = maps:from_list(Pairs),
+    case map_size(Result) =:= map_size(Map) of
+        true ->
+            Result;
+        false ->
+            error({klsn_rule_generator, conflicting_schema_keys, Map})
+    end.
+
+-spec schema_key_(schema_key_input()) -> klsn:binstr().
+schema_key_(Key) ->
+    klsn_rule:normalize(Key, binstr).
+
+-spec choice_metadata_(klsn:binstr()) -> boolean().
+choice_metadata_(<<"definitions">>) ->
+    true;
+choice_metadata_(<<"$schema">>) ->
+    true;
+choice_metadata_(<<"$id">>) ->
+    true;
+choice_metadata_(Key) ->
+    annotation_key_(Key).
+
+%% Closed objects and schema-valued additionalProperties are scoped to the
+%% original property set. Unioning their properties would weaken constraints,
+%% so refuse them here rather than silently changing that scope. References
+%% and further combinators at this intersection level likewise need a more
+%% general intersection representation; property-level refs remain supported.
+-spec ensure_mergeable_object_(json_schema()) -> ok.
+ensure_mergeable_object_(Schema) when is_map(Schema) ->
+    Allowed = lists:all(fun({Key, Value}) ->
+        case Key of
+            <<"type">> ->
+                Value =:= <<"object">>;
+            <<"properties">> ->
+                is_map(Value);
+            <<"required">> ->
+                is_list(Value);
+            <<"additionalProperties">> ->
+                Value =:= true;
+            _ ->
+                annotation_key_(Key)
+        end
+    end, maps:to_list(Schema)),
+    case Allowed of
+        true ->
+            ok;
+        false ->
+            error({klsn_rule_generator, unsupported_intersection, Schema})
+    end;
+ensure_mergeable_object_(Schema) ->
+    error({klsn_rule_generator, unsupported_intersection, Schema}).
+
+-spec merge_object_(json_schema(), json_schema()) -> json_schema().
+merge_object_(Common, Branch) ->
+    Properties = maps:fold(fun(Key, Value, Acc) ->
+        maps:update_with(Key, fun(Old) ->
+            intersect_property_(Old, Value)
+        end, Value, Acc)
+    end, maps:get(<<"properties">>, Common, #{}), maps:get(<<"properties">>, Branch, #{})),
+    Required = lists:usort(maps:get(<<"required">>, Common, []) ++ maps:get(<<"required">>, Branch, [])),
+    (maps:merge(Common, Branch))#{
+        <<"type">> => <<"object">>
+      , <<"properties">> => Properties
+      , <<"required">> => Required
+    }.
+
+%% Restrict overlapping properties to intersections we can represent without
+%% losing either constraints or normalized fields. In particular, all_of of
+%% two structs does not combine their outputs.
+-spec intersect_property_(json_schema(), json_schema()) -> json_schema().
+intersect_property_(Schema, Schema) ->
+    Schema;
+intersect_property_(true, Schema) ->
+    Schema;
+intersect_property_(Schema, true) ->
+    Schema;
+intersect_property_(false, _) ->
+    false;
+intersect_property_(_, false) ->
+    false;
+intersect_property_(Common, Branch) when is_map(Common), is_map(Branch) ->
+    ensure_property_intersection_(Common),
+    ensure_property_intersection_(Branch),
+    %% Default rules return fallbacks without validating them. Moving a
+    %% fallback across a different constraint could bypass that constraint.
+    case maps:is_key(<<"default">>, Common) orelse maps:is_key(<<"default">>, Branch) of
+        true ->
+            error({klsn_rule_generator, unsupported_intersection, {Common, Branch}});
+        false ->
+            ok
+    end,
+    CommonType = klsn_map:lookup([<<"type">>], Common),
+    BranchType = klsn_map:lookup([<<"type">>], Branch),
+    case {CommonType, BranchType} of
+        {{value, <<"object">>}, {value, <<"object">>}} ->
+            merge_object_(Common, Branch);
+        {Type, Type} ->
+            intersect_scalar_(Common, Branch);
+        {none, _} ->
+            intersect_scalar_(Common, Branch);
+        {_, none} ->
+            intersect_scalar_(Common, Branch);
+        _ ->
+            error({klsn_rule_generator, unsupported_intersection, {Common, Branch}})
+    end;
+intersect_property_(Common, Branch) ->
+    error({klsn_rule_generator, unsupported_intersection, {Common, Branch}}).
+
+-spec ensure_property_intersection_(json_schema()) -> ok.
+ensure_property_intersection_(Schema) ->
+    case klsn_map:lookup([<<"type">>], Schema) of
+        {value, <<"object">>} ->
+            ensure_mergeable_object_(Schema);
+        MaybeType ->
+            AllowedTypes = [
+                <<"string">>
+              , <<"integer">>
+              , <<"number">>
+              , <<"boolean">>
+              , <<"null">>
+              , <<"float">>
+            ],
+            AllowedType = case MaybeType of
+                none ->
+                    true;
+                {value, Type} ->
+                    lists:member(Type, AllowedTypes)
+            end,
+            Allowed = AllowedType
+                andalso lists:all(fun(Key) ->
+                    Key =:= <<"type">> orelse Key =:= <<"enum">> orelse annotation_key_(Key)
+                end, maps:keys(Schema))
+                andalso (not maps:is_key(<<"enum">>, Schema)
+                    orelse MaybeType =:= none orelse MaybeType =:= {value, <<"string">>}),
+            case Allowed of
+                true ->
+                    ok;
+                false ->
+                    error({klsn_rule_generator, unsupported_intersection, Schema})
+            end
+    end.
+
+-spec intersect_scalar_(json_schema(), json_schema()) -> json_schema().
+intersect_scalar_(Common, Branch) ->
+    Merged = maps:merge(Common, Branch),
+    %% Check the combined type too (e.g. an untyped string enum plus integer).
+    ensure_property_intersection_(Merged),
+    CommonEnum = klsn_map:lookup([<<"enum">>], Common),
+    BranchEnum = klsn_map:lookup([<<"enum">>], Branch),
+    case {CommonEnum, BranchEnum} of
+        {{value, CommonValues0}, {value, BranchValues0}} ->
+            CommonValues = klsn_rule:normalize(CommonValues0, {list, binstr}),
+            BranchValues = klsn_rule:normalize(BranchValues0, {list, binstr}),
+            Values = lists:filter(fun(Value) ->
+                lists:member(Value, BranchValues)
+            end, CommonValues),
+            Merged#{<<"enum">> := Values};
+        _ ->
+            Merged
     end.
