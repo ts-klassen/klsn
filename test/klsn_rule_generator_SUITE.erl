@@ -5,11 +5,19 @@
         all/0
       , schemas_match_expected/1
       , codex_157_common_constraints/1
+      , codex_167_nested_choices/1
     ]).
 
--spec all() -> [schemas_match_expected | codex_157_common_constraints].
+-spec all() -> [schemas_match_expected
+              | codex_157_common_constraints
+              | codex_167_nested_choices
+              ].
 all() ->
-    [schemas_match_expected, codex_157_common_constraints].
+    [
+        schemas_match_expected
+      , codex_157_common_constraints
+      , codex_167_nested_choices
+    ].
 
 schemas_match_expected(Config) ->
     DataDir = ?config(data_dir, Config),
@@ -180,6 +188,66 @@ codex_157_common_constraints(Config) ->
             NullTurn = Input#{turnId => null},
             NullTurn = normalize_fixture_(NullTurn, Rule, Direction)
         end, Inputs)
+    end, [from_json, to_json]).
+
+-spec codex_167_nested_choices(ct_suite:ct_config()) -> ok.
+codex_167_nested_choices(Config) ->
+    Path = filename:join([
+        ?config(data_dir, Config)
+      , <<"codex-app-server-schema-0.167.0">>
+      , <<"ImageGenerationThreadItem.json">>
+    ]),
+    {ok, SchemaJson} = file:read_file(Path),
+    Rules = klsn_rule_generator:from_json_schema(jsone:decode(SchemaJson)),
+    Common = #{
+        id => <<"item">>
+      , status => <<"completed">>
+      , type => imageGeneration
+    },
+    lists:foreach(fun(Direction) ->
+        Rule = maps:get(Direction, Rules),
+        lists:foreach(fun(Field) ->
+            Base = Common#{Field => <<"image">>},
+            Inputs = [
+                Base
+              , Base#{startedAtMs => 123, completedAtMs => 456}
+              , Base#{startedAtMs => null, completedAtMs => null}
+              , Base#{
+                    startedAtMs => 123
+                  , completedAtMs => 456
+                  , generationId => <<"generation">>
+                  , revisedPrompt => <<"prompt">>
+                  , savedPath => <<"/image.png">>
+                  , transparentBackground => true
+                  , inputImages => [#{
+                        path => <<"/input.png">>
+                      , sha256 => <<"hash">>
+                    }]
+                  , failure => #{
+                        type => usageLimitExceeded
+                      , limitId => <<"limit">>
+                      , resetsAt => null
+                    }
+                }
+            ],
+            lists:foreach(fun(Input) ->
+                Input = normalize_fixture_(Input, Rule, Direction)
+            end, Inputs),
+            lists:foreach(fun(Key) ->
+                reject_fixture_(maps:remove(Key, Base), Rule, Direction)
+            end, [id, status, type, Field]),
+            reject_fixture_(Base#{type => unknown_image}, Rule, Direction)
+        end, [fileId, result]),
+        %% Upstream puts fileId first so migration items keep that reference.
+        Both = Common#{
+            fileId => <<"file">>
+          , result => <<>>
+          , startedAtMs => 123
+          , completedAtMs => 456
+        },
+        Expected = maps:remove(result, Both),
+        Expected = klsn_rule:normalize(fixture_input_(Both, Direction), Rule),
+        reject_fixture_(Common, Rule, Direction)
     end, [from_json, to_json]).
 
 -spec fixture_input_(klsn_rule:input(), from_json | to_json) -> klsn_rule:input().

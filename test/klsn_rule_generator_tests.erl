@@ -342,6 +342,101 @@ image_schema(Choice) ->
       , Choice => Branches
     }.
 
+-spec nested_choice_constraints_test() -> ok.
+nested_choice_constraints_test() ->
+    lists:foreach(fun(OuterChoice) ->
+        lists:foreach(fun(InnerChoice) ->
+            Image = image_schema(InnerChoice),
+            Schema = #{
+                <<"properties">> => #{
+                    <<"startedAtMs">> => #{<<"type">> => <<"integer">>}
+                }
+              , <<"required">> => [<<"startedAtMs">>]
+              , OuterChoice => [#{InnerChoice => [Image]}]
+            },
+            lists:foreach(fun(InputSchema) ->
+                Rules = klsn_rule_generator:from_json_schema(InputSchema),
+                lists:foreach(fun(Direction) ->
+                    Rule = maps:get(Direction, Rules),
+                    lists:foreach(fun(Field) ->
+                        Input = #{
+                            type => image
+                          , detail => high
+                          , startedAtMs => 123
+                          , Field => <<"image">>
+                        },
+                        Output = normalize_direction(Input, Rule, Direction),
+                        ?assertEqual(Input, Output),
+                        lists:foreach(fun(Key) ->
+                            assert_rejected(maps:remove(Key, Input),
+                                            Rule, Direction)
+                        end, [type, startedAtMs, Field]),
+                        assert_rejected(Input#{type => wrong},
+                                        Rule, Direction),
+                        assert_rejected(Input#{startedAtMs => #{}},
+                                        Rule, Direction)
+                    end, [url, fileId]),
+                    %% The first successful alternative still owns projection.
+                    Both = #{
+                        type => image
+                      , startedAtMs => 123
+                      , url => <<"url">>
+                      , fileId => <<"file">>
+                    },
+                    ?assertEqual(maps:remove(fileId, Both),
+                                 normalize_direction(Both, Rule, Direction)),
+                    assert_rejected(42, Rule, Direction)
+                end, [from_json, to_json])
+            end, [Schema, Schema#{<<"type">> => <<"object">>}])
+        end, [<<"anyOf">>, <<"oneOf">>])
+    end, [<<"anyOf">>, <<"oneOf">>]).
+
+-spec nested_empty_choices_test() -> ok.
+nested_empty_choices_test() ->
+    CommonSchemas = [
+        #{type => object}
+      , #{properties => #{<<"id">> => #{type => string}}}
+      , #{required => [<<"id">>]}
+    ],
+    lists:foreach(fun(OuterChoice) ->
+        lists:foreach(fun(InnerChoice) ->
+            lists:foreach(fun(Common) ->
+                Schema = Common#{OuterChoice => [#{InnerChoice => []}]},
+                ?assertException(
+                    error
+                  , {klsn_rule_generator, unsupported_intersection, _}
+                  , klsn_rule_generator:from_json_schema(Schema)
+                )
+            end, CommonSchemas)
+        end, [anyOf, oneOf])
+    end, [anyOf, oneOf]).
+
+-spec nested_choice_unsupported_intersections_test() -> ok.
+nested_choice_unsupported_intersections_test() ->
+    lists:foreach(fun(Choice) ->
+        Alternatives = [
+            #{Choice => [#{type => object}], default => #{}}
+          , #{Choice => [#{type => object}], definitions => #{}}
+          , #{Choice => [#{type => object, default => #{}}]}
+          , #{Choice => [#{type => object, additionalProperties => false}]}
+          , #{Choice => [#{'$ref' => <<"#/definitions/Branch">>}]}
+          , #{Choice => [#{type => string}]}
+          , #{Choice => [true]}
+          , #{Choice => [#{properties => #{}}]}
+        ],
+        lists:foreach(fun(Branch) ->
+            Schema = #{
+                properties => #{<<"id">> => #{type => string}}
+              , oneOf => [Branch]
+            },
+            ?assertException(
+                error
+              , {klsn_rule_generator, unsupported_intersection, _}
+              , klsn_rule_generator:from_json_schema(Schema)
+            )
+        end, Alternatives)
+    end, [anyOf, oneOf]).
+
 -spec normalize_direction(klsn_rule:input(), klsn_rule:rule(), from_json | to_json) -> klsn_rule:output().
 normalize_direction(Input, Rule, Direction) ->
     klsn_rule:normalize(direction_input(Input, Direction), Rule).

@@ -163,7 +163,8 @@
 %% Generate rules ahead of time and include them in releases.
 %%
 %% For object schemas, both generated rules retain common fields and enforce
-%% common type, properties, and required constraints alongside anyOf or oneOf.
+%% common type, properties, and required constraints alongside nested anyOf
+%% or oneOf alternatives.
 %% Unsupported combinations raise an error with reason
 %% {klsn_rule_generator, unsupported_intersection, Details}.
 %% oneOf accepts values matching at least one alternative; it does not require
@@ -421,28 +422,7 @@ prepare_schema_(Schema) when is_map(Schema) ->
                     %% Combine property constraints before struct normalization
                     %% can discard fields declared only on the other side.
                     Branches = lists:map(fun(Branch) ->
-                        ensure_mergeable_object_(Branch),
-                        %% A branch fallback could omit common fields.
-                        case maps:is_key(<<"default">>, Branch) of
-                            true ->
-                                error({klsn_rule_generator, unsupported_intersection, {Common, Branch}});
-                            false ->
-                                ok
-                        end,
-                        %% Properties alone do not require an object.
-                        MaybeType = case klsn_map:lookup([<<"type">>], Common) of
-                            none ->
-                                klsn_map:lookup([<<"type">>], Branch);
-                            Value ->
-                                Value
-                        end,
-                        case MaybeType of
-                            {value, <<"object">>} ->
-                                ok;
-                            _ ->
-                                error({klsn_rule_generator, unsupported_intersection, {Common, Branch}})
-                        end,
-                        merge_object_(Common, Branch)
+                        intersect_object_(Common, Branch)
                     end, maps:get(Choice, Children)),
                     (maps:without(maps:keys(Common), Children))#{Choice := Branches}
             end;
@@ -479,10 +459,49 @@ choice_metadata_(<<"$id">>) ->
 choice_metadata_(Key) ->
     annotation_key_(Key).
 
+%% Prepared choices contain only metadata beside their alternatives. Keep
+%% those wrappers and their order while carrying common fields to each leaf.
+%% Reject definition scopes that could rebind refs in the common fields.
+-spec intersect_object_(json_schema(), json_schema()) -> json_schema().
+intersect_object_(Common, #{<<"default">> := _} = Branch) ->
+    %% A branch fallback could omit common fields, even on a nested choice.
+    error({klsn_rule_generator, unsupported_intersection, {Common, Branch}});
+intersect_object_(Common, #{<<"anyOf">> := []} = Branch) ->
+    error({klsn_rule_generator, unsupported_intersection, {Common, Branch}});
+intersect_object_(Common, #{<<"oneOf">> := []} = Branch) ->
+    error({klsn_rule_generator, unsupported_intersection, {Common, Branch}});
+intersect_object_(Common, #{<<"anyOf">> := Alternatives} = Branch) ->
+    ensure_mergeable_object_(maps:remove(<<"anyOf">>, Branch)),
+    Branch#{<<"anyOf">> := lists:map(fun(Alternative) ->
+        intersect_object_(Common, Alternative)
+    end, Alternatives)};
+intersect_object_(Common, #{<<"oneOf">> := Alternatives} = Branch) ->
+    ensure_mergeable_object_(maps:remove(<<"oneOf">>, Branch)),
+    Branch#{<<"oneOf">> := lists:map(fun(Alternative) ->
+        intersect_object_(Common, Alternative)
+    end, Alternatives)};
+intersect_object_(Common, Branch) ->
+    ensure_mergeable_object_(Branch),
+    %% Properties alone do not require an object. A nested leaf may supply
+    %% the type when the common constraints only declare properties.
+    MaybeType = case klsn_map:lookup([<<"type">>], Common) of
+        none ->
+            klsn_map:lookup([<<"type">>], Branch);
+        Value ->
+            Value
+    end,
+    case MaybeType of
+        {value, <<"object">>} ->
+            merge_object_(Common, Branch);
+        _ ->
+            error({klsn_rule_generator, unsupported_intersection,
+                   {Common, Branch}})
+    end.
+
 %% Closed objects and schema-valued additionalProperties are scoped to the
 %% original property set. Unioning their properties would weaken constraints,
 %% so refuse them here rather than silently changing that scope. References
-%% and further combinators at this intersection level likewise need a more
+%% and other combinators at this intersection level likewise need a more
 %% general intersection representation; property-level refs remain supported.
 -spec ensure_mergeable_object_(json_schema()) -> ok.
 ensure_mergeable_object_(Schema) when is_map(Schema) ->
