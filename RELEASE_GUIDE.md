@@ -51,6 +51,14 @@ version for other releases.
    that the hash on the tag line matches the hash on Gerrit.
    The release is complete once this check passes.
 
+6. After the release is complete, return to `master` and fast-forward it
+   to the latest `origin/master`.
+
+   ```bash
+   git switch master
+   git pull --ff-only origin master
+   ```
+
 ## Completion criteria
 
 - The application version bump is committed as a separate Gerrit change.
@@ -60,3 +68,4 @@ version for other releases.
   on the merged version bump commit, and its target has been verified.
 - `qrexec-client-vm github user.Push+klsn` has succeeded.
 - The same tag exists on GitHub, and its commit hash matches Gerrit.
+- The working branch is `master`, fast-forwarded to the latest `origin/master`.
