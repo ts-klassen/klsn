@@ -692,11 +692,18 @@ finish_read(Stream, Reader, State) ->
         Code -> error({output_port, Code})
     end.
 
+-spec diagnostic_result(stdout | stderr, reference(),
+                        {ok, binary()} | {error, file:posix()}, #state{}) ->
+    #state{}.
 diagnostic_result(Stream, Ref, Result, State) ->
     #reader{pending = {Pid, Ref}} = Reader = reader(Stream, State),
     put(diagnostic_readers, lists:delete(Pid, diagnostic_readers())),
     {ok, Diagnostic} = Result,
-    case binary:match(Diagnostic, <<": Resource temporarily unavailable\n">>) of
+    %% GNU and uutils dd use different C-locale diagnostics for EAGAIN.
+    case binary:match(Diagnostic, [
+        <<": Resource temporarily unavailable\n">>
+      , <<": IO error: Would block\n">>
+    ]) of
         nomatch -> error({output_port, Diagnostic});
         _ -> finish_read(Stream, Reader#reader{pending = undefined}, true, State)
     end.

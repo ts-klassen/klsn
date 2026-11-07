@@ -49,6 +49,7 @@
       , background_reopens_output/1
       , large_output/1
       , packet_output/1
+      , output_reader_diagnostics/1
       , large_input/1
       , restrictive_inherited_umask/1
       , invalid_inherited_locale/1
@@ -81,6 +82,7 @@
       , completion_with_blocked_file_server/1
     ]).
 
+-spec all() -> [ct_suite:ct_testname()].
 all() ->
     [
         echo_stdout
@@ -126,6 +128,7 @@ all() ->
       , background_reopens_output
       , large_output
       , packet_output
+      , output_reader_diagnostics
       , large_input
       , restrictive_inherited_umask
       , invalid_inherited_locale
@@ -1238,6 +1241,77 @@ packet_output(Config) ->
             ?assertEqual(#{exit_code => 0, stdout => <<>>, stderr => Data},
                 klsn_bwrap:run([<<"/bin/sh">>, <<"-c">>, <<"exec \"$@\" >&2">>,
                     <<"sh">> | Writer], run_opts()))
+        end)
+    after
+        file:delete(Dd),
+        file:del_dir(Tools)
+    end.
+
+-spec output_reader_diagnostics(ct_suite:ct_config()) -> ok.
+output_reader_diagnostics(Config) ->
+    Tools = filename:join(?config(priv_dir, Config), "diagnostic-tools"),
+    Dd = filename:join(Tools, "dd"),
+    RealDd = os:find_executable("dd"),
+    OriginalPath = os:getenv("PATH"),
+    ok = file:make_dir(Tools),
+    %% Preserve real pipe reads, including bytes returned before EAGAIN,
+    %% while selecting the diagnostic independently of the installed dd.
+    ok = file:write_file(Dd,
+        <<"#!/bin/bash\n"
+          "exec 3>&1\n"
+          "diagnostic=$(\"$KLSN_CT_REAL_DD\" \"$@\" 2>&1 >&3)\n"
+          "status=$?\n"
+          "if [ \"$status\" -eq 1 ]; then\n"
+          "  printf '%s\\n' \"$KLSN_CT_DD_DIAGNOSTIC\" >&2\n"
+          "else\n"
+          "  printf '%s' \"$diagnostic\" >&2\n"
+          "fi\n"
+          "exit \"$status\"\n">>),
+    ok = file:change_mode(Dd, 8#755),
+    try
+        lists:foreach(fun(Diagnostic) ->
+            with_environment([
+                {"PATH", Tools ++ ":" ++ OriginalPath}
+              , {"KLSN_CT_REAL_DD", RealDd}
+              , {"KLSN_CT_DD_DIAGNOSTIC", Diagnostic}
+            ], fun() ->
+                Handle = klsn_bwrap:open([<<"/bin/sh">>, <<"-c">>,
+                    <<"printf ready; printf err >&2; exec cat">>], open_opts()),
+                try
+                    #{os_pid := OsPid} = Handle,
+                    expect_stdout(OsPid, <<"ready">>),
+                    ok = klsn_bwrap:send(Handle, <<"input">>),
+                    ok = klsn_bwrap:send_eof(Handle),
+                    ?assertEqual({normal, <<"input">>, <<"err">>},
+                        collect(Handle))
+                after
+                    try klsn_bwrap:stop(Handle)
+                    catch error:{badmatch, {error, no_process}} -> ok
+                    end
+                end,
+                Expected = #{
+                    exit_code => 0
+                  , stdout => <<"done">>
+                  , stderr => <<"err">>
+                },
+                ?assertEqual(Expected,
+                    klsn_bwrap:run([<<"/bin/sh">>, <<"-c">>,
+                        <<"sleep 3 & printf done; printf err >&2">>],
+                        (run_opts())#{timeout := 1500}))
+            end)
+        end, [
+            "dd: error reading '/proc/self/fd/3': "
+            "Resource temporarily unavailable"
+          , "dd: IO error: Would block"
+        ]),
+        Diagnostic = <<"dd: IO error: Permission denied\n">>,
+        with_environment([
+            {"PATH", Tools ++ ":" ++ OriginalPath}
+          , {"KLSN_CT_REAL_DD", RealDd}
+          , {"KLSN_CT_DD_DIAGNOSTIC", "dd: IO error: Permission denied"}
+        ], fun() ->
+            ?assertError({output_port, Diagnostic},
+                klsn_bwrap:run([<<"/bin/true">>], run_opts()))
         end)
     after
         file:delete(Dd),
