@@ -29,7 +29,8 @@ jobs:
 
     strategy:
       matrix:
-        otp: [24, 25, 26, 27, 28, 29]
+        # setup-beam's Ubuntu 26.04 builds start at OTP 26.
+        otp: [26, 27, 28, 29]
         include:
           - otp: 28
             rebar3: '3.x'
