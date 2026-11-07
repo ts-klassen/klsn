@@ -141,7 +141,7 @@ run(Command, Opts) when is_list(Command), is_map(Opts) ->
         {ok, Pid, OsPid} ->
             wait_result(Pid, OsPid, Deadline, [], []);
         {error, Reason} ->
-            erlang:error(Reason, [Command, Opts])
+            erlang:error(Reason)
     end;
 run(Command, Opts) ->
     erlang:error(badarg, [Command, Opts]).
@@ -178,7 +178,7 @@ open(Command, Opts) when is_list(Command), is_map(Opts) ->
               , exec_pid => Pid
             };
         {error, Reason} ->
-            erlang:error(Reason, [Command, Opts])
+            erlang:error(Reason)
     end;
 open(Command, Opts) ->
     erlang:error(badarg, [Command, Opts]).

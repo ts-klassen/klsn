@@ -1,5 +1,6 @@
-%% Internal Linux port transport. Stock utilities provide file descriptors and
-%% wait status; Erlang owns the input queue, output draining and lifecycle.
+%% Internal Linux port transport. The native launcher creates pipes, resets
+%% signals and reports pipe capacity; stock utilities provide wait status.
+%% Erlang owns the input queue, output draining and lifecycle.
 %% All command arguments and paths are passed separately through {args, ...}.
 -module(klsn_bwrap_port).
 
@@ -8,7 +9,6 @@
 
 -define(READ_SIZE, 4194304).
 -define(BATCH_SIZE, 1048576).
--define(DRAIN_LIMIT, 2147483647).
 -define(SHELL_ENV, ["SHELLOPTS", "BASHOPTS", "BASH_ARGV0", "BASH_COMPAT",
     "BASH_XTRACEFD", "POSIXLY_CORRECT", "POSIX_PEDANTIC", "TMOUT", "FUNCNEST",
     "input", "child", "request", "pipe"]).
@@ -27,10 +27,12 @@
 
 -record(reader, {
     path, diagnostic, diagnostic_fd, port = undefined, data = [], eof = false, code = undefined,
-    pending = undefined, draining = false, drained = 0, done = false
+    pending = undefined, draining = false, drained = 0, done = false,
+    capacity = none, querying_capacity = false
 }).
 -record(state, {
-    owner, os_pid, os_start, control, stdin, bash, dd, stdout, stderr,
+    owner, os_pid, os_start, control, stdin, bash, dd, native_launcher,
+    stdout, stderr,
     input = {[], []}, stdin_closed = false,
     waiting = false, status = undefined,
     kill_timer = undefined, children = [], stopping = false
@@ -206,6 +208,9 @@ find_owner(OsPid, [Port | Rest]) ->
     end.
 
 %% @private
+-spec init(pid(), reference(),
+           {klsn_bwrap:command(), binary(), boolean(),
+            integer() | infinity}) -> no_return().
 init(Owner, Ref, {Argv, Stdin, CloseStdin, Deadline}) ->
     process_flag(trap_exit, true),
     put(startup_deadline, Deadline),
@@ -227,6 +232,8 @@ init(Owner, Ref, {Argv, Stdin, CloseStdin, Deadline}) ->
         put(guardian, Guardian),
         put(guardian_monitor, GuardianMonitor),
         EnvironmentData = environment_snapshot(Env),
+        NativeLauncher = filename:absname(filename:join(code:priv_dir(klsn),
+            "klsn_bwrap_launcher"), Cwd),
         Dir = private_directory(Cwd),
         Output = filename:join(Dir, "stdout.error"),
         Error = filename:join(Dir, "stderr.error"),
@@ -235,10 +242,15 @@ init(Owner, Ref, {Argv, Stdin, CloseStdin, Deadline}) ->
         %% itself. Helpers have isolated shell options and locale settings.
         CommandArgv = restore_environment(Argv),
         Launcher = [Bash | bash_args(launcher(), ["klsn-bwrap", Environment | CommandArgv])],
-        Control = spawn_port(control, Env,
-            %% A bare command name avoids env's assignment parsing even when
-            %% PATH resolves Bash inside a directory containing '='.
-            signal_options() ++ ["--", filename:basename(Bash) |
+        %% erl_child_setup can predate os:set_signal/2 changes in the VM.
+        {ok, Status} = file:read_file("/proc/" ++ os:getpid() ++ "/status"),
+        [IgnoredSignals] = lists:filtermap(fun
+            (<<"SigIgn:", Value/binary>>) ->
+                {true, binary_to_list(string:trim(Value))};
+            (_) -> false
+        end, binary:split(Status, <<"\n">>, [global])),
+        Control = spawn_port(control, NativeLauncher,
+            ["--ignore-signals", IgnoredSignals, "--pipes", Bash |
                 bash_args(supervisor(), ["klsn-wait", Cat, Rm, Rmdir, Dir,
                     Mkdir, Dd, integer_to_list(byte_size(EnvironmentData)) | Launcher])],
             [{line, 4096}, {cd, Cwd}]),
@@ -275,6 +287,7 @@ init(Owner, Ref, {Argv, Stdin, CloseStdin, Deadline}) ->
         self() ! poll_status,
         loop(#state{owner = Owner, os_pid = OsPid, os_start = Start, control = Control,
             stdin = In, input = Queue, bash = Bash, dd = Dd,
+            native_launcher = NativeLauncher,
             stdout = #reader{path = Descriptors ++ "3", diagnostic = Output,
                 diagnostic_fd = Descriptors ++ "7"},
             stderr = #reader{path = Descriptors ++ "4", diagnostic = Error,
@@ -298,6 +311,7 @@ bash_args(Script, Args) ->
 %% which the spawn port's flattened exit_status cannot represent. Job control
 %% keeps SIGINT/SIGQUIT at their normal dispositions for the background child.
 %% Only the fixed job description goes over this channel, never user output.
+-spec supervisor() -> string().
 supervisor() ->
     %% Resource ownership starts before mkdir. A separate control reader
     %% detects control loss even while an initialization helper is stopped.
@@ -308,7 +322,7 @@ supervisor() ->
     "child=; input=; request=; pipe=([2]=\"$2\" [3]=\"$3\" [4]=\"$4\"); "
     "trap 'cleanup all' EXIT; trap 'request=abort' HUP INT QUIT PIPE TERM; "
     "pipe[12]=$(<\"/proc/$$/stat\"); exec 11<&0; "
-    "exec 0< <(trap - EXIT; \"$1\" <&11; "
+    "exec 0< <(trap - EXIT; exec 3<&- 4<&- 6<&- 8>&- 9>&- 13>&-; \"$1\" <&11; "
     "same_process \"$$\" \"${pipe[12]}\" && kill -TERM \"$$\"); pipe[6]=$!; exec 11<&-; "
     "pipe[7]=$(<\"/proc/${pipe[6]}/stat\") || :; "
     "\"$5\" -m 700 -- \"${pipe[4]}\" & input=$!; "
@@ -325,10 +339,6 @@ supervisor() ->
     "run_setup \"$6\" bs=4096 \"count=${pipe[11]}\" iflag=count_bytes status=none >&12; "
     "pipe[10]=$((pipe[10] - pipe[11])); done; "
     "exec 11<&- 12>&-; "
-    "trap 'request=abort' HUP INT QUIT PIPE TERM; "
-    "exec 3< <(:); pipe=$!; wait \"$pipe\"; exec 8>/proc/self/fd/3; "
-    "exec 4< <(:); pipe=$!; wait \"$pipe\"; exec 9>/proc/self/fd/4; "
-    "exec 6< <(:); pipe=$!; wait \"$pipe\"; exec 13>/proc/self/fd/6; "
     "[ \"$request\" != abort ] || exit 1; trap 'exit 1' HUP INT QUIT PIPE TERM; "
     "printf \"FILES\\n\"; IFS= read -r request || exit 1; "
     "[ \"$request\" = start ] || exit 1; exec 13>&-; shift 7; "
@@ -400,19 +410,6 @@ launcher() ->
     "exec 1>&8 2>&9 3<&- 4<&- 7>&- 8>&- 9>&- 10>&- 6<\"$1\"; shift; "
     "printf 'READY\\n' >&5; exec 5>&-; IFS= read -r request || exit 1; "
     "[ \"$request\" = start ] || exit 1; exec -- \"$@\"".
-
-signal_options() ->
-    {ok, Status} = file:read_file("/proc/" ++ os:getpid() ++ "/status"),
-    [Hex] = [string:trim(Value) || <<"SigIgn:", Value/binary>> <-
-        binary:split(Status, <<"\n">>, [global])],
-    Mask = binary_to_integer(Hex, 16),
-    Ignored = [integer_to_list(N) || N <- lists:seq(1, byte_size(Hex) * 4),
-        Mask band (1 bsl (N - 1)) =/= 0],
-    %% env has no unblock-only option. Resetting all signals clears the
-    %% complete mask; then restore unrelated ignored dispositions, leaving
-    %% the signals caught by the former process manager at their defaults.
-    ["--default-signal", "--ignore-signal=" ++ string:join(Ignored, ","),
-        "--default-signal=HUP,INT,TERM,PIPE,CHLD"].
 
 %% Bubblewrap restores the caller's defaults before processing user options,
 %% so clearenv/setenv/unsetenv retain their normal precedence. Its executable
@@ -636,6 +633,7 @@ control_line(Line, _) -> error({control_protocol, Line}).
 %% After wait, use larger bounded batches and stop at EAGAIN or the byte cap
 %% even if background writers remain. The supervisor owns the pipe endpoints.
 %% Diagnostics are separate because EAGAIN can follow partial output.
+-spec start_read(stdout | stderr, #state{}) -> #state{}.
 start_read(Stream, State) ->
     Reader = reader(Stream, State),
     case Reader of
@@ -647,14 +645,23 @@ start_read(Stream, State) ->
             end,
             ReadArgs = ["bs=65536", "count=" ++ integer_to_list(BatchSize),
                 "iflag=count_bytes,nonblock"],
+            {Executable, Args, IsCapacityQuery} =
+                case {Draining, Reader#reader.capacity} of
+                    {true, none} ->
+                        {State#state.native_launcher,
+                         ["--pipe-capacity", Path], true};
+                    _ ->
+                        {State#state.dd,
+                         ["if=" ++ Path, "status=none" | ReadArgs], false}
+                end,
             %% Use the supervisor's open file so late readers cannot create
             %% new directory entries while shutdown removes the private files.
             Port = spawn_port(reader, State#state.bash,
                 bash_args("umask 077; exec 2>\"$1\"; shift; exec -- \"$@\"",
-                    ["klsn-read", DiagnosticFd, State#state.dd,
-                        "if=" ++ Path, "status=none" | ReadArgs]), [in]),
+                    ["klsn-read", DiagnosticFd, Executable | Args]), [in]),
             set_reader(Stream, Reader#reader{port = Port, data = [], eof = false,
-                code = undefined, draining = Draining}, State);
+                code = undefined, draining = Draining,
+                querying_capacity = IsCapacityQuery}, State);
         _ -> State
     end.
 
@@ -671,6 +678,22 @@ read_message(Stream, Message, State) ->
         _ -> set_reader(Stream, Next, State)
     end.
 
+-spec finish_read(stdout | stderr, #reader{}, #state{}) -> #state{}.
+finish_read(Stream, #reader{querying_capacity = true} = Reader, State) ->
+    try erlang:port_close(Reader#reader.port)
+    catch error:badarg -> ok
+    end,
+    case Reader#reader.code of
+        0 ->
+            Data = iolist_to_binary(lists:reverse(Reader#reader.data)),
+            Capacity = binary_to_integer(string:trim(Data)),
+            true = Capacity > 0,
+            self() ! {read, Stream},
+            set_reader(Stream, Reader#reader{port = undefined, data = [],
+                capacity = {value, Capacity}, querying_capacity = false},
+                State);
+        Code -> error({output_capacity, Code})
+    end;
 finish_read(Stream, Reader, State) ->
     catch erlang:port_close(Reader#reader.port),
     case Reader#reader.code of
@@ -708,6 +731,7 @@ diagnostic_result(Stream, Ref, Result, State) ->
         _ -> finish_read(Stream, Reader#reader{pending = undefined}, true, State)
     end.
 
+-spec finish_read(stdout | stderr, #reader{}, boolean(), #state{}) -> #state{}.
 finish_read(Stream, Reader, WouldBlock, State) ->
     Data = iolist_to_binary(lists:reverse(Reader#reader.data)),
     forward(State#state.owner, Stream, State#state.os_pid, Data),
@@ -716,10 +740,16 @@ finish_read(Stream, Reader, WouldBlock, State) ->
         true -> Size;
         false -> 0
     end,
-    %% Packet-mode pipes can return positive short reads with more packets
-    %% queued. Only EOF/EAGAIN or the byte cap ends the final drain.
+    %% At wait, no more than one pipe capacity can already be queued. Bound
+    %% the final drain by the actual capacity, including pipes resized by the
+    %% command, so continuous background writers cannot extend completion.
+    %% Packet-mode pipes can return short reads while more packets remain.
+    AtCapacity = case Reader#reader.capacity of
+        none -> false;
+        {value, Capacity} -> Drained >= Capacity
+    end,
     Done = Reader#reader.draining andalso
-        (Size =:= 0 orelse WouldBlock orelse Drained >= ?DRAIN_LIMIT),
+        (Size =:= 0 orelse WouldBlock orelse AtCapacity),
     case not Done andalso (Size > 0 orelse State#state.status =/= undefined) of
         true -> self() ! {read, Stream};
         false -> ok

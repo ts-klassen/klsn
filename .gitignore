@@ -16,5 +16,6 @@ _build
 .idea
 *.iml
 rebar3.crashdump
+/priv/klsn_bwrap_launcher
 *~
 doc/

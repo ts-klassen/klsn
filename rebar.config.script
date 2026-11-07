@@ -1,0 +1,10 @@
+case os:type() of
+    {unix, linux} ->
+        [
+            {pre_hooks, [{compile, "make -C c_src"}]}
+          , {post_hooks, [{clean, "make -C c_src clean"}]}
+          , {artifacts, ["priv/klsn_bwrap_launcher"]}
+          | CONFIG
+        ];
+    _ -> CONFIG
+end.

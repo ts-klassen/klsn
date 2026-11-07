@@ -93,10 +93,11 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-rebar3-${{ matrix.otp }}-
 
-      - name: Install bubblewrap
+      - name: Install bubblewrap and build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends bubblewrap uidmap
+          sudo apt-get install -y --no-install-recommends \
+            build-essential bubblewrap uidmap
           bwrap --version
           ls -la "$(command -v bwrap)"
 
@@ -177,6 +178,11 @@ jobs:
         with:
           otp-version: ${{ env.COVERAGE_OTP }}
           rebar3-version: ${{ env.REBAR3_VERSION }}
+
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential
 
       - name: Generate EDoc documentation
         run: |
