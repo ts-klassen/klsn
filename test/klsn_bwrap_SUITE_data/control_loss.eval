@@ -1,8 +1,13 @@
 Sleep = <<"/tmp/line\nbreak">>,
+%% Multicall sleep cannot run under the newline-containing test name.
+SleepExecutable = case os:find_executable("gnusleep") of
+    false -> os:find_executable("sleep");
+    GnuSleep -> GnuSleep
+end,
 Opts = #{bwrap => [
     {ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
     {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>},
-    {ro_bind, unicode:characters_to_binary(os:find_executable("sleep")), Sleep}
+    {ro_bind, unicode:characters_to_binary(SleepExecutable), Sleep}
 ] ++ Extra},
 #{exec_pid := Worker, os_pid := Wrapper} = klsn_bwrap:open(
     [<<"/bin/sh">>, <<"-c">>, <<"printf ready; printf ready >&2; exec \"$1\" 30">>,

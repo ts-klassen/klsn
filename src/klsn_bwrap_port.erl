@@ -8,7 +8,6 @@
 
 -define(READ_SIZE, 4194304).
 -define(BATCH_SIZE, 1048576).
--define(DRAIN_LIMIT, 2147483647).
 -define(SHELL_ENV, ["SHELLOPTS", "BASHOPTS", "BASH_ARGV0", "BASH_COMPAT",
     "BASH_XTRACEFD", "POSIXLY_CORRECT", "POSIX_PEDANTIC", "TMOUT", "FUNCNEST",
     "input", "child", "request", "pipe"]).
@@ -206,6 +205,9 @@ find_owner(OsPid, [Port | Rest]) ->
     end.
 
 %% @private
+-spec init(pid(), reference(),
+           {klsn_bwrap:command(), binary(), boolean(),
+            integer() | infinity}) -> no_return().
 init(Owner, Ref, {Argv, Stdin, CloseStdin, Deadline}) ->
     process_flag(trap_exit, true),
     put(startup_deadline, Deadline),
@@ -215,8 +217,19 @@ init(Owner, Ref, {Argv, Stdin, CloseStdin, Deadline}) ->
         SearchPath = absolute_search_path(Cwd),
         Bash = executable("bash", SearchPath),
         Env = executable("env", SearchPath),
+        %% Ubuntu's uutils env does not clear inherited blocked signals.
+        SignalEnv = case os:find_executable("gnuenv", SearchPath) of
+            false -> Env;
+            GnuEnv -> GnuEnv
+        end,
         Cat = executable("cat", SearchPath),
-        Dd = executable("dd", SearchPath),
+        DdPath = executable("dd", SearchPath),
+        %% Prefer GNU dd's faster nonblocking reads when installed beside
+        %% the selected dd, preserving earlier PATH overrides.
+        Dd = case os:find_executable("gnudd", filename:dirname(DdPath)) of
+            false -> DdPath;
+            GnuDd -> GnuDd
+        end,
         Mkdir = executable("mkdir", SearchPath),
         Kill = executable("kill", SearchPath),
         Rm = executable("rm", SearchPath),
@@ -235,7 +248,7 @@ init(Owner, Ref, {Argv, Stdin, CloseStdin, Deadline}) ->
         %% itself. Helpers have isolated shell options and locale settings.
         CommandArgv = restore_environment(Argv),
         Launcher = [Bash | bash_args(launcher(), ["klsn-bwrap", Environment | CommandArgv])],
-        Control = spawn_port(control, Env,
+        Control = spawn_port(control, SignalEnv,
             %% A bare command name avoids env's assignment parsing even when
             %% PATH resolves Bash inside a directory containing '='.
             signal_options() ++ ["--", filename:basename(Bash) |
@@ -298,6 +311,7 @@ bash_args(Script, Args) ->
 %% which the spawn port's flattened exit_status cannot represent. Job control
 %% keeps SIGINT/SIGQUIT at their normal dispositions for the background child.
 %% Only the fixed job description goes over this channel, never user output.
+-spec supervisor() -> string().
 supervisor() ->
     %% Resource ownership starts before mkdir. A separate control reader
     %% detects control loss even while an initialization helper is stopped.
@@ -326,9 +340,11 @@ supervisor() ->
     "pipe[10]=$((pipe[10] - pipe[11])); done; "
     "exec 11<&- 12>&-; "
     "trap 'request=abort' HUP INT QUIT PIPE TERM; "
-    "exec 3< <(:); pipe=$!; wait \"$pipe\"; exec 8>/proc/self/fd/3; "
-    "exec 4< <(:); pipe=$!; wait \"$pipe\"; exec 9>/proc/self/fd/4; "
-    "exec 6< <(:); pipe=$!; wait \"$pipe\"; exec 13>/proc/self/fd/6; "
+    %% Opening both ends needs no wait for the process substitution. Bash
+    %% can otherwise hang waiting for a child it has already reaped.
+    "exec 3< <(:); exec 8>/proc/self/fd/3; "
+    "exec 4< <(:); exec 9>/proc/self/fd/4; "
+    "exec 6< <(:); exec 13>/proc/self/fd/6; "
     "[ \"$request\" != abort ] || exit 1; trap 'exit 1' HUP INT QUIT PIPE TERM; "
     "printf \"FILES\\n\"; IFS= read -r request || exit 1; "
     "[ \"$request\" = start ] || exit 1; exec 13>&-; shift 7; "
@@ -708,6 +724,7 @@ diagnostic_result(Stream, Ref, Result, State) ->
         _ -> finish_read(Stream, Reader#reader{pending = undefined}, true, State)
     end.
 
+-spec finish_read(stdout | stderr, #reader{}, boolean(), #state{}) -> #state{}.
 finish_read(Stream, Reader, WouldBlock, State) ->
     Data = iolist_to_binary(lists:reverse(Reader#reader.data)),
     forward(State#state.owner, Stream, State#state.os_pid, Data),
@@ -716,10 +733,13 @@ finish_read(Stream, Reader, WouldBlock, State) ->
         true -> Size;
         false -> 0
     end,
-    %% Packet-mode pipes can return positive short reads with more packets
-    %% queued. Only EOF/EAGAIN or the byte cap ends the final drain.
+    %% Linux permits pipe capacities up to 2 GiB, even when the sysctl is
+    %% hidden or lower. Cover that capacity while bounding background
+    %% output. Packet-mode pipes may need several short reads.
+    DrainLimit = 1 bsl 31,
     Done = Reader#reader.draining andalso
-        (Size =:= 0 orelse WouldBlock orelse Drained >= ?DRAIN_LIMIT),
+        (Size =:= 0 orelse WouldBlock orelse
+            Drained >= DrainLimit),
     case not Done andalso (Size > 0 orelse State#state.status =/= undefined) of
         true -> self() ! {read, Stream};
         false -> ok
