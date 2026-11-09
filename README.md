@@ -20,12 +20,6 @@ Build
 
     $ rebar3 compile
 
-Building on Linux requires a C compiler and Make for the bubblewrap launcher.
-At runtime, `klsn_bwrap` requires Linux, bubblewrap, Bash, and the `env`,
-`cat`, `dd`, `mkdir`, `kill`, `rm`, and `rmdir` utilities. Its compiled
-launcher creates anonymous pipes and resets inherited signal state before
-starting the supervisor; no compiler or Make is needed at runtime.
-
 Rebar3 deps
 -----------
 `rebar.config`

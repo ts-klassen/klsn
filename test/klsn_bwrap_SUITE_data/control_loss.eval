@@ -1,14 +1,12 @@
-Sleeper = <<"/tmp/line\nbreak">>,
-%% A standalone shell supports renaming; multicall sleep needs its basename.
+Sleep = <<"/tmp/line\nbreak">>,
 Opts = #{bwrap => [
     {ro_bind, <<"/">>, <<"/">>}, {dev, <<"/dev">>},
     {proc, <<"/proc">>}, {tmpfs, <<"/tmp">>},
-    {ro_bind, unicode:characters_to_binary(os:find_executable("bash")), Sleeper}
+    {ro_bind, unicode:characters_to_binary(os:find_executable("sleep")), Sleep}
 ] ++ Extra},
 #{exec_pid := Worker, os_pid := Wrapper} = klsn_bwrap:open(
-    [<<"/bin/sh">>, <<"-c">>, <<"printf ready; printf ready >&2; "
-        "exec \"$1\" --noprofile --norc -p -c 'read -r -t 30'">>,
-        <<"control-loss">>, Sleeper], Opts),
+    [<<"/bin/sh">>, <<"-c">>, <<"printf ready; printf ready >&2; exec \"$1\" 30">>,
+        <<"control-loss">>, Sleep], Opts),
 receive
     {stdout, Wrapper, <<"ready">>} -> ok
 after 5000 -> error(no_target_ready)
