@@ -19,6 +19,7 @@ concurrency:
 
 env:
   REBAR3_VERSION: '3.23.0'
+  CONTAINER_REBAR3_VERSION: '3.28.0'
   # OTP version to use for coverage and docs publishing
   COVERAGE_OTP: '26'
 
@@ -37,7 +38,7 @@ jobs:
           - otp: 29
             rebar3: '3.x'
 
-    services:
+    services: &test-services
       couchdb:
         image: couchdb:3
         ports:
@@ -153,11 +154,135 @@ jobs:
           name: coverage-otp-${{ matrix.otp }}
           path: _build/test/cover
 
+  debian:
+    name: Debian ${{ matrix.os_version }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Change the distribution and OTP versions here.
+        os_version: ['13']
+        otp: ['28.5.0.8']
+    container:
+      image: debian:${{ matrix.os_version }}
+      options: --privileged
+    defaults: &container-defaults
+      run:
+        shell: bash
+    services: *test-services
+    env: &container-test-env
+      OTP_VERSION: ${{ matrix.otp }}
+      LANG: C.UTF-8
+      LC_ALL: C.UTF-8
+      ERL_FLAGS: '+S 2 +sbwt none +sbwtdcpu none +sbwtdio none'
+      COUCHDB_URL: http://admin:admin@couchdb:5984
+      INFLUXDB_URL: http://influxdb:8086
+      INFLUXDB_TOKEN: admintoken
+    steps: &container-test-steps
+      - name: Install CI dependencies
+        run: |
+          . /etc/os-release
+          case "$ID" in
+            debian)
+              apt-get update
+              DEBIAN_FRONTEND=noninteractive apt-get install -y \
+                --no-install-recommends build-essential autoconf m4 perl \
+                libncurses-dev libssl-dev git curl ca-certificates \
+                bubblewrap procps util-linux passwd
+              ;;
+            almalinux)
+              dnf install -y gcc gcc-c++ make autoconf m4 perl \
+                ncurses-devel openssl-devel git curl-minimal \
+                ca-certificates tar gzip bubblewrap procps-ng util-linux
+              ;;
+          esac
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Cache Erlang/OTP
+        id: otp-cache
+        uses: actions/cache@v4
+        with:
+          path: /opt/otp
+          key: >-
+            otp-${{ runner.arch }}-${{ github.job }}-${{
+            matrix.os_version }}-${{ matrix.otp }}-${{
+            hashFiles('.github/workflows/erlang-tests.yml') }}
+
+      - name: Build Erlang/OTP ${{ matrix.otp }}
+        if: steps.otp-cache.outputs.cache-hit != 'true'
+        run: |
+          release="https://github.com/erlang/otp/releases/download"
+          archive="otp_src_${OTP_VERSION}.tar.gz"
+          curl -fL --retry 3 "$release/OTP-$OTP_VERSION/$archive" \
+            -o "$RUNNER_TEMP/$archive"
+          mkdir -p "$RUNNER_TEMP/otp-source"
+          tar -xzf "$RUNNER_TEMP/$archive" --strip-components=1 \
+            -C "$RUNNER_TEMP/otp-source"
+          cd "$RUNNER_TEMP/otp-source"
+          ./configure --prefix=/opt/otp \
+            --without-javac --without-wx --without-odbc
+          make -j2
+          make install
+
+      - name: Set up Erlang and rebar3
+        run: |
+          echo /opt/otp/bin >> "$GITHUB_PATH"
+          release="https://github.com/erlang/rebar3/releases/download"
+          curl -fL --retry 3 \
+            "$release/$CONTAINER_REBAR3_VERSION/rebar3" \
+            -o /usr/local/bin/rebar3
+          chmod +x /usr/local/bin/rebar3
+
+      - name: Prepare unprivileged tests
+        run: |
+          useradd --create-home --shell /bin/bash ci
+          chown -R ci:ci "$GITHUB_WORKSPACE"
+          sysctl -w user.max_user_namespaces=28633
+          if test -f /proc/sys/kernel/unprivileged_userns_clone; then
+            sysctl -w kernel.unprivileged_userns_clone=1
+          fi
+          if test -f \
+            /proc/sys/kernel/apparmor_restrict_unprivileged_userns; then
+            sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          fi
+          runuser -u ci -- bwrap --ro-bind / / --dev /dev --proc /proc \
+            --tmpfs /tmp -- /bin/true
+
+      - name: Run test suite
+        run: runuser -u ci -- bash ./run_test.sh
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: >-
+            reports-${{ github.job }}-${{ matrix.os_version }}-${{ matrix.otp }}
+          path: |
+            _build/test/logs
+            _build/test/cover
+
+  alma:
+    name: AlmaLinux ${{ matrix.os_version }} / OTP ${{ matrix.otp }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # Change the distribution and OTP versions here.
+        os_version: ['9']
+        otp: ['28.5.0.8']
+    container:
+      image: almalinux:${{ matrix.os_version }}
+      options: --privileged
+    defaults: *container-defaults
+    services: *test-services
+    env: *container-test-env
+    steps: *container-test-steps
+
   # ---------------------------------------------------------
   # Build and publish the edoc
   # Publish the coverage report from OTP ${{ env.COVERAGE_OTP }} run to GitHub Pages
   publish-html:
-    needs: test
+    needs: [test, debian, alma]
     if: success() && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
