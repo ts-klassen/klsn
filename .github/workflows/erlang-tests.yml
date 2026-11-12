@@ -103,15 +103,25 @@ jobs:
 
       - name: Enable unprivileged user namespaces (for bwrap)
         run: |
-          sudo sysctl -w kernel.unprivileged_userns_clone=1
+          if test -f /proc/sys/kernel/unprivileged_userns_clone; then
+            sudo sysctl -w kernel.unprivileged_userns_clone=1
+          fi
           sudo sysctl -w user.max_user_namespaces=28633
           if sudo sysctl -a 2>/dev/null | grep -q '^kernel.apparmor_restrict_unprivileged_userns'; then
             sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
+          # The runner's bwrap AppArmor profile blocks nested namespaces.
+          apparmor=/sys/kernel/security/apparmor
+          if sudo test -f "$apparmor/profiles" &&
+            sudo grep -q '^bwrap ' "$apparmor/profiles"; then
+            printf 'bwrap\0' | sudo tee "$apparmor/.remove" >/dev/null
+          fi
 
-      - name: Verify bwrap can run
+      - name: Verify nested bwrap can run
         run: |
-          bwrap --ro-bind / / --dev /dev --proc /proc --tmpfs /tmp -- /bin/true
+          bwrap --ro-bind / / --dev /dev --proc /proc --unshare-pid \
+            --tmpfs /tmp -- bwrap --ro-bind / / --dev /dev --proc /proc \
+            --tmpfs /tmp -- /bin/true
 
       - name: Make test script executable
         run: chmod +x ./run_test.sh
@@ -164,7 +174,9 @@ jobs:
         otp: ['28.5.0.8']
     container:
       image: debian:${{ matrix.os_version }}
-      options: --privileged
+      options: &container-options >-
+        --privileged
+        --volume /sys/kernel/security:/sys/kernel/security
     defaults: &container-defaults
       run:
         shell: bash
@@ -246,7 +258,15 @@ jobs:
             /proc/sys/kernel/apparmor_restrict_unprivileged_userns; then
             sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           fi
+          # The host profile also applies inside job containers.
+          apparmor=/sys/kernel/security/apparmor
+          if test -f "$apparmor/profiles" &&
+            grep -q '^bwrap ' "$apparmor/profiles"; then
+            printf 'bwrap\0' > "$apparmor/.remove"
+          fi
           runuser -u ci -- bwrap --ro-bind / / --dev /dev --proc /proc \
+            --unshare-pid --tmpfs /tmp -- bwrap --ro-bind / / \
+            --dev /dev --proc /proc \
             --tmpfs /tmp -- /bin/true
 
       - name: Run test suite
@@ -272,7 +292,7 @@ jobs:
         otp: ['28.5.0.8']
     container:
       image: almalinux:${{ matrix.os_version }}
-      options: --privileged
+      options: *container-options
     defaults: *container-defaults
     services: *test-services
     env: *container-test-env
